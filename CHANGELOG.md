@@ -16,3 +16,5 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Every page is sent with a strict Content-Security-Policy (a nonce for each request, nothing third-party, no inline script), and every response with the usual security headers; the app may ask where the device is, and nothing else about it.
 - The app's frame: a header with the wordmark, a sidebar (Home, Check-ins, Map, Places) that is full or a rail and remembered on the device, and on a phone a footer and a navigation drawer, in light and dark. Each place is an empty page for now.
 - Background jobs run in the web process (`WAYMARK_WORKER=off` turns them off in all but one process that shares a database) and stop when the server is told to; a job's work is claimed in the database, so two processes never do it twice.
+- Waymark installs as an app, and a service worker keeps its own files and nothing of anyone's: no page, no answer, no place or note is ever in its cache. With no connection a page says it needs one.
+- One image for all three database forms, with `/data` a volume in each of the three Compose setups (`deploy/`).

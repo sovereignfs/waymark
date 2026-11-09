@@ -9,6 +9,7 @@ import { SidebarToggle } from '../ui/SidebarToggle';
 import { AppFrame } from './AppFrame';
 import { DrawerNavigation } from './AppSidebar';
 import { PhoneFooter } from './PhoneFooter';
+import { RegisterWorker } from './RegisterWorker';
 
 /**
  * Everything for someone who is signed in (DESIGN.md §20.2): the shell and the page. **It is the one composition**, made by the server's layout from the
@@ -18,6 +19,7 @@ import { PhoneFooter } from './PhoneFooter';
 export function SignedInArea({ children }: { children: ReactNode }) {
   return (
     <MobileNavProvider>
+      <RegisterWorker />
       <AppShell
         name={site.name}
         toolbar={<SidebarToggle />}

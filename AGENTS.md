@@ -18,7 +18,7 @@ It replaces the legacy plugin `sovereignfs/sovereign-plugin-travellog`, whose be
 carried over. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL) and files under `/data`, signing people in locally,
 through a Sovereign core, or both, from one image. Three phases, a release each: check-ins, trips, Trip Mode.
 
-**Nothing is built yet.** `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A starts by copying Tusk's infrastructure (`DESIGN.md` §5.1).
+**What is built is in `ROADMAP.md`** (its state line and the ✅ rows). `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A copied Tusk's infrastructure (`DESIGN.md` §5.1).
 
 ## Source of truth
 
@@ -148,4 +148,5 @@ pnpm refuses a release less than a day old and an install script nobody decided 
 
 ## Layout
 
-`DESIGN.md` §5.1 is where things go as the app is built. Today the repository holds only `DESIGN.md`, `ROADMAP.md`, `docs/epics/` and this file.
+`DESIGN.md` §5.1 is where things go as the app is built: `app/` for routes, `src/<area>/` for everything else with its tests beside it, `migrations/` generated, `deploy/` the
+Compose setups, `scripts/` and `e2e/`. The areas that exist are the ones `ROADMAP.md` has marked done; a directory is made by the task that needs it.

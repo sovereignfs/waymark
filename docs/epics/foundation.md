@@ -198,7 +198,7 @@ the smoke test passes on sqld and PostgreSQL; both shards pass. **Seen to fail:*
 policy's recorder). CI: the smoke test on each database leg, before the unit tests, and a `browser` job of two shards in both browsers (more shards as specs are added). Not
 done: an accessibility check (`@axe-core/playwright`), which joins with the first screens worth checking (epic 7).
 
-#### 📋 1.10 — The image and deployment setups
+#### ⏳ 1.10 — The image and deployment setups
 
 **Goal:** one image, three Compose setups. **Design:** §19.3, §25 Deployment. **Depends on:** 1.5, 1.6.
 
@@ -209,7 +209,21 @@ a `/data` volume; `scripts/deploy-check.sh`; `publish.yml` on a `vX.Y.Z` tag.
 
 **Accepts when:** `scripts/deploy-check.sh` boots every setup from nothing and as an instance would host it, answering `/api/health` with `200`.
 
-#### 📋 1.11 — The PWA
+**Done as (written, and not yet run as a whole):** `sovereign.manifest.json` as `DESIGN.md` §19.3 gives it for phase 1 (scopes `openid profile email`, `data: ["/data"]`, `generate` the
+auth secret and a 32-byte key), valid under `@sovereignfs/manifest` 0.1.1 (`pnpm manifest:check`), with `src/sovereign-manifest.test.ts` (copied from Tusk, its
+notices-route checks moved to 2.4, which makes those routes) holding it to the code. Copied from Tusk and renamed: the `Dockerfile` (Debian, `USER node`, `ARG PORT`, the label
+from `sovereign-manifest docker-args`, migrations beside the server, the licences; without Tusk's operator tools), `.dockerignore`, `deploy/compose.yaml`, `compose.file.yaml`,
+`compose.postgres.yaml`, `scripts/deploy-check.sh`, `.github/workflows/publish.yml` (a `vX.Y.Z` tag; without the `age` step) and `src/deploy.test.ts`. **Changed:** every setup mounts a
+volume at `/data` (Tusk's sqld and PostgreSQL setups have none), tested; the check's `run` setup touches a file in `/data` as the app's user; its `sovereign` setup checks the
+label, a PostgreSQL of its own, secrets as files, a port that is not the image's, the icon, non-root and SIGTERM, and takes its sign-in checks with 2.3 and 2.4;
+`pnpm-workspace.yaml` allows `sharp`'s install script (the dependency comes with 3.2); `deploy/README.md` and `deploy/.env.example` are Waymark's. CI: `pnpm manifest:check` joins
+the `check` job, and an `image` job builds on amd64 and arm64 and runs `scripts/deploy-check.sh`. **Seen:** the manifest check and its tests, the deployment tests, the three
+Compose setups validated with `docker compose config`, `shellcheck`, `actionlint`. **Not seen, so this task is not done:** the image has not been built and
+`scripts/deploy-check.sh` has not been run, because pulling `node:24-bookworm-slim` from Docker Hub hung on the machine this was written on (the registry answered, and the pull did not
+finish). Run `eval "docker build $(pnpm exec sovereign-manifest docker-args) -t waymark:ci ."` and then `WAYMARK_IMAGE=waymark:ci scripts/deploy-check.sh`; the CI `image` job does the same,
+and this task is marked done when either has passed.
+
+#### ✅ 1.11 — The PWA
 
 **Goal:** installable, with a service worker that keeps the shell only. **Design:** §20.12. **Depends on:** 1.8.
 
@@ -218,3 +232,13 @@ icons; the public shell page holding nothing of a person; an offline page for ev
 tiles are 13.5.
 
 **Accepts when:** the app installs in Chromium; a test of the worker's source shows it caches nothing outside the allow-list.
+
+**Done as:** `app/sw.js/route.ts` copied from Tusk (the build's version and static files put into the worker; an inert worker for `next dev`), `app/manifest.ts` (Tusk's, for Waymark: name,
+`standalone`, 192 and 512 icons, a maskable one), `RegisterWorker` (Tusk's) in `SignedInArea`. **Written for Waymark:** `src/sw/source.ts` is Tusk's shape without its Desk, wake, Background
+Sync and push parts (each comes with its task: Background Sync 6.2, push 12.4): it keeps `/shell` and the build's files when it installs, answers a built file or an icon from the cache and
+keeps the first it is asked for, and sends every other request to the network and keeps none of it; a page with no network gets a page the worker builds itself, saying it needs a
+connection (answering a signed-in address from the shell, which reads the device's store, is 6.4). `app/shell/page.tsx` is the frame with nothing in it. `src/sw/source.test.ts` evaluates the
+served text with a cache and a network of its own and asks it for pages, answers of the API, a place, a settings page, a media file: the cache then holds only the allow-list, and the
+test was seen to fail with the allow-list switched off. `e2e/pwa.spec.ts` in both browsers: the manifest and each icon, the worker served from the root with `no-cache`, the shell with its
+policy and no account, the cache after visiting pages holds only the shell and the build's files, and a page offline says that it needs a connection. Not done: "installs in Chromium" is
+shown by a valid manifest and icons, not by the browser's install prompt, which a test cannot press.
