@@ -97,10 +97,131 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
+
+      # A schema changed without its migration, or a migration was edited by hand, if generating from the committed schemas writes anything
+      # (DESIGN.md §24.1).
+      - name: The committed migrations match the schemas
+        run: |
+          pnpm db:generate ci_check
+          if [ -n "$(git status --porcelain -- migrations)" ]; then
+            echo "::error::the schemas generate migrations that are not committed (run pnpm db:generate <name>)"
+            git status --short -- migrations
+            exit 1
+          fi
+
+  tests:
+    name: tests (${{ matrix.database }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      # One database failing says something about it; the others still run, so the failure can be told apart from a bug that is not about
+      # databases.
+      fail-fast: false
+      matrix:
+        database: [sqld, file, postgres]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # sqld is run with `docker run` and not as a service container, because a service container cannot be given arguments and sqld needs
+      # `--enable-namespaces` (one namespace per logical database, the analogue of PostgreSQL's schemas: `waymark` for the app, `waymark_auth` for
+      # better-auth). The namespaces are not made here: the server makes them when it starts, which is the point.
+      - name: Start sqld
+        if: matrix.database == 'sqld'
+        run: |
+          docker run -d --name sqld \
+            -p 8080:8080 -p 8081:8081 \
+            -e SQLD_NODE=primary \
+            -e SQLD_ADMIN_LISTEN_ADDR=0.0.0.0:8081 \
+            "$SQLD_IMAGE" /bin/sqld --enable-namespaces
+          for attempt in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)" = 200 ]; then
+              echo "sqld is healthy after $attempt attempt(s)"
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              echo "::error::sqld did not become healthy"
+              docker logs sqld
+              exit 1
+            fi
+            sleep 1
+          done
+          {
+            echo "WAYMARK_DB_DIALECT=sqld"
+            echo "WAYMARK_SQLD_URL=http://localhost:8080"
+            echo "WAYMARK_SQLD_ADMIN_URL=http://localhost:8081"
+            echo "WAYMARK_TEST_DB_DIALECT=sqlite"
+            echo "WAYMARK_TEST_SQLITE_URL=http://localhost:8080"
+            echo "WAYMARK_TEST_SQLD_ADMIN_URL=http://localhost:8081"
+          } >> "$GITHUB_ENV"
+
+      # The file form needs no service: a database file on a local disk, with the auth database beside it, as the design says (§24.1).
+      - name: Prepare a SQLite file
+        if: matrix.database == 'file'
+        run: |
+          mkdir -p "$RUNNER_TEMP/waymark-data"
+          {
+            echo "WAYMARK_DB_DIALECT=sqlite"
+            echo "WAYMARK_SQLITE_URL=file:$RUNNER_TEMP/waymark-data/waymark.db"
+            echo "WAYMARK_TEST_DB_DIALECT=sqlite"
+            echo "WAYMARK_TEST_SQLITE_URL=file:$RUNNER_TEMP/waymark-data/waymark-test.db"
+          } >> "$GITHUB_ENV"
+
+      # These credentials belong to a container that lives for this job only.
+      - name: Start PostgreSQL
+        if: matrix.database == 'postgres'
+        run: |
+          docker run -d --name postgres \
+            -p 5432:5432 \
+            -e POSTGRES_USER=waymark \
+            -e POSTGRES_PASSWORD=waymark \
+            -e POSTGRES_DB=waymark \
+            "$POSTGRES_IMAGE"
+          for attempt in $(seq 1 30); do
+            if docker exec postgres pg_isready -U waymark -d waymark >/dev/null 2>&1; then
+              echo "PostgreSQL is ready after $attempt attempt(s)"
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              echo "::error::PostgreSQL did not become ready"
+              docker logs postgres
+              exit 1
+            fi
+            sleep 1
+          done
+          {
+            echo "WAYMARK_DB_DIALECT=postgres"
+            echo "WAYMARK_POSTGRES_URL=postgres://waymark:waymark@localhost:5432/waymark"
+            echo "WAYMARK_TEST_DB_DIALECT=postgres"
+            echo "WAYMARK_TEST_POSTGRES_DB_URL=postgres://waymark:waymark@localhost:5432/waymark"
+          } >> "$GITHUB_ENV"
+
+      # A fresh instance, from the documented variables alone: the built server is started against the empty database, makes what it needs, and
+      # answers its health check on the right dialect. It runs before the tests because they empty and refill the stores. The key is made for
+      # this run only.
+      - run: pnpm build
+      - name: A fresh instance boots
+        run: |
+          WAYMARK_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+          export WAYMARK_ENCRYPTION_KEY
+          pnpm boot-check
+
+      # A leg sets the variables an operator would set, and the boot above used them as they are. The tests are given the same database under
+      # WAYMARK_TEST_* names instead, because they drop whole schemas and namespaces and must never be pointed at a real database by the variables
+      # a developer might have exported (src/db/test-support.ts).
       - run: pnpm test
 
-      # The legs that join as their tasks land: the manifest (1.10), the migrations against the schemas and the data layer on sqld, a file and
-      # PostgreSQL (1.5), the browser tests (1.9) and the image (1.10).
+      # The legs that join as their tasks land: the manifest and the image (1.10), and the browser tests (1.9).
 
   scripts:
     name: shell scripts

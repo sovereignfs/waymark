@@ -22,13 +22,19 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "node scripts/db-generate.mjs",
+    "db:dev": "node scripts/dev-db.mjs",
+    "boot-check": "node scripts/boot-check.mjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@sovereignfs/config": "0.1.0",
     "@sovereignfs/sdk": "2.1.0",
     "@sovereignfs/ui": "0.92.0",
+    "drizzle-orm": "^0.45.4",
     "next": "^16.4.3",
+    "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -36,8 +42,11 @@
     "@eslint/js": "^10.0.1",
     "@sovereignfs/manifest": "^0.1.0",
     "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.11",
+    "esbuild": "0.28.2",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",

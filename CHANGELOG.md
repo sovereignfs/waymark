@@ -12,3 +12,4 @@ Each release's section is also its GitHub release notes: the release workflow re
 
 - The repository's conventions: licence, contributing guide, pull request template, dependency updates, and the package that the app is built in.
 - Settings, all named `WAYMARK_…`, checked when the server starts: a wrong or missing one stops it, naming every problem and no value. `WAYMARK_ENCRYPTION_KEY` is required.
+- The database: sqld (the default), a SQLite file or PostgreSQL, chosen with `WAYMARK_DB_DIALECT`, provisioned and migrated when the server starts; it waits for a database that is still starting and stops, saying why, if it cannot use it. `/api/health` answers for it.

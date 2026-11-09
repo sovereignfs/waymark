@@ -88,7 +88,7 @@ key is required** (Tusk's is optional), because everything Waymark stores about 
 alone until 1.5 gives it the database and `/data`. Seen to work on the built server: a wrong address, worker and a missing key stop it with all three named and
 no value printed, and a good key starts it and answers `/api/health`. Left out: `README.md`'s table of settings, which 16.3 writes.
 
-#### 📋 1.5 — The database layer
+#### ✅ 1.5 — The database layer
 
 **Goal:** three forms, two dialects, migrations at start-up. **Design:** §24.1, §24.2. **Depends on:** 1.4.
 
@@ -97,6 +97,21 @@ vocabulary, `test-support.ts` reading `WAYMARK_TEST_*`); add a `sealed` column t
 `waymark_auth`; `pnpm db:generate`, `pnpm db:dev`; the parity test; CI legs on sqld, a file and PostgreSQL.
 
 **Accepts when:** an empty database of each form is provisioned and migrated at start-up, twice safely; CI fails if generating would write anything.
+
+**Done as:** copied from Tusk and renamed (`waymark`, `waymark_auth`, `WAYMARK_`): `src/db/` (`config` was 1.4's, with `boot`, `client`, `exec`, `migrate`,
+`provision`, `retry`, `sqld`, `test-support` and their tests, including the parity and vocabulary tests), `src/limits/rate.ts` with its test (its table is the
+app store's first), the four `drizzle.*.config.ts`, `scripts/db-generate.mjs`, `scripts/dev-db.mjs`, `scripts/boot-check.mjs` and `scripts/lib/standalone.mjs`.
+**Added:** the `sealed` word in both column vocabularies (`blob` in buffer mode on SQLite, `bytea` on PostgreSQL), tested to keep every byte value and to read
+back through raw SQL; a `makeStore()` in `src/db/test-support.ts` (Tusk has it in its sync tests). **The stores:** the app store holds `rate_bucket` and nothing
+else yet (a task adds its tables with its migration); the auth store holds better-auth's seven tables, Tusk's `auth.ts` schema, which has the foreign keys
+inside that store that better-auth's cascade deletes need (the rule against foreign keys is the app store's). Migrations `0000_init` for each of the four
+(`pnpm db:generate init`); generating again writes nothing. **Changed:** the dev containers listen on 38080, 38081 and 35432, because Tusk's and Ledger's
+sit on 28080, 28081 and 25432 on a machine that runs the suite. `/api/health` and `instrumentation-node.ts` now open the database and stop the server if it
+cannot; the health answer does not yet say that `/data` is writable, which joins with the first thing stored there (3.2), where the directory's setting is
+settled. **Seen:** the full suite passes on a `file:` database, on sqld (v0.24.33) and on PostgreSQL 16 (133 pass, 4 skipped by leg); the built server booted
+from empty on each form and, on the file, a second time over the first; a planted column wrote a migration that the CI step's `git status` check catches.
+CI: the `tests` job has a leg for each form (start the service, boot the built server from empty, run the suite), and the `check` job runs the migrations
+check. Not exercised: those jobs on GitHub.
 
 #### 📋 1.6 — The job runner
 

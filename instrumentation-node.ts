@@ -16,4 +16,15 @@ export async function start(): Promise<void> {
     for (const problem of result.problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
+
+  try {
+    const { getStores } = await import('./src/db/boot');
+    await getStores(result.config.database);
+  } catch (error) {
+    // The message of a database error can name an address, and this goes to the operator's log, not to a person: it names the database's trouble
+    // and not a place, a note or a name, which no query here has read.
+    console.error('Waymark cannot start, because its database is not usable:');
+    console.error(`  - ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
