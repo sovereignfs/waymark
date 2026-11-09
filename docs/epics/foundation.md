@@ -36,7 +36,7 @@ four `@sovereignfs` packages at Tusk's versions (`ui` 0.92.0, `sdk` 2.1.0, `conf
 dependencies join with the task that uses them). `app/layout.tsx` and `app/page.tsx` are a placeholder so that `next typegen` and `tsc` have something to
 check; the shell replaces them (1.8). Left out: `README.md` says nothing of settings yet (1.4 adds them).
 
-#### 📋 1.2 — Format, lint and test tooling
+#### ✅ 1.2 — Format, lint and test tooling
 
 **Goal:** the checks every later task runs. **Design:** §25 Testing. **Depends on:** 1.1.
 
@@ -45,6 +45,12 @@ check; the shell replaces them (1.8). Left out: `README.md` says nothing of sett
 test.
 
 **Accepts when:** each check passes, and each is seen to fail on a planted fault.
+
+**Done as:** `prettier.config.ts`, `eslint.config.ts` (without Tusk's `tools/` ignore, which waits for the operator tools), `vitest.config.ts` and
+`types/eslint-plugin-jsx-a11y.d.ts` copied from Tusk; Tusk's `vitest.setup.ts` is not copied (it configures Tusk's operator key; sealing's setup arrives with
+3.1). `fake-indexeddb` is installed for 6.2. The one real test (`src/smoke.test.ts`) reads `package.json` and `src/site.ts`; it reads the manifest instead
+once 1.10 exists. Seen to fail: a badly formatted file (`format:check`), an `any` and an unused variable (`lint`), a `string` assigned to a `number`
+(`typecheck`), and a test expecting `1` to be `2` (`test`); each planted file was removed.
 
 #### 📋 1.3 — Continuous integration
 

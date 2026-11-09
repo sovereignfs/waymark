@@ -137,9 +137,11 @@ pnpm refuses a release less than a day old and an install script nobody decided 
 
 ## Commands
 
-None exist yet. Milestone A brings Tusk's set (`format`, `lint`, `typecheck`, `test`, `db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`,
-`manifest:check`, `build`, `scripts/deploy-check.sh`), and this list is where they are written as they land. Until then, `verify` means the Markdown is
-formatted and every relative link resolves.
+Milestone A brings Tusk's set (`db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`), and this list is
+where each is written as it lands. Today:
+
+- `pnpm format:check` (`pnpm format` writes), `pnpm lint`, `pnpm typecheck` (`next typegen && tsc --noEmit`), `pnpm test` (Vitest) and `pnpm build`.
+  `verify` is the first four, and `pnpm build` for a change that can affect it.
 
 ## Layout
 
