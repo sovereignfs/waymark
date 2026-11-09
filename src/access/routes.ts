@@ -22,8 +22,10 @@ export interface RouteRule {
 
 export const ROUTES: RouteRule[] = [
   // Pages
-  // `/` is Home for someone signed in. Until the landing page (2.2) it is a page for an account, and a visitor is sent to sign in.
-  { route: '/', page: { kind: 'account' } },
+  // The landing page for a visitor, the same for everyone and with nothing of anyone in it. For someone with a session cookie the proxy shows Home at `/`.
+  { route: '/', page: { kind: 'public' } },
+  // Home (DESIGN.md §20.4): the front address `/` shows it to someone signed in (the proxy rewrites it), and `/home` itself is sent back to `/`.
+  { route: '/home', page: { kind: 'account' } },
   { route: '/sign-in', page: { kind: 'public' } },
   { route: '/sign-up', page: { kind: 'public' } },
   // Only with mail (DESIGN.md §19.1): without it they are 404, like the routes under /api/auth that send and use the links.

@@ -22,3 +22,4 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Passkeys and an authenticator app are supported by the sign-in; setting them up is in Settings, which is to come.
 - Sealed rows: every field that says where or what (a place's name and point, a note, a trip's name, a person's name and address) is written into one encrypted envelope per row, under `WAYMARK_ENCRYPTION_KEY`, bound to its table and row, so that a copy of the database holds none of it.
 - Every account has a profile of its own: its name and address are kept by Waymark, sealed, from the day the account is made, and are what the app shows of a person; an address is seen only by its owner and, once there are trips, by a trip's Organizers.
+- The front address is a short page about Waymark for a visitor, with a way to sign in (and to sign up, where the server takes sign-ups), and Home for someone signed in; Home's own address, `/home`, goes to `/`.

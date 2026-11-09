@@ -67,7 +67,7 @@ describe('sovereign.manifest.json', () => {
   it('names a health route and a launch address that exist', () => {
     expect(existsSync(routeFile(manifest.health))).toBe(true);
     expect(manifest.launch).toBe('/');
-    expect(existsSync(join(root, 'app', '(app)', 'page.tsx'))).toBe(true);
+    expect(existsSync(join(root, 'app', 'page.tsx'))).toBe(true);
   });
 
   it('names an icon the app serves to a launcher with no session, which the proxy leaves alone', () => {

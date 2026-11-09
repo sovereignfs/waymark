@@ -39,7 +39,7 @@ Tusk's direct send through `src/mail/smtp.ts` and are mounted only when `WAYMARK
 the same as an address with no account; a second sign-up is refused by the server with `SIGNUP_CLOSED` and the page does not offer one; and on an instance with no way of signing in every sign-in page, the
 app and `/api/auth` answer 404 (and `/api/health` still answers). The smoke test passes on sqld and PostgreSQL too. The browser tests wait out the sign-in rate limit when two browsers meet it, as Tusk's do.
 
-#### 📋 2.2 — Landing page and the address `/`
+#### ✅ 2.2 — Landing page and the address `/`
 
 **Goal:** what a visitor sees, and Home for a signed-in person. **Design:** §20.3, §20.4. **Depends on:** 2.1.
 
@@ -47,6 +47,14 @@ app and `/api/auth` answer 404 (and `/api/health` still answers). The smoke test
 in the landing page's HTML; the shell page for the worker is separate (1.11).
 
 **Accepts when:** a visitor and a signed-in person get the right page from `/`, and the visitor's page carries no data of anyone.
+
+**Done as:** `src/landing/` (Tusk's `Landing` and its stylesheet, with Waymark's words in `content.ts`: what is so today, and nothing of trips or sharing until phase 2; its test fails if a word of
+a later phase or an address is in it), `app/page.tsx` for a visitor (a server component with no script: the sign-in link only where sign-in is set up, the sign-up link only where the server would take
+one), `app/(app)/home/page.tsx` for Home (a placeholder until 7.6). **The proxy** shows Home at `/` to anyone with a session cookie (a rewrite, the address stays `/`, marked so that it does not loop) and
+sends `/home` to `/` with a 308; only the cookie is looked at, and the layout checks the session, so a forged cookie is sent to sign in. `src/access/routes.ts`: `/` public, `/home` an account's. Proxy tests: the
+rewrite and the mark, the policy on a rewritten page, the redirect, the sign-in pages absent with local sign-in off and Sovereign's one page kept. **Seen** in both browsers: a visitor gets the landing page
+(heading, Sign in link, no sign-up link once the instance has its first account, none of the account's address in the HTML) and the app's pages send them to sign in; a signed-in person gets Home at `/`
+and `/home` goes there; signing out returns to the landing page; with no way of signing in the front address says so and everything else is a 404.
 
 #### 📋 2.3 — Sign-in through core
 

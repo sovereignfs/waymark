@@ -6,12 +6,19 @@ import { EMAIL, PASSWORD, ensureAccount, signOut, trySignIn } from './helpers';
  * Signing up, in, and out, in a browser (DESIGN.md §19.1). The instance is closed to sign-up, so the first account is the only one there will be, and it
  * is made by whichever browser gets here first: both browsers share the instance, so every test below starts by making sure there is one.
  */
-test('a visitor to the front address is sent to sign in', async ({ page }) => {
+test('a visitor to the front address sees the landing page, and the app’s pages send them to sign in', async ({
+  page,
+}) => {
   await ensureAccount(page);
   await page.goto('/');
-  await expect(page).toHaveURL(/\/sign-in$/);
-  await expect(page.getByRole('heading', { name: 'Sign in to Waymark' })).toBeVisible();
-  for (const path of ['/checkins', '/map', '/places']) {
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('kept to yourself');
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  // Closed to sign-up once there is an account, so the page does not offer one.
+  await expect(page.getByRole('link', { name: 'Create an account' })).toHaveCount(0);
+  // Nothing of anyone is in it.
+  expect(await page.content()).not.toContain(EMAIL);
+  for (const path of ['/home', '/checkins', '/map', '/places']) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/sign-in$/);
   }
@@ -29,6 +36,11 @@ test('signing in with the right password shows who is signed in, and signing out
   await ensureAccount(page);
   await trySignIn(page, EMAIL, PASSWORD);
   await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  // Home is at `/`, and its own address goes there.
+  await page.goto('/home');
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   // Who the person is comes from their profile, made with the account: the name they gave and the address as it is kept (lower case).
   await page.getByRole('button', { name: 'User menu' }).click();
@@ -43,6 +55,9 @@ test('signing in with the right password shows who is signed in, and signing out
   await signOut(page);
   await page.reload();
   await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
+  // Signed out, the front address is the landing page again, and the app's pages send the visitor to sign in.
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  await page.goto('/checkins');
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
@@ -84,13 +99,18 @@ test('a second account is refused by the server, and the page does not offer one
 test.describe('with no way of signing in', () => {
   const base = `http://localhost:${PORTS.off}`;
 
-  test('every sign-in page and route does not exist, and so does the app', async ({ request }) => {
+  test('every sign-in page and route does not exist, and so does the app: the front address says so', async ({
+    request,
+  }) => {
+    const front = await request.get(`${base}/`);
+    expect(front.status()).toBe(200);
+    expect(await front.text()).toContain('Signing in is not set up on this server.');
     for (const path of [
       '/sign-in',
       '/sign-up',
       '/forgot-password',
       '/reset-password',
-      '/',
+      '/home',
       '/checkins',
     ]) {
       const reply = await request.get(`${base}${path}`);

@@ -1,0 +1,69 @@
+/* The page a visitor sees at the front address (DESIGN.md §20.3): a column of text, with nothing that needs a script. */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+  padding: var(--sv-space-8) var(--sv-space-4);
+  overflow-y: auto;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+  width: 100%;
+  max-width: 640px;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--sv-font-size-3xl);
+  font-weight: var(--sv-font-weight-semibold);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.lead {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-lg);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-3);
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  padding-top: var(--sv-space-4);
+  border-top: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.featureTitle {
+  margin: 0 0 var(--sv-space-1);
+  font-size: var(--sv-font-size-md);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.featureBody {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  line-height: 1.5;
+}
+
+.note {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+}

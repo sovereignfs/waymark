@@ -80,4 +80,42 @@ describe('the proxy', () => {
       expect.arrayContaining([{ type: 'header', key: 'next-router-prefetch' }]),
     );
   });
+
+  it('shows Home at the front address to someone with a session cookie, and the landing page to anyone else', () => {
+    const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
+    const withCookie = (path: string) =>
+      proxy(
+        new NextRequest(`https://waymark.example.com${path}`, {
+          headers: { cookie: 'waymark.session_token=x' },
+        }),
+      );
+    expect(rewrite(withCookie('/'))).toMatch(/\/home$/);
+    expect(rewrite(proxy(request('/')))).toBeNull();
+    // The page it is rewritten to is not sent back, which would loop; and it still carries the policy.
+    expect(forwarded(withCookie('/'), 'x-waymark-home')).toBe('1');
+    expect(withCookie('/').headers.get('content-security-policy')).toContain('nonce-');
+    // Home has one address: its own goes to `/` for someone with a cookie, and is left to the page for anyone else (which sends them to sign in).
+    const reply = withCookie('/home');
+    expect(reply.status).toBe(308);
+    expect(reply.headers.get('location')).toBe('https://waymark.example.com/');
+    expect(rewrite(proxy(request('/home')))).toBeNull();
+    expect(proxy(request('/home')).status).toBe(200);
+  });
+
+  it('turns the sign-in pages into a page that is not found when local sign-in is off, and leaves them when it is on', () => {
+    const rewrite = (response: Response) => response.headers.get('x-middleware-rewrite');
+    vi.stubEnv('WAYMARK_AUTH_LOCAL', '');
+    for (const path of ['/sign-in', '/sign-up', '/forgot-password', '/reset-password']) {
+      expect(rewrite(proxy(request(path))), path).toMatch(/\/not-found$/);
+      // Still a page with a policy: the page that is not found is sent like any other.
+      expect(proxy(request(path)).headers.get('content-security-policy'), path).toContain('nonce-');
+    }
+    expect(rewrite(proxy(request('/')))).toBeNull();
+    // Sovereign alone has the one page that takes a person there, and not the others.
+    vi.stubEnv('WAYMARK_CORE_URL', 'https://core.example.com');
+    expect(rewrite(proxy(request('/sign-in')))).toBeNull();
+    expect(rewrite(proxy(request('/sign-up')))).toMatch(/\/not-found$/);
+    vi.stubEnv('WAYMARK_AUTH_LOCAL', '1');
+    for (const path of ['/sign-in', '/sign-up']) expect(rewrite(proxy(request(path)))).toBeNull();
+  });
 });
