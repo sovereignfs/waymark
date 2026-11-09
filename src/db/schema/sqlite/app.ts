@@ -19,3 +19,12 @@ export const rateBucket = sqliteTable(
   },
   (table) => [index('rate_bucket_window_idx').on(table.windowStart)],
 );
+
+/**
+ * A lease on a job that has no row of its own to claim (`src/jobs/claim.ts`, `claimJob`): a periodic sweep, say. A process takes the lease by one
+ * conditional statement, and only the one that did runs the job until `claimed_until`. A job with rows (an import, a mail in the outbox) claims the row.
+ */
+export const jobClaim = sqliteTable('job_claim', {
+  job: id('job'),
+  claimedUntil: epochMs('claimed_until').notNull(),
+});

@@ -15,3 +15,9 @@ export const rateBucket = app.table(
   },
   (table) => [index('rate_bucket_window_idx').on(table.windowStart)],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const jobClaim = app.table('job_claim', {
+  job: id('job'),
+  claimedUntil: epochMs('claimed_until').notNull(),
+});

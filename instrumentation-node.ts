@@ -27,4 +27,15 @@ export async function start(): Promise<void> {
     console.error(`  - ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
+
+  const { startJobs } = await import('./src/jobs');
+  const runner = startJobs(result.config);
+  if (runner) {
+    // Next's own handler closes the server and exits with the signal's code; this one stops the timers at once and gives a run in flight a
+    // moment, which it may not use up if Next finishes first: a run cut off is safe, because every job claims its work (src/jobs/claim.ts), and an
+    // import records its cursor at the end of each step (8.1).
+    const stop = () => void runner.stop();
+    process.once('SIGTERM', stop);
+    process.once('SIGINT', stop);
+  }
 }

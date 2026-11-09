@@ -113,7 +113,7 @@ from empty on each form and, on the file, a second time over the first; a plante
 CI: the `tests` job has a leg for each form (start the service, boot the built server from empty, run the suite), and the `check` job runs the migrations
 check. Not exercised: those jobs on GitHub.
 
-#### 📋 1.6 — The job runner
+#### ✅ 1.6 — The job runner
 
 **Goal:** background work in the web process, safe across processes. **Design:** §5. **Depends on:** 1.5.
 
@@ -121,6 +121,14 @@ check. Not exercised: those jobs on GitHub.
 step finish or record its cursor (8.1).
 
 **Accepts when:** a job's work is done once when two processes run it; SIGTERM stops the runner and the server cleanly.
+
+**Done as:** `src/jobs/runner.ts` and `claim.ts` and their tests copied from Tusk and renamed; `src/jobs/index.ts` and the start-up hook in
+`instrumentation-node.ts` written from Tusk's, with SIGTERM and SIGINT stopping the runner. **`job_claim` is new** (Tusk has none: its jobs claim the rows they work on, and
+so do Waymark's imports and mail): a lease for a job with no row of its own, `claimJob(database, job, leaseMs, now)`, one conditional upsert, in the app store's second migration
+(`0001_job_claim`). The first job is the sweep of `rate_bucket`, hourly under that lease. Tests: the lease is taken by one of four callers at once over two connections, for ten
+rounds, and is free the moment it runs out; and two `JobRunner`s on two connections run one job and the work is done once. **Seen:** these pass on a `file:` database, sqld and
+PostgreSQL (244 pass, 4 skipped by leg), and fail with the lease's condition removed; the built server answers health, then exits within a second of SIGTERM. Left out: the
+import's cursor handling at stop (8.1).
 
 #### ✅ 1.7 — Security headers
 

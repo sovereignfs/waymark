@@ -8,6 +8,13 @@
       "when": 1794261897356,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794262675037,
+      "tag": "0001_job_claim",
+      "breakpoints": true
     }
   ]
 }
