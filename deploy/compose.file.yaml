@@ -1,0 +1,31 @@
+# The smallest setup: one container, and the database is a file on a volume (DESIGN.md §25).
+#
+#   cp .env.example .env     # then edit it: at least WAYMARK_URL, WAYMARK_AUTH_SECRET and WAYMARK_ENCRYPTION_KEY
+#   docker compose -f compose.file.yaml up -d --build
+#
+# One process, so there is nothing to wait for and nothing else to run. It suits one person or a small group; a second instance cannot
+# share the file, so this setup does not scale out. The file must stay on a local disk, never a network filesystem.
+name: waymark
+
+services:
+  web:
+    build:
+      context: ..
+      # The port is written in sovereign.manifest.json, which Compose cannot read; a test holds this to it.
+      args:
+        PORT: '3005'
+    image: ${WAYMARK_IMAGE:-waymark}
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      WAYMARK_DB_DIALECT: sqlite
+      WAYMARK_SQLITE_URL: file:/data/waymark.db
+    volumes:
+      - waymark-data:/data
+    ports:
+      - '127.0.0.1:${WAYMARK_PORT:-3005}:3005'
+
+volumes:
+  waymark-data:

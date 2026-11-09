@@ -1,0 +1,15 @@
+# What the image is built from is the source and the lockfile, and nothing of a developer's machine or of a deployment. An environment file holds
+# secrets, at any depth (deploy/.env is next to the compose files), so none is ever sent to the build.
+node_modules
+.next
+.git
+**/.env
+**/.env.*
+Dockerfile
+README.md
+deploy
+data
+test-results
+playwright-report
+coverage
+tools

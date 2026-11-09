@@ -27,7 +27,8 @@
     "db:dev": "node scripts/dev-db.mjs",
     "boot-check": "node scripts/boot-check.mjs",
     "e2e": "playwright test",
-    "e2e:fast": "node scripts/e2e-shard.mjs --all"
+    "e2e:fast": "node scripts/e2e-shard.mjs --all",
+    "manifest:check": "sovereign-manifest check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

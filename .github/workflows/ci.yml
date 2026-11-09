@@ -98,6 +98,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
+      # The manifest an instance reads is valid.
+      - run: pnpm manifest:check
+
       # A schema changed without its migration, or a migration was edited by hand, if generating from the committed schemas writes anything
       # (DESIGN.md §24.1).
       - name: The committed migrations match the schemas
@@ -276,7 +279,38 @@ jobs:
             test-results/
           retention-days: 7
 
-  # The legs that join as their tasks land: the manifest and the image (1.10).
+  # The image, brought up in each documented setup from nothing, on both architectures it is published for.
+  image:
+    name: image (${{ matrix.runner }})
+    needs: changes
+    # Only when the image can be affected (`scripts/ci-changes.sh` says which changes), and on the weekly schedule.
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Built as an operator builds it: the port and the label come from the manifest.
+      - name: Build the image
+        run: eval "docker build $(pnpm exec sovereign-manifest docker-args) -t waymark:ci ."
+
+      - name: Bring it up in each setup
+        env:
+          WAYMARK_IMAGE: waymark:ci
+        run: scripts/deploy-check.sh
 
   scripts:
     name: shell scripts

@@ -1,0 +1,276 @@
+name: Publish
+
+# A `vX.Y.Z` tag, pushed by scripts/release.sh once the release PR has merged and CI is green on the merged commit (RELEASING.md), starts this. It checks that the
+# app still builds at the tag, builds the image (the Dockerfile) for linux/amd64 and linux/arm64 on a runner of each kind, publishes it to GitHub's container
+# registry as ghcr.io/<owner>/waymark:X.Y.Z (and :X.Y, and :latest) with a signed build-provenance attestation, brings the published image up as an operator would and
+# as a Sovereign instance would host it (scripts/deploy-check.sh), and only then publishes a GitHub release whose notes are the version's section of CHANGELOG.md
+# and which says how to pull the image. The image carries sovereign.manifest.json as its label and listens on the manifest's port, both made from it by
+# @sovereignfs/manifest, so the manifest is written once.
+#
+# Run by hand (Actions, "Publish", on a branch) it does everything except publish: the image is built for both platforms and thrown away, so a change to this file
+# or to the Dockerfile can be tried before a tag is pushed.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Lower case, as a registry requires; the owner is the organisation the repository is in.
+  IMAGE: ghcr.io/${{ github.repository_owner }}/waymark
+
+jobs:
+  check:
+    name: check the app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A tag must name the version in package.json. A manual run has no tag: it uses the version as it is, and publishes nothing.
+      - name: The tag must name the version in package.json
+        id: version
+        run: |
+          declared="$(jq -r .version package.json)"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$declared" ]; then
+              echo "::error::the tag says $version but package.json says $declared"
+              exit 1
+            fi
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          else
+            version="$declared"
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # The pnpm the package names (`packageManager` in package.json).
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      # Fails the build on a manifest an instance would refuse.
+      - run: pnpm manifest:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # One build per platform, each on a runner of its own kind: the app's native modules differ by architecture, and building arm64 under emulation would take most of
+  # an hour. Each build is pushed by digest alone, with no tag, so nothing can pull a half-published release.
+  image:
+    name: image (${{ matrix.platform }})
+    needs: check
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to the registry
+        if: needs.check.outputs.publish == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Describe the image
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.check.outputs.version }}
+
+      # What a Sovereign instance reads to host the image without pulling it, and the port the image listens on: both from sovereign.manifest.json, the one place
+      # either is written.
+      - name: The manifest, as the image's label and port
+        id: manifest
+        run: pnpm exec sovereign-manifest docker-args --format github >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            ${{ steps.manifest.outputs.labels }}
+          build-args: ${{ steps.manifest.outputs.build-args }}
+          # The attestation is made once, on the merged image, below.
+          provenance: false
+          sbom: false
+          outputs: ${{ needs.check.outputs.publish == 'true' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || 'type=cacheonly' }}
+          cache-from: type=gha,scope=publish-${{ matrix.runner }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.runner }}
+
+      - name: Keep the digest
+        if: needs.check.outputs.publish == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - name: Upload the digest
+        if: needs.check.outputs.publish == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.runner }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Joins the two builds into one multi-platform image under its tags, attests where it came from, and then does what an operator does: pulls it and brings it up.
+  publish-image:
+    name: publish the image
+    needs: [check, image]
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # X.Y.Z, X.Y and latest. Every version here is a release: the tag only exists for a release (a pre-release would be vX.Y.Z-rc.1, which the trigger above does
+      # not match).
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.check.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.check.outputs.version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.check.outputs.version }}
+
+      - name: Join the platforms under the tags
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          set -euo pipefail
+          tags=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          # shellcheck disable=SC2046,SC2086
+          docker buildx imagetools create $tags $(printf "$IMAGE@sha256:%s " *)
+
+      - name: Which image that is
+        id: digest
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          digest="$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)"
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
+          # Both platforms are in it, or something is wrong with the builds above.
+          platforms="$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' | jq -r '[.manifests[].platform | select(.architecture != "unknown") | "\(.os)/\(.architecture)"] | sort | join(",")')"
+          test "$platforms" = "linux/amd64,linux/arm64" || { echo "::error::the image has $platforms"; exit 1; }
+
+      - name: Attest where it came from
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+      # The published thing, not the one built a minute ago: pulled by its digest, brought up in each way an operator runs it, and given what a Sovereign instance
+      # gives an app (scripts/deploy-check.sh).
+      - name: The published image comes up and keeps what it is given
+        env:
+          WAYMARK_IMAGE: ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
+        run: scripts/deploy-check.sh file sovereign
+
+  release:
+    name: publish the release
+    needs: [check, publish-image]
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The version's section of the changelog: from its heading to the next heading or to the link references at the foot of the file. The same rule as
+      # scripts/lib/release.sh's section_body.
+      - name: Take the release notes from the changelog
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          awk -v h="## [$VERSION]" '
+            index($0, h) == 1 { f = 1; next }
+            /^## \[/ { f = 0 }
+            /^\[[^]]+\]: / { f = 0 }
+            f' CHANGELOG.md | sed '/./,$!d' > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no notes for $VERSION"
+            exit 1
+          fi
+          {
+            echo
+            echo "## Container image"
+            echo
+            echo '```bash'
+            echo "docker pull $IMAGE:$VERSION"
+            echo '```'
+            echo
+            echo "For linux/amd64 and linux/arm64. Its build provenance is attested: \`gh attestation verify oci://$IMAGE:$VERSION --owner ${{ github.repository_owner }}\`."
+            echo "Upgrading is in [deploy/README.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/deploy/README.md#updating)."
+          } >>"$RUNNER_TEMP/notes.md"
+
+      # The title is the name and the version, with no date, as for every release here (RELEASING.md).
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "waymark $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag \
+            --latest
