@@ -27,6 +27,13 @@ export interface AuthDependencies {
    * a single-use link that ends every other session; without one, neither exists** and the routes that would do them are not mounted (`app/api/auth`).
    */
   mailer?: Mailer | undefined;
+  /**
+   * Called once an account has been made, after the sign-up policy has let it be (`databaseHooks.user.create.after`): Waymark makes the account's profile here
+   * (2.7). The account and the profile are in two stores, which cannot share a transaction, so the profile is made idempotently (its key is the account), and a
+   * profile that is somehow missing is made when it is first read. A failure here does not undo the account: it is logged by kind and left to that.
+   */
+  onAccountCreated?:
+    ((account: { id: string; name: string; email: string }) => Promise<void>) | undefined;
 }
 
 /** The prefix of better-auth's cookies, so that ours do not collide with another app's on localhost. */
@@ -50,7 +57,13 @@ const FOR_PASSWORD_ACCOUNTS = [
   '/passkey/verify-registration',
 ];
 
-export function createAuth({ settings, name, database, mailer }: AuthDependencies) {
+export function createAuth({
+  settings,
+  name,
+  database,
+  mailer,
+  onAccountCreated,
+}: AuthDependencies) {
   const schema = database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
   const { local } = settings;
   // Mail is for the password's account: an address is verified, and a password reset, only where there is a password.
@@ -153,6 +166,16 @@ export function createAuth({ settings, name, database, mailer }: AuthDependencie
                 message: 'Sign-up is closed on this instance.',
                 code: SIGNUP_CLOSED,
               });
+            }
+          },
+          after: async (user: { id: string; name: string; email: string }) => {
+            try {
+              await onAccountCreated?.({ id: user.id, name: user.name, email: user.email });
+            } catch (error) {
+              // Not the message, which can name an address: the kind, and the profile is made when it is first read.
+              console.error(
+                `[waymark] a profile was not made for a new account: ${error instanceof Error ? error.name : typeof error}`,
+              );
             }
           },
         },

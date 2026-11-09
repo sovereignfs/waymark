@@ -30,6 +30,11 @@ test('signing in with the right password shows who is signed in, and signing out
   await trySignIn(page, EMAIL, PASSWORD);
   await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  // Who the person is comes from their profile, made with the account: the name they gave and the address as it is kept (lower case).
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await expect(page.getByText('Ada', { exact: true })).toBeVisible();
+  await expect(page.getByText(EMAIL)).toBeVisible();
+  await page.keyboard.press('Escape');
 
   // Signed in, the sign-in page has nothing to ask.
   await page.goto('/sign-in');

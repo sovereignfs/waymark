@@ -1,7 +1,7 @@
 import { runMigrations } from '../db/migrate';
 import { freshDatabase } from '../db/test-support';
 import type { Mailer } from '../mail/mailer';
-import { createAuth } from './auth';
+import { type AuthDependencies, createAuth } from './auth';
 import type { AuthSettings } from './config';
 
 /**
@@ -29,11 +29,15 @@ const SETTINGS: AuthSettings = {
 /** What a test changes about the instance it gets. */
 export type AuthOverrides = Partial<AuthSettings>;
 
-export async function makeAuth(overrides: AuthOverrides = {}, mailer?: Mailer): Promise<TestAuth> {
+export async function makeAuth(
+  overrides: AuthOverrides = {},
+  mailer?: Mailer,
+  onAccountCreated?: AuthDependencies['onAccountCreated'],
+): Promise<TestAuth> {
   const { database } = await freshDatabase('auth');
   await runMigrations(database);
   const settings: AuthSettings = { ...SETTINGS, ...overrides };
-  const auth = createAuth({ settings, name: 'Waymark', database, mailer });
+  const auth = createAuth({ settings, name: 'Waymark', database, mailer, onAccountCreated });
   return {
     auth,
     settings,

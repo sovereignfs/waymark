@@ -15,6 +15,13 @@
       "when": 1794262675037,
       "tag": "0001_job_claim",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794264424481,
+      "tag": "0002_profile",
+      "breakpoints": true
     }
   ]
 }

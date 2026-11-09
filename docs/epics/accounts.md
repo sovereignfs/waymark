@@ -91,7 +91,7 @@ the second's rows intact; a new table fails the test until it is handled.
 
 **Accepts when:** each section saves and reads back; changing the name changes it wherever the person is shown.
 
-#### 📋 2.7 — Profiles
+#### ✅ 2.7 — Profiles
 
 **Goal:** Waymark's own copy of name and email. **Design:** §6.1. **Depends on:** 2.1, 3.1.
 
@@ -100,3 +100,15 @@ kept in step from Settings; one visibility function for email (`src/access/visib
 from the auth store.
 
 **Accepts when:** a new account has exactly one profile; a raw read shows no name or email in plain text; email is returned only to whom §6.1 allows.
+
+**Done as:** the `profile` table of §24.3 in both dialects (`0002_profile`): `account_id` the key, `core_sub`, `units` (`km`, `mi`), `week_start` (0 to 6, Monday by default), `share_default` (`ask`, `on`,
+`off`), the sealed envelope of name and email, and the two moments. `src/profile/profile.ts` is the one place that reads or writes it: `createProfile` (idempotent, since the key is the account),
+`getProfile`, `ensureProfile`, `updateProfile` (what Settings changes, one account, choices checked, a message that names the problem and not the value) and the cleaning of a name (1 to 100 characters, one
+line) and an email (lower case). **Made with the account** from better-auth's `databaseHooks.user.create.after`, after the sign-up policy's `before`, through a new `onAccountCreated` dependency of
+`createAuth`; **the two stores cannot share a transaction** (separate files, namespaces and schemas), so it is made idempotently, a failure is logged by kind and does not undo the account, and
+`ensureProfile` makes the one an account lacks when the signed-in layout first reads it. **The layout and the avatar menu now take the name and email from the profile**, not the session. `src/access/visibility.ts` is the one
+visibility function (`self` and `organizer` see name and email, `member` the name, `none` nothing, which a caller reads as not found); the relations are decided by trips' statements in phase 2 (9.1, 10.1).
+`openAppBesideAuth()` joins the test support. **Seen:** a new account has exactly one profile (and two have two), made once whatever is asked again; a raw read of the row holds neither name nor
+email and its envelope opens only as that account; Settings' changes change this account's profile and nobody else's; 414 tests pass on a file, sqld and PostgreSQL; the browser shows the name and the lower-case
+address in the menu after signing up. **Changed in a shared test:** the schema-parity test reads `bytea` and `blob` as the one `buffer` kind (it first met a sealed column here). Not done: Settings (2.6), where
+changing the sign-in address through better-auth (with its verification) is decided apart from the profile's copy, and the sign-in address is not changed by this task.

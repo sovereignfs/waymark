@@ -125,6 +125,17 @@ export async function makeStore(): Promise<{ database: Database; close(): Promis
   return { database, close: () => database.close() };
 }
 
+/**
+ * The app's store beside an auth store that is already there, migrated, and **not reset**. A test that needs sessions and the app's tables makes the auth store first
+ * (`makeAuth`, which resets both stores) and then this: `makeStore()` resets both, so after the sessions it would take them away on sqld and PostgreSQL, where the
+ * stores are shared (a `file:` database has a file each, which is why that leg alone would not show it).
+ */
+export async function openAppBesideAuth(): Promise<{ database: Database; close(): Promise<void> }> {
+  const database = await openDatabase(testTarget().config, 'app');
+  await runMigrations(database);
+  return { database, close: () => database.close() };
+}
+
 /** The app's variables for what the WAYMARK_TEST_* variables name. */
 function fromTestVariables(env: Env): Env {
   if ((env.WAYMARK_TEST_DB_DIALECT ?? '').trim().toLowerCase() === 'postgres') {

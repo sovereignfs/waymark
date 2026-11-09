@@ -25,6 +25,8 @@ type Shape = Record<string, TableShape>;
  */
 function typeClass(column: { dataType: string; getSQLType(): string }): string {
   if (column.dataType !== 'custom') return column.dataType;
+  // `sealed` is a `Buffer` on both: `blob` in buffer mode on SQLite, `bytea` on PostgreSQL.
+  if (/^"?bytea"?$/i.test(column.getSQLType())) return 'buffer';
   return /^text\b/.test(column.getSQLType()) ? 'string' : `custom ${column.getSQLType()}`;
 }
 

@@ -1,5 +1,7 @@
 import { getConfig } from '../config/current';
-import { getAuthDatabase } from '../db/boot';
+import { serverSealer } from '../crypto/server';
+import { getAuthDatabase, getDatabase } from '../db/boot';
+import { createProfile } from '../profile/profile';
 import { smtpMailer } from '../mail/smtp';
 import { site } from '../site';
 import { type Auth, createAuth } from './auth';
@@ -32,6 +34,15 @@ export function getAuth(): Promise<Auth | null> {
         name: site.name,
         database,
         mailer: mail ? smtpMailer(mail) : undefined,
+        // Waymark's own copy of the person's name and address, made with the account (2.7).
+        onAccountCreated: async (account) => {
+          await createProfile(
+            await getDatabase(),
+            serverSealer(),
+            { accountId: account.id, name: account.name, email: account.email },
+            Date.now(),
+          );
+        },
       });
     })
     .catch((error: unknown) => {
