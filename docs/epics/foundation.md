@@ -178,7 +178,7 @@ installed because `@sovereignfs/ui` needs them as peers (the build fails without
 and dark (a page with the rail), and at 375px in dark with the footer and its drawer, with no console error (so the nonce'd theme script runs under the policy); the CSS
 check fails on a planted literal colour. Not done here: the avatar menu and the bell (2.7, 12.1), the offline shell (6.4).
 
-#### 📋 1.9 — Browser tests
+#### ✅ 1.9 — Browser tests
 
 **Goal:** Playwright on the built app. **Design:** §25 Testing. **Depends on:** 1.5.
 
@@ -187,6 +187,16 @@ context, for going offline (`context.setOffline`), for a mocked position (`geolo
 page made no request off its origin.
 
 **Accepts when:** a smoke test opens the built app on each database form in CI, and the origin check fails on a planted third-party request.
+
+**Done as:** `scripts/serve-standalone.mjs` and `scripts/e2e-shard.mjs` copied from Tusk and renamed; `playwright.config.ts` written from Tusk's with the one instance
+(Tusk's others are for its own sign-in journeys and come when Waymark's do), the database form from the environment, Chromium and WebKit, and the port from
+`e2e/ports.ts` (4005, shifted by `WAYMARK_E2E_PORT_OFFSET`). `e2e/helpers.ts`: `secondContext`, `goOffline`/`goOnline`, `mockPosition`, `mockClock` (Playwright's own clock
+with the context's `timezoneId`), `watchOrigin` (records every request that is not the app's own, `data:` and `blob:` apart) and `recordViolations`. `e2e/smoke.spec.ts`
+(from Tusk's, for Waymark's page: health, the shell, the policy refusing an inline handler, not-found, dark from first paint, a phone's width with its footer, the typeface
+from this origin) and `e2e/helpers.spec.ts` (each helper shown to work, including a clock that is the 31st in London and the 1st in Auckland). 24 pass in both browsers on a file;
+the smoke test passes on sqld and PostgreSQL; both shards pass. **Seen to fail:** a planted `<link>` to a third party in the layout fails the smoke test (the origin check and the
+policy's recorder). CI: the smoke test on each database leg, before the unit tests, and a `browser` job of two shards in both browsers (more shards as specs are added). Not
+done: an accessibility check (`@axe-core/playwright`), which joins with the first screens worth checking (epic 7).
 
 #### 📋 1.10 — The image and deployment setups
 

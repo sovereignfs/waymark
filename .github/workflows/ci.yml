@@ -216,12 +216,67 @@ jobs:
           export WAYMARK_ENCRYPTION_KEY
           pnpm boot-check
 
+      # What only a browser can show, on this leg's database, **before the unit tests**, which empty and refill the stores: the smoke test, in Chromium. The server is
+      # the one built above, started from the same variables. The whole of the browser tests, in both browsers, is the `browser` job below.
+      - name: Install the browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser smoke test on this database
+        run: pnpm e2e --project=chromium e2e/smoke.spec.ts
+      - name: Keep the report of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-${{ matrix.database }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
       # A leg sets the variables an operator would set, and the boot above used them as they are. The tests are given the same database under
       # WAYMARK_TEST_* names instead, because they drop whole schemas and namespaces and must never be pointed at a real database by the variables
       # a developer might have exported (src/db/test-support.ts).
       - run: pnpm test
 
-      # The legs that join as their tasks land: the manifest and the image (1.10), and the browser tests (1.9).
+  # All of the browser tests, in Chromium and in WebKit, in shards that run at once (`scripts/e2e-shard.mjs`): each shard is a set of spec files with an instance, a
+  # SQLite file and ports of its own, so tests that share an account meet only the ones in their own shard. The other two database forms have the data-layer tests,
+  # and the smoke run in the `tests` job. Two shards now; more are added as the specs are.
+  browser:
+    name: browser tests (shard ${{ matrix.shard }} of 2)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Install the browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: This shard's browser tests
+        run: node scripts/e2e-shard.mjs --shard ${{ matrix.shard }}/2
+      - name: Keep the report of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # The legs that join as their tasks land: the manifest and the image (1.10).
 
   scripts:
     name: shell scripts

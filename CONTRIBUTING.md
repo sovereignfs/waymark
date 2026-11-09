@@ -24,7 +24,7 @@ pnpm install --frozen-lockfile
 pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-Browser tests, once they exist (Milestone A, task 1.9), need the browsers once (`pnpm exec playwright install chromium webkit`) and a build: `pnpm build && pnpm e2e`.
+Browser tests need the browsers once (`pnpm exec playwright install chromium webkit`) and a build: `pnpm build && pnpm e2e`, or `pnpm build && pnpm e2e:fast`, which runs them in shards at once on the cores of the machine.
 
 [`AGENTS.md`](AGENTS.md) holds the rules of the app, which are the ones most likely to be broken by accident: read it before changing anything that
 reads or writes check-ins or trips, sign-in or the service worker.

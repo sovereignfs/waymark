@@ -137,11 +137,14 @@ pnpm refuses a release less than a day old and an install script nobody decided 
 
 ## Commands
 
-Milestone A brings Tusk's set (`db:generate`, `db:dev`, `seed`, `boot-check`, `e2e`, `manifest:check`, `scripts/deploy-check.sh`), and this list is
-where each is written as it lands. Today:
-
 - `pnpm format:check` (`pnpm format` writes), `pnpm lint`, `pnpm typecheck` (`next typegen && tsc --noEmit`), `pnpm test` (Vitest) and `pnpm build`.
-  `verify` is the first four, and `pnpm build` for a change that can affect it.
+  `verify` is the first four, and `pnpm build` for a change that can affect it. `pnpm test` runs on a `file:` database; with `WAYMARK_TEST_DB_DIALECT`,
+  `WAYMARK_TEST_SQLITE_URL`, `WAYMARK_TEST_SQLD_ADMIN_URL` or `WAYMARK_TEST_POSTGRES_DB_URL` it runs on sqld or PostgreSQL (`pnpm db:dev sqld` and
+  `pnpm db:dev postgres` start them in Docker and say which variables to set); a change to the data layer is run on all three.
+- `pnpm db:generate <name>` makes a migration for both dialects and both stores; CI fails if generating writes anything.
+- `pnpm build && pnpm boot-check` starts the built server on the database the environment names and asks `/api/health`.
+- `pnpm build && pnpm e2e` runs the browser tests in Chromium and WebKit (`pnpm e2e --project=chromium e2e/smoke.spec.ts` for one); `pnpm e2e:fast` runs them in
+  shards. Still to come with their tasks: `seed`, `manifest:check` and `scripts/deploy-check.sh` (1.10, 16.1).
 
 ## Layout
 
