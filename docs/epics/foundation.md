@@ -122,7 +122,7 @@ step finish or record its cursor (8.1).
 
 **Accepts when:** a job's work is done once when two processes run it; SIGTERM stops the runner and the server cleanly.
 
-#### 📋 1.7 — Security headers
+#### ✅ 1.7 — Security headers
 
 **Goal:** the CSP and headers every response has. **Design:** §25 Security. **Depends on:** 1.4.
 
@@ -132,6 +132,19 @@ hosts, timeouts, size caps, no redirect elsewhere, no private address), used by 
 
 **Accepts when:** every response, including errors and redirects, carries the policy; a test fails if `'unsafe-inline'` appears in `script-src`; the
 outbound helper refuses a private address and a redirect to another host.
+
+**Done as:** `src/security/csp.ts` and its test copied from Tusk, and `proxy.ts` and its test rewritten from Tusk's: the nonce, the policy for a page, none for
+`/api/`, HSTS over https, the same matcher less Tusk's `api/import`; its sign-in and Home rewrites join with 2.1 and 2.2. **Changed from Tusk:**
+`worker-src 'self' blob:` (the design's, for MapLibre; 17.1 narrows it to `'self'` if the design system can serve the worker as a file) and
+`Permissions-Policy: geolocation=(self)`, since checking in here asks where the device is (Tusk has `geolocation=()`). `img-src 'self' data: blob:` is Tusk's
+already. **The outbound helper is new** (Tusk has none; `src/security/outbound.ts`): `outbound(url, { allow, … })` takes host rules (`host`, or `*.suffix` for
+the names under it and never the bare domain; `allowPrivate` and `allowHttp` for the operator's own host, never for a name from a person or a file),
+connects to the address its own checked lookup returned (so a rebinding name reaches nothing), follows a redirect only to a host in the list and checks it
+again, sends the caller's headers to no other host, caps the answer's size and the whole exchange's time, and fails with an `OutboundError` whose message
+holds a kind and no address or query (a search is a place). 38 tests against fake hosts on this machine; the private-address checks and the header stripping
+were seen to fail with the code switched off (the latter by a patch that did not apply the first time). **Seen** on the built server: a page, `/api/health`
+and a 404 each carry the headers, and the pages the policy with a nonce. Left out: the `/api/map` and `/api/places` allowances, which their tasks add as
+configured hosts; this task did it before 1.8 because the layout's theme script needs the nonce.
 
 #### 📋 1.8 — Design system boundary and shell
 
