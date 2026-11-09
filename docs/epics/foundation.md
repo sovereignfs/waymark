@@ -67,7 +67,7 @@ with 1.10, the browser with 1.9. Skipped on drafts and `skip-ci`. No leg reaches
 images are Tusk's. The manifest check, the migrations check and the database legs (1.5), the browser legs (1.9), the image leg and the release script's tests
 (1.10) are added with their tasks; the workflow says so. Checked with `actionlint` and `shellcheck`. Not exercised: a run on GitHub, which waits for a push.
 
-#### 📋 1.4 — Configuration and start-up
+#### ✅ 1.4 — Configuration and start-up
 
 **Goal:** settings declared once and checked before anything is served. **Design:** §19.1, §25 Deployment. **Depends on:** 1.2.
 
@@ -77,6 +77,16 @@ tasks that use them (4.2, 4.3, 3.2, 12.4). `_FILE` forms for secrets; `instrumen
 wrong setting; `.env.example` held to the declarations by a test; `/api/health`. Copied: Tusk's `src/config/`, instrumentation.
 
 **Accepts when:** a missing or malformed setting stops start-up with every problem named and no value printed; `.env.example` matches the code.
+
+**Done as:** copied from Tusk and renamed to `WAYMARK_`: `src/config/` (`env.ts`, `current.ts`, `edge.ts`, `index.ts`, and the two tests, `process-env.test.ts`
+holding `.env.example` to the code and `process.env` to `src/config`), `src/auth/config.ts`, `src/mail/config.ts` and the `Mail` types, `src/crypto/keys.ts`,
+`src/db/config.ts` and its test (the settings of the database belong to `loadConfig`; the clients and migrations are 1.5), `instrumentation.ts` and
+`instrumentation-node.ts`. Trimmed: the GitHub, Web Push and operator-encryption settings and the Tusk-only `_FILE` list. Changed in behaviour: **the instance
+key is required** (Tusk's is optional), because everything Waymark stores about where and what is sealed with it (§18.1), so a start with none stops;
+`WAYMARK_AUTH_SIGNUP` accepts `open` and `closed` only (`invite` joins with 10.2); the phase-1 scopes are `openid`, `profile`, `email`. New tests for sign-in
+(`src/auth/config.test.ts`) and mail (`src/mail/config.test.ts`). `next.config.ts` is Tusk's without its header list (1.7). `/api/health` answers for the process
+alone until 1.5 gives it the database and `/data`. Seen to work on the built server: a wrong address, worker and a missing key stop it with all three named and
+no value printed, and a good key starts it and answers `/api/health`. Left out: `README.md`'s table of settings, which 16.3 writes.
 
 #### 📋 1.5 — The database layer
 

@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-09: **Milestone A in progress** (1.1 to 1.3 done). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-09: **Milestone A in progress** (1.1 to 1.4 done). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -44,7 +44,7 @@ writable, and CI proves it.
 | 1   | [1.1](docs/epics/foundation.md)  | Repository conventions           | P0       | —          | ✅     |
 | 2   | [1.2](docs/epics/foundation.md)  | Format, lint and test tooling    | P0       | 1.1        | ✅     |
 | 3   | [1.3](docs/epics/foundation.md)  | Continuous integration           | P0       | 1.2        | ✅     |
-| 4   | [1.4](docs/epics/foundation.md)  | Configuration and start-up       | P0       | 1.2        | 📋     |
+| 4   | [1.4](docs/epics/foundation.md)  | Configuration and start-up       | P0       | 1.2        | ✅     |
 | 5   | [1.5](docs/epics/foundation.md)  | The database layer               | P0       | 1.4        | 📋     |
 | 6   | [1.8](docs/epics/foundation.md)  | Design system boundary and shell | P0       | 1.2        | 📋     |
 | 7   | [1.7](docs/epics/foundation.md)  | Security headers                 | P0       | 1.4        | 📋     |
