@@ -1,0 +1,32 @@
+# Bumps arrive as reviewable pull requests. Dependabot *alerts* are a separate, repository-level setting; this file is what produces the PRs.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # @sovereignfs/ui is pre-1.0 and exact-pinned, so a minor bump can break a page: it gets its own PR, read as the design change it is.
+      design-system:
+        patterns: ['@sovereignfs/ui', '@sovereignfs/sdk']
+      minor-and-patch:
+        update-types: ['minor', 'patch']
+        exclude-patterns: ['@sovereignfs/ui', '@sovereignfs/sdk']
+    # @types/node describes the Node the app runs on, which `engines` pins. A newer major types APIs the runtime does not have, so it is bumped by
+    # hand with the runtime. TypeScript stays on 6.0.x until typescript-eslint supports 7. better-auth is pinned to one version.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

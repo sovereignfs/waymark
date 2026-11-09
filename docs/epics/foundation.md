@@ -17,7 +17,7 @@ starting point, and the task says so. Each task says which files it copied.
 
 ## Tasks
 
-#### 📋 1.1 — Repository conventions
+#### ✅ 1.1 — Repository conventions
 
 **Goal:** the files a repository of the suite is expected to have. **Design:** §25, `AGENTS.md`. **Depends on:** nothing.
 
@@ -27,6 +27,14 @@ starting point, and the task says so. Each task says which files it copied.
 pinned exactly at Tusk's versions.
 
 **Accepts when:** a clean checkout installs with `pnpm install --frozen-lockfile`, `pnpm typecheck` passes, and `git status` is clean after.
+
+**Done as:** `LICENSE`, `.editorconfig`, `.node-version`, `.prettierignore`, `.github/dependabot.yml`, `tsconfig.json` and `pnpm-workspace.yaml` copied from
+Tusk unchanged (the `esbuild: false` entry in `allowBuilds` waits for `drizzle-kit`, 1.5); `.gitignore` is Tusk's; the pull request template is Tusk's with
+the convergence line reworded (Waymark's sync has no convergence suite of its own); `CONTRIBUTING.md` is Tusk's renamed, its branching paragraph saying the
+owner may use the bypass, and its browser-test paragraph pointing at 1.9. `package.json` is `@sovereignfs/waymark` with `dev` and `start` on port 3005, the
+four `@sovereignfs` packages at Tusk's versions (`ui` 0.92.0, `sdk` 2.1.0, `config` 0.1.0, `manifest` ^0.1.0), Next 16.4, React 19.3 and TypeScript 6.0 (other
+dependencies join with the task that uses them). `app/layout.tsx` and `app/page.tsx` are a placeholder so that `next typegen` and `tsc` have something to
+check; the shell replaces them (1.8). Left out: `README.md` says nothing of settings yet (1.4 adds them).
 
 #### 📋 1.2 — Format, lint and test tooling
 

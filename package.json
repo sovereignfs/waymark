@@ -1,0 +1,37 @@
+{
+  "name": "@sovereignfs/waymark",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sovereignfs/waymark.git"
+  },
+  "type": "module",
+  "packageManager": "pnpm@11.28.9",
+  "description": "Waymark: check in where you are, plan trips with the people going, and look back on everywhere you have been.",
+  "engines": {
+    "node": ">=24.15 <25"
+  },
+  "scripts": {
+    "dev": "next dev --port 3005",
+    "build": "next build",
+    "start": "PORT=${PORT:-3005} node .next/standalone/server.js",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@sovereignfs/config": "0.1.0",
+    "@sovereignfs/sdk": "2.1.0",
+    "@sovereignfs/ui": "0.92.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@sovereignfs/manifest": "^0.1.0",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "~6.0.3"
+  }
+}
