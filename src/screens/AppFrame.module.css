@@ -1,0 +1,11 @@
+.frame {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}

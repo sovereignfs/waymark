@@ -1,0 +1,48 @@
+/* Page-level defaults. The tokens (--sv-*) come from @sovereignfs/ui, imported in the layout; the pages and components style themselves with
+   them. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--sv-color-surface);
+  color: var(--sv-color-text-primary);
+  font-family: var(--sv-font-family);
+  font-size: var(--sv-font-size-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The type scale, a step smaller than the design system's, where there is a pointer to aim with and room for it (the body was 16px, which reads large for an app of lists). Every size in the app and in the design system's components is one of these tokens, so the whole ramp moves together and nothing is a size of its own. **Not on a touch
+   device or a narrow screen:** a phone keeps the system's 16px, which is also the least a text field may be before iOS zooms the page when it is focused. */
+@media (min-width: 768px) and (pointer: fine) {
+  :root {
+    --sv-font-size-sm: 0.8125rem; /* 13px (was 14) */
+    --sv-font-size-md: 0.875rem; /* 14px (was 16): the body */
+    --sv-font-size-lg: 1rem; /* 16px (was 18) */
+    --sv-font-size-xl: 1.125rem; /* 18px (was 20) */
+    --sv-font-size-2xl: 1.375rem; /* 22px (was 24) */
+  }
+}
+
+a {
+  color: inherit;
+}
+
+/* Never a bounce at the top or bottom of the page: a sticky header would ride with it (DESIGN.md §20.12). */
+html,
+body {
+  overscroll-behavior-y: none;
+}

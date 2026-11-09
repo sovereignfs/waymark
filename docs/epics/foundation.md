@@ -146,7 +146,7 @@ were seen to fail with the code switched off (the latter by a patch that did not
 and a 404 each carry the headers, and the pages the policy with a nonce. Left out: the `/api/map` and `/api/places` allowances, which their tasks add as
 configured hosts; this task did it before 1.8 because the layout's theme script needs the nonce.
 
-#### 📋 1.8 — Design system boundary and shell
+#### ✅ 1.8 — Design system boundary and shell
 
 **Goal:** `@sovereignfs/ui` wired in, with the app's frame. **Design:** §20.1, §20.2. **Depends on:** 1.2.
 
@@ -156,6 +156,19 @@ remembered on the device; `MobileFooter` at a phone's width; the app's CSS check
 error pages. The places are filled by epic 7.
 
 **Accepts when:** the shell renders in light and dark at desktop and phone widths, with no literal colour anywhere.
+
+**Done as:** copied from Tusk and renamed: `src/theme/` (key `waymark.theme`), `src/ui/` (`AppShell.module.css`, `SidebarToggle`, `mobile-nav`, `sidebar`, `useSidebar`,
+`design-tokens` and its test, `contrast`, and the `no-fork` and `sidebar` tests), `src/screens/AppFrame` and `AppSidebar.module.css`, `app/globals.css`, `app/error.tsx`.
+Written for Waymark: `AppShell` (wordmark _waymark._, slots for the toggle, the bell, the account menu and the footer), `WaymarkMark` and the icons (a pin with its dot cut
+out; `icon.svg` the dark tile, the PNGs made from it with `qlmanage` and `sips`, the maskable and Apple icons full-bleed), `src/screens/places.ts` (Home, Check-ins, Map, Places),
+`AppSidebar` (the places, full or a rail, and the same places as a drawer on a phone), `PhoneFooter` (the design system's `MobileFooter`: Home and Check-ins, the launcher
+opening the drawer, Map and Places), `SignedInArea`, the root layout (tokens, the nonce'd theme script, `ToastProvider`) and `app/(app)/` with a placeholder for each place.
+**Decisions:** _Check in_ and the Trips section are not in the sidebar yet, because a control with nothing behind it is worse than none (`AGENTS.md`'s own rule for the
+sidebar): 7.2 adds the first, 11.1 the second. The footer's right side is Map and Places for now, since Trips is phase 2 and `MobileFooter` wants as many icons on each
+side; 7.7 settles it (Check in as a floating button, Places into the avatar menu). The `(app)` layout does not check a session until 2.1. `@dnd-kit/core` and `sortable` are
+installed because `@sovereignfs/ui` needs them as peers (the build fails without). **Seen** on the built server: the shell at desktop width in light (Home with the sidebar full)
+and dark (a page with the rail), and at 375px in dark with the footer and its drawer, with no console error (so the nonce'd theme script runs under the policy); the CSS
+check fails on a planted literal colour. Not done here: the avatar menu and the bell (2.7, 12.1), the offline shell (6.4).
 
 #### 📋 1.9 — Browser tests
 

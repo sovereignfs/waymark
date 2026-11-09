@@ -1,0 +1,113 @@
+/* The frame of every signed-in page: two rows, a header and the main area, which is as tall as what is left of the viewport and does not
+   scroll itself: its columns do (DESIGN.md §15.2). The header's measurements follow the design system's own `Header`. */
+.shell {
+  /* Published for the design system's overlays (Dialog, Drawer, Sheet), which stop below the header. */
+  --sv-shell-header-height: 56px;
+  --sv-dialog-inset-top: var(--sv-shell-header-height);
+  display: flex;
+  flex-direction: column;
+  /* dvh avoids clipping by a mobile browser's own bars; vh for engines without it. */
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--sv-color-surface);
+}
+
+.header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  min-height: var(--sv-shell-header-height);
+  padding: var(--sv-space-2) var(--sv-space-4);
+  padding-top: max(var(--sv-space-2), env(safe-area-inset-top));
+  padding-right: max(var(--sv-space-4), env(safe-area-inset-right));
+  padding-left: max(var(--sv-space-4), env(safe-area-inset-left));
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  background-color: var(--sv-color-surface);
+}
+
+.lead {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  min-width: 0;
+}
+
+/* The sidebar's button: a plain icon button with the design system's focus ring and the size of a touch target. */
+.toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  /* Drawn in line with the sidebar's icons beneath it (the rail's icons are centred in 56px): this is the header's own padding, taken back. */
+  margin-left: calc(-1 * var(--sv-space-2));
+  color: var(--sv-color-text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+/* Bigger and bolder than the icons of the sidebar, so that it reads as the control of the frame and not as a place. */
+.toggle svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.5;
+}
+
+.toggle:hover {
+  color: var(--sv-color-text-primary);
+  background: var(--sv-color-surface-sunken);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  min-width: 0;
+  color: var(--sv-color-text-primary);
+  text-decoration: none;
+  border-radius: var(--sv-radius-md);
+}
+
+/* The wordmark: lowercase, in the design system's own face at its heaviest and drawn close, so that it reads as a mark and not as a title. */
+.wordmark {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  /* The letters of a lowercase word sit low: a little room under, so that it centres by its x-height and not by its box. */
+  padding-bottom: 3px;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--sv-space-1);
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The phone's footer (DESIGN.md §18): below the main area. The design system's footer has its own border, background and clearance of the home indicator, so
+   this only keeps its place; and on a wide screen, where nothing is drawn in it, it takes no room. */
+.footer {
+  flex-shrink: 0;
+}
+
+.footer:empty {
+  display: none;
+}
