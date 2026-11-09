@@ -1,0 +1,66 @@
+# Epic 13: Trip Mode
+
+## Status
+
+📋 Planned.
+
+## Overview
+
+Phase 3: today on an ongoing trip. Today's plan worked out as a pure function before any screen; the screen, phone first; Directions handed off to the
+device's maps; reminders through the bell, Web Push and email; and the day's plan and map kept for offline. The plan is shown exactly as ordered; reordering
+by distance is later (`DESIGN.md` §26.1).
+
+## Related
+
+[`DESIGN.md`](../../DESIGN.md) §14, §17.3, §8.2
+
+## Tasks
+
+#### 📋 13.1 — Today
+
+**Goal:** what today looks like, and what is next. **Design:** §14.1. **Depends on:** 9.3, 4.4.
+
+**Technical:** `src/today/`, pure, from a trip's rows, the person's done marks and the moment: today in the current stop's zone, the day or the travel
+day's two, items in plan order with timed ones by time, next, the countdown, the empty day; `item_done` as a mutation in the trip's stream.
+
+**Accepts when:** fixtures hold across the date line, at 23:59 and 00:01 local, on a travel day, and with the device in another zone than the stop.
+
+#### 📋 13.2 — The Trip Mode screen
+
+**Goal:** `/t/<id>/today`. **Design:** §14.2. **Depends on:** 13.1, 11.4, 7.2.
+
+**Technical:** for Travelers and going Organizers on an Ongoing trip, otherwise when it starts or that it ended; the map with the day's items numbered and
+the person's position; next with the countdown, _Directions_ and _Check in_ (pre-filled with the next item's place, copied into the person's places by
+4.1's rule, and the trip); the day's items with _Done_; Home's Trip Mode card (7.6) and _Open Trip Mode_ on the trip (11.2).
+
+**Accepts when:** on a mocked clock and position, the screen shows the right day and next item, and checking in from it links to the trip and marks the item
+done in the journal.
+
+#### 📋 13.3 — Directions
+
+**Goal:** a hand-off to the device's maps. **Design:** §14.3. **Depends on:** 13.2.
+
+**Technical:** `geo:` on Android, `maps://` on iPhone and iPad, an OpenStreetMap directions link elsewhere, decided from the device; the item's point and
+name; documented in the README.
+
+**Accepts when:** on the iOS Simulator, Directions opens Apple Maps at the item, not a browser tab.
+
+#### 📋 13.4 — Reminders
+
+**Goal:** "Dinner, Gion in 30 minutes". **Design:** §14.4. **Depends on:** 13.1, 12.4.
+
+**Technical:** a one-minute job for Ongoing trips and the eve of Upcoming ones: `trip_starts`, `item_soon`, `day_plan`, with defaults; per person and trip
+lead time and kinds in the trip's settings; once per item and person (`reminder_sent`), again if the item's time changes; none for untimed items; through
+the bell, Web Push, email if chosen, and core's bell when hosted.
+
+**Accepts when:** on a mocked clock, a fixed item's reminder is sent once with two workers, a re-timed item reminds again, and an untimed item never does.
+
+#### 📋 13.5 — A trip offline
+
+**Goal:** the day's plan and map with no network. **Design:** §14.5. **Depends on:** 13.2, 6.6, 1.11.
+
+**Technical:** the worker keeps tiles around each stop of an Upcoming or Ongoing trip, to a street level and a bounded count per trip, fetched through
+`/api/map`; _Download for offline_ on the trip; removed after the trip ends or at sign-out; Trip Mode and the trip's plan answered offline by 6.4's shell;
+Settings > This device shows kept tiles and their size.
+
+**Accepts when:** with the network off after downloading, Trip Mode shows the day with its map around the stop, and the kept tiles stay within the bound.
