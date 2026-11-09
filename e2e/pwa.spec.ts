@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { goOffline } from './helpers';
+import { goOffline, signedIn } from './helpers';
 
 /**
  * The PWA (DESIGN.md §20.12): installable (a manifest with the icons a browser asks for), and a service worker that keeps the build's files and the one shell
@@ -25,7 +25,7 @@ test('the manifest and icons make it installable, and the worker is served from 
   page,
   request,
 }) => {
-  await page.goto('/');
+  await signedIn(page);
   const link = await page.locator('link[rel="manifest"]').getAttribute('href');
   expect(link).toBeTruthy();
   const manifest = await (await request.get(link ?? '/manifest.webmanifest')).json();
@@ -68,6 +68,7 @@ test('the worker installs, keeps the shell and the build’s files and nothing e
   page,
   context,
 }) => {
+  await signedIn(page);
   await page.goto('/checkins');
   await workerReady(page);
   // Pages and answers a person would see, fetched with the worker in control.

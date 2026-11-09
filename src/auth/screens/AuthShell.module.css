@@ -1,0 +1,5 @@
+/* Waymark's mark above the card's title, in the text's colour. */
+.mark {
+  height: 40px;
+  color: var(--sv-color-text-primary);
+}

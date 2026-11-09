@@ -18,3 +18,5 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Background jobs run in the web process (`WAYMARK_WORKER=off` turns them off in all but one process that shares a database) and stop when the server is told to; a job's work is claimed in the database, so two processes never do it twice.
 - Waymark installs as an app, and a service worker keeps its own files and nothing of anyone's: no page, no answer, no place or note is ever in its cache. With no connection a page says it needs one.
 - One image for all three database forms, with `/data` a volume in each of the three Compose setups (`deploy/`).
+- Signing in with an email and password, when `WAYMARK_AUTH_LOCAL=1`: the first account is made on the sign-up page, and `WAYMARK_AUTH_SIGNUP=closed` (the default) refuses every later one; `open` lets anyone make one. With local sign-in off the sign-in pages and routes do not exist. With `WAYMARK_SMTP_HOST` set an address is confirmed by a link and a forgotten password is reset by one.
+- Passkeys and an authenticator app are supported by the sign-in; setting them up is in Settings, which is to come.

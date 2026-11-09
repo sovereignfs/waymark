@@ -1,8 +1,10 @@
+import { requireAccount } from '@/src/auth/session';
 import { Placeholder } from '@/src/screens/Placeholder';
 
 export const metadata = { title: 'Check-ins' };
 
-export default function Page() {
+export default async function Page() {
+  await requireAccount();
   return (
     <Placeholder
       icon="list"

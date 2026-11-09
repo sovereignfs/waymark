@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -21,6 +21,8 @@ import { PORTS } from './e2e/ports.ts';
  * The key and the secret below are for this throwaway instance only.
  */
 const PORT = PORTS.app;
+/** An instance with no way of signing in: its own SQLite file, so that it shares nothing with the first. `e2e/auth.spec.ts` uses it. */
+const OFF_PORT = PORTS.off;
 const SECRET = 'e2e-only-secret-not-for-anything-real-0123456789';
 // Playwright loads this file again in every worker: the first load makes the directory and the others, which inherit the variable, use it.
 const directory = process.env.WAYMARK_E2E_DIR ?? mkdtempSync(join(tmpdir(), 'waymark-e2e-'));
@@ -43,6 +45,14 @@ const BLANK = Object.fromEntries(
     'WAYMARK_ENCRYPTION_KEY',
   ].map((name) => [name, '']),
 );
+
+// A directory of its own for another instance: the auth database is `waymark_auth.db` beside the app's, so two instances in one directory would share their
+// accounts, and a session cookie (which a port does not separate) would sign a person in on both.
+const own = (name: string): string => {
+  const folder = join(directory, name);
+  mkdirSync(folder, { recursive: true });
+  return join(folder, 'waymark.db');
+};
 
 // With no database named, a file in a directory of its own: the auth database is `waymark_auth.db` beside the app's, and a developer's data is not
 // touched.
@@ -74,7 +84,22 @@ export default defineConfig({
         ...BLANK,
         ...database,
         WAYMARK_URL: `http://localhost:${PORT}`,
+        WAYMARK_AUTH_LOCAL: '1',
         WAYMARK_AUTH_SECRET: SECRET,
+        WAYMARK_AUTH_SIGNUP: 'closed',
+        WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      } as Record<string, string>,
+    },
+    {
+      command: `node scripts/serve-standalone.mjs ${OFF_PORT}`,
+      url: `http://localhost:${OFF_PORT}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        WAYMARK_DB_DIALECT: 'sqlite',
+        WAYMARK_SQLITE_URL: `file:${own('off')}`,
+        WAYMARK_URL: `http://localhost:${OFF_PORT}`,
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       } as Record<string, string>,
     },

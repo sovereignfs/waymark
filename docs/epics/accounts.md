@@ -16,7 +16,7 @@ placeholders.
 
 ## Tasks
 
-#### 📋 2.1 — Local sign-in
+#### ✅ 2.1 — Local sign-in
 
 **Goal:** local accounts, as Tusk's. **Design:** §19.1, §6.2. **Depends on:** 1.5, 1.8.
 
@@ -26,6 +26,18 @@ password reset only with mail set up (through 12.2 once it is in; until then, Tu
 
 **Accepts when:** the first account can be made and signed in to; with `closed`, a second sign-up is refused; with `AUTH_LOCAL` off, every sign-in page
 answers 404.
+
+**Done as:** copied from Tusk and renamed: `src/auth/` (`auth.ts`, `client`, `cookie`, `messages`, `mail-routes`, `server`, `session`, `users`, `test-support`, `testing/totp`, the
+`screens/` of sign-in, sign-up, forgot and reset, and the tests: sign-up and sign-in flows, the closed policy, rate limits, two-factor, mail and the routes), `src/mail/` (`smtp`, `templates`, `memory`, the
+SMTP sink and its test), `src/access/route.ts` and `routes.ts` with their tests, the four pages, `app/api/auth/[...all]`, and the proxy's rule that the sign-in pages are not found with local
+sign-in off. **Trimmed:** the Sovereign provider (`genericOAuth`, account-linking trust, the fake Sovereign and its tests) waits for 2.3, and the sign-in page offers no Sovereign button until then;
+`AccountMenu` is _Sign out_ alone (the device's store, Settings and the rest of the menu come with 6.2, 2.6 and 2.7). Written for Waymark: `src/access/routes.ts` lists the routes that
+exist (the app's pages are for an account, each page asks `requireAccount()` as well as the layout, `/api/health`, `/sw.js` and better-auth's routes are public) and its test holds `app/` to it
+both ways; `(app)/layout.tsx` finds the session and sends a visitor to sign in, and `SignedInArea` shows the session's name and address until the profile does (2.7). **Mail:** verification and reset are
+Tusk's direct send through `src/mail/smtp.ts` and are mounted only when `WAYMARK_SMTP_HOST` is set, as `AGENTS.md` says; 12.2 moves them to the outbox. **Seen:** the auth store's flows pass on a
+`file:` database, sqld and PostgreSQL (341 pass, 4 skipped by leg). In both browsers: a visitor to `/` or any page of the app is sent to sign in; the first account is made and signs in; a wrong password reads
+the same as an address with no account; a second sign-up is refused by the server with `SIGNUP_CLOSED` and the page does not offer one; and on an instance with no way of signing in every sign-in page, the
+app and `/api/auth` answer 404 (and `/api/health` still answers). The smoke test passes on sqld and PostgreSQL too. The browser tests wait out the sign-in rate limit when two browsers meet it, as Tusk's do.
 
 #### 📋 2.2 — Landing page and the address `/`
 

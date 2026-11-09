@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { recordViolations, watchOrigin } from './helpers';
+import { recordViolations, signedIn, watchOrigin } from './helpers';
 
 /**
  * The first browser test: the built app is up on its database, its page is the frame it should be, the browser enforces the policy it is sent, and the
@@ -18,6 +18,7 @@ test('the app is up on its database, and says which', async ({ request }) => {
 test('the page is the shell: a header with the app’s wordmark, a sidebar and the main area', async ({
   page,
 }) => {
+  await signedIn(page);
   const violations = await recordViolations(page);
   const foreign = watchOrigin(page);
   const errors: string[] = [];
@@ -54,6 +55,7 @@ test('the browser refuses an inline event handler, which the policy does not all
 });
 
 test('a page that is not there is a page, with a way back', async ({ page }) => {
+  await signedIn(page);
   const response = await page.goto('/no-such-page');
   expect(response?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'That is not here' })).toBeVisible();
@@ -78,6 +80,7 @@ test.describe('at a phone’s width', () => {
   test('the header, the footer and the page fit, with nothing to scroll sideways', async ({
     page,
   }) => {
+    await signedIn(page);
     await page.goto('/');
     await expect(page.getByRole('banner')).toBeVisible();
     await expect(page.getByRole('contentinfo')).toBeVisible();
@@ -92,7 +95,7 @@ test.describe('at a phone’s width', () => {
 
 test('the typeface is the design system’s, served from this origin', async ({ page }) => {
   const foreign = watchOrigin(page);
-  await page.goto('/');
+  await page.goto('/sign-in');
   const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
   expect(family).toContain('Hanken Grotesk');
   expect(foreign()).toEqual([]);

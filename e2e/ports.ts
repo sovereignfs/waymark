@@ -11,4 +11,6 @@ if (!Number.isInteger(offset) || offset < 0 || offset > 20_000) {
 export const PORTS = {
   /** The app under test, on the database the environment names. */
   app: 4005 + offset,
+  /** The instance with no way of signing in (`e2e/auth.spec.ts`): its sign-in pages and routes do not exist. */
+  off: 4004 + offset,
 } as const;
