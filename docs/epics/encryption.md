@@ -16,7 +16,7 @@ This epic comes before any product table, so that no place or note is ever writt
 
 ## Tasks
 
-#### 📋 3.1 — Sealed rows
+#### ✅ 3.1 — Sealed rows
 
 **Goal:** a table's sensitive fields written and read only as one envelope. **Design:** §18.1, §18.2. **Depends on:** 1.5.
 
@@ -26,6 +26,19 @@ that fails if a sealed field appears as a column or in a query condition; the ta
 
 **Accepts when:** a row round-trips; an envelope moved to another row's id or another table fails to open; a test reading the raw database finds no
 sealed field in plain text.
+
+**Done as:** `src/crypto/keys.ts` was 1.4's. `src/crypto/envelope.ts` and its test are copied from Tusk (the text form, kept for a credential such as core's refresh token, 2.3) and
+**extended with a binary form**: `sealBytes`, `openBytes`, `rewrapBytes` and `fingerprintOfEnvelope`, an envelope of `0x01`, the key's fingerprint, the wrapped data key's length, the wrapped
+key and the payload, with a domain of its own (`waymark:sealed:…`) and the table and row id in the authenticated data of both layers; it is what a `sealed` column and (3.2) a sealed file
+hold. `src/crypto/sealed.ts` is new: `SEALED` declares, for every table of §24.3 that has sealed fields (phase 1's six, and phase 2 and 3's declared ahead of their tables), each field and its kind
+(`string`, `number`, `strings`, `json`, optional or not), `Sealer.seal(table, id, fields)` and `unseal(table, id, envelope)` check against it both ways and bind the envelope to the table and the id, and
+the field types are derived from the declaration. `src/crypto/server.ts` is the server's sealer from the required instance key. **Tests** (`sealed.test.ts`): every table round-trips with all its fields and
+with only the required ones, an envelope does not open as another row or another table, a field the table does not seal or a value of the wrong kind is refused naming the field and never the value,
+and the declaration is held to the words after `(s)` in `DESIGN.md` §24.3 (it fails if the design is edited and the declaration is not); the schemas of both dialects are held to it (a table has a `sealed`
+column only if it is declared, no sealed field is ever a column, the `sealed` column is in no index or key), the source is read for a `sql` template that puts `sealed` in a `WHERE`, `ORDER BY`,
+`GROUP BY`, join or index, and the raw database is read on each form (a row written through the sealer holds none of its words, in the rows as returned and, on a file, in the file and its log).
+**Seen to fail:** with the payload layer's binding removed (the layer's own test), with a planted table whose sealed field is a column, and the source reading against planted statements; 403 tests pass on a `file:`
+database, sqld and PostgreSQL. Left out: the credential store of Tusk's `store.ts` and `tables.ts` (the `credential` table comes with 2.3), and the rotation (3.3).
 
 #### 📋 3.2 — The media store
 
