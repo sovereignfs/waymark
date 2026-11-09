@@ -54,7 +54,7 @@ licence.
 **Accepts when:** a map renders from each source with no request off the app's origin; the cache stays under its limit; with `off`, every map route
 answers 404 and the app shows lists.
 
-#### 📋 4.4 — Time zones from points
+#### ✅ 4.4 — Time zones from points
 
 **Goal:** a point's IANA zone, on the server and the device, with no network. **Design:** §7.3. **Depends on:** 1.2.
 
@@ -62,3 +62,11 @@ answers 404 and the app shows lists.
 date and offset in a zone (`Intl`), shared by auto-link (9.7), today (13.1) and the timeline.
 
 **Accepts when:** fixtures hold for points either side of a zone border and the date line, and a moment at 23:59 and 00:01 local lands on the right date.
+
+**Done as:** `src/places/tz.ts`, new (Tusk's `time.ts` is a different thing): `zoneOf(lat, lng)` over **`tz-lookup` 6.1.25** (CC0, 150 KB, pinned; no network, no types, so `types/tz-lookup.d.ts`), `undefined` for a point not on the globe;
+`isZone`; and the pure helpers over `Intl`: `partsOf`, `localDate`, `localTime`, `offsetMinutes` (minutes east, quarter hours and changes of clock included), `inZone`, and `momentOf(date, time, zone)`, the inverse, taking the first of a
+time that happens twice and the moment the clock reaches for one that never happens. None reads a clock. **Seen:** fixtures for Tokyo, Lisbon, Reykjavík, Sydney, Kathmandu and Honolulu; either side of the Portugal–Spain border (Elvas and
+Badajoz); Kiritimati (+14) against Honolulu, Apia and Tongatapu, and Fiji's island that the 180th meridian crosses; sea, the poles and invalid points; 23:59 and 00:01 across Auckland's midnight in four zones; the clocks going back and
+forward in New York; `pnpm test:zones` runs the module's tests under `TZ=UTC`, `Pacific/Auckland` and `America/Los_Angeles` and CI runs it. **Limits, said plainly:** (1) `tz-lookup` is a simplified boundary table: near a border and
+in small territories it can be wrong (it answers `Pacific/Apia` for American Samoa, which is `Pacific/Pago_Pago`), so a place's zone is a default that a person can correct, and the fixtures hold only where the table is right. (2) Its data
+is Evan Siroky's timezone-boundary-builder, which is ODbL: the package says CC0, and the attribution belongs in the README's notices when 16.3 writes them (`DESIGN.md` §25 Licence). (3) `Intl` knows the zones the runtime's ICU does.

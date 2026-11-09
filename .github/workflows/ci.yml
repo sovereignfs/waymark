@@ -101,6 +101,9 @@ jobs:
       # The manifest an instance reads is valid.
       - run: pnpm manifest:check
 
+      # The idea of a day answers the same under any zone the machine is in (DESIGN.md §7.3): the time-zone module's tests, under three.
+      - run: pnpm test:zones
+
       # A schema changed without its migration, or a migration was edited by hand, if generating from the committed schemas writes anything
       # (DESIGN.md §24.1).
       - name: The committed migrations match the schemas
