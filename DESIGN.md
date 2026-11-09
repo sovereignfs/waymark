@@ -1,4 +1,4 @@
-# Roam — design
+# Waymark — design
 
 **Status:** draft, written on 2026-11-09 from the legacy `sovereign-plugin-travellog` (manifest 0.28.0), Tusk's and Tally's designs, and the owner's
 direction in planning. Nothing is built. Where this file and a contract Sovereign publishes disagree, the contract wins (`AGENTS.md`, Source of truth).
@@ -10,30 +10,30 @@ direction in planning. Nothing is built. Where this file and a contract Sovereig
 
 ## 1. Purpose
 
-Roam is where you have been and where you are going. You **check in** at a place, whenever you like, and Roam keeps the log: when, where, a note, a
+Waymark is where you have been and where you are going. You **check in** at a place, whenever you like, and Waymark keeps the log: when, where, a note, a
 photo, how many times you have been back, and a map of all of it. You **plan a trip** as stops, days and things to do, with the people going and the
-people following along, and when the trip comes, Roam shows you today's plan and tells you what is next. It is the job Swarm does for the log and
+people following along, and when the trip comes, Waymark shows you today's plan and tells you what is next. It is the job Swarm does for the log and
 Wanderlog does for the plan, on a server its people chose, with nothing to collect and nothing to sell.
 
 The idea it is built around, carried over from the plugin unchanged:
 
 > **Checking in is always available and stands on its own. A trip is a folder that check-ins fall into when the dates match.**
 
-Planners die the day the trip ends; check-in apps know nothing of the future. Roam is the whole lifecycle: plan, go, look back. It is an app of the
+Planners die the day the trip ends; check-in apps know nothing of the future. Waymark is the whole lifecycle: plan, go, look back. It is an app of the
 Sovereign suite exactly as Tusk, Tally and Ledger are: a program of its own, which an instance can host, and which needs no instance to run.
 
-Roam replaces the legacy plugin `sovereign-plugin-travellog`. Its behaviour is the starting point; none of its code is carried over and none of its data
+Waymark replaces the legacy plugin `sovereign-plugin-travellog`. Its behaviour is the starting point; none of its code is carried over and none of its data
 is migrated (§29). Its interface is designed anew (§20).
 
 What it must not give up, whatever the convenience:
 
-- **It works alone.** Every feature works on a Roam with no Sovereign instance: its own accounts, its own people, its own mail, its own notices, its own
+- **It works alone.** Every feature works on a Waymark with no Sovereign instance: its own accounts, its own people, its own mail, its own notices, its own
   files, its own map. An instance adds a way to sign in, a directory to find people in, and core's bell and email; never what a feature depends on
   (§19).
 - **Checking in is never held up.** It works with no network, answers at once, and syncs in the background (§15). A check-in never needs a trip.
 - **Location history is the most sensitive thing it holds.** Everything that says where someone was is encrypted at rest (§18); check-ins are private
   to their author unless shared with a trip (§11.3); nothing about a place leaves the server except to the place search the operator chose (§7.2).
-- **No third party in the browser.** The map, its tiles and its fonts are served by Roam itself (§8).
+- **No third party in the browser.** The map, its tiles and its fonts are served by Waymark itself (§8).
 - **The log is legible, not a game.** Counts, the map and "you've been here 4 times" are the log read back. No points, badges, streaks, mayorships or
   leaderboards, ever in phase 1, 2 or 3.
 - **A person can leave.** One file holds what is theirs (§22); deleting the account removes everything of theirs (§23).
@@ -77,7 +77,7 @@ The plugin's task numbers are not used here. This table is how to check nothing 
 | Trip Mode: today, position, next with countdown, maps hand-off, reminders, offline | §14                                                                                                                           |
 | Field encryption of the note (RFC 0092)                                            | §18: **every field that says where or what**, under the app's own key                                                         |
 | Portability hooks through `sdk.portability`                                        | §22, §23, as the app's own                                                                                                    |
-| `sdk.storage`, `sdk.jobs`, `sdk.notifications`                                     | Roam's own files (§18.3), jobs (§5) and notices (§17)                                                                         |
+| `sdk.storage`, `sdk.jobs`, `sdk.notifications`                                     | Waymark's own files (§18.3), jobs (§5) and notices (§17)                                                                      |
 | `ThreeColumnLayout` with Trips, Check-ins, Planner, Settings                       | §20: designed anew; the Planner is a trip's _Plan_ view                                                                       |
 | Tenants, `sdk.db`, the plugin manifest, `shell: minimal`                           | Gone with the legacy runtime (§19, §24)                                                                                       |
 | No reward mechanics                                                                | Kept (§1)                                                                                                                     |
@@ -87,8 +87,8 @@ The plugin's task numbers are not used here. This table is how to check nothing 
 
 1. **First visit, alone.** Someone runs the image (§25). They make the first account and land on Home, which offers two things: _Check in_ and _Plan a
    trip_.
-2. **First visit, on an instance.** They open Roam from the launcher and sign in through core. The same Home.
-3. **A coffee on a Tuesday.** Kasun presses _Check in_ on his phone. Roam knows where he is and offers the places nearby, his own first; he picks _Café
+2. **First visit, on an instance.** They open Waymark from the launcher and sign in through core. The same Home.
+3. **A coffee on a Tuesday.** Kasun presses _Check in_ on his phone. Waymark knows where he is and offers the places nearby, his own first; he picks _Café
    Nero_, adds "flat white, finally sunny", and saves. No trip is involved, and nothing asks about one.
 4. **Ten years of history.** Kasun uploads his Swarm export on the web. Check-ins appear within a minute; their photos arrive over the next hour, and the
    bell says when it is done. The map is full the same day.
@@ -112,7 +112,7 @@ The plugin's task numbers are not used here. This table is how to check nothing 
 | Term                                      | Meaning                                                                                                                                          |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Account**                               | Someone who can sign in. In code, `account_id` is the better-auth user id (as in Tusk)                                                           |
-| **Profile**                               | Roam's own copy of an account's name and email (§6.1)                                                                                            |
+| **Profile**                               | Waymark's own copy of an account's name and email (§6.1)                                                                                         |
 | **Place**                                 | Somewhere with a name and a point: a person's own, or a trip's (§7.1)                                                                            |
 | **Check-in**                              | Being at a place at a moment, with a note and photos (§9). Code says `checkin`; the plugin's `visit` is not used                                 |
 | **Trip**                                  | A plan of stops, its people, its files and links (§10)                                                                                           |
@@ -160,51 +160,51 @@ User-facing text says "check in", "check-in", "place", "trip", "stop", "day", "p
 - **The server is the referee and the only one that talks to the world.** It checks every change against membership and limits, seals it (§18), orders
   it, and hands it to the devices that should see it. It is the one place search, map tiles, SMTP, core and push services are reached from. **The browser
   talks only to its own server.**
-- **The server reads every field,** which is why Roam is encrypted at rest and not end to end (§29): it must search places, link check-ins, send
+- **The server reads every field,** which is why Waymark is encrypted at rest and not end to end (§29): it must search places, link check-ins, send
   reminders and fetch import photos.
 - **What can be pure is pure:** the figures, the auto-link, the journal, today's plan, the time zone of a moment, building a mutation from an action.
   They take rows and the time as arguments, and the same module runs in the browser and on the server.
 - **Next.js with React 19**, a long-running server, because of the jobs.
 - **SQLite by default, in production too, and PostgreSQL if the operator prefers** (§24).
-- **Jobs run in the web process** on a timer from `instrumentation.ts`, with `ROAM_WORKER=off` for all but one process if several share a database;
+- **Jobs run in the web process** on a timer from `instrumentation.ts`, with `WAYMARK_WORKER=off` for all but one process if several share a database;
   every job claims its work in the database, so two running it is safe anyway (Tusk §5).
 
 ### 5.1 Where things go
 
 As Tusk's and Tally's: `app/` for routes, `src/` for everything else, tests beside the code.
 
-| Path                      | What                                                                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `app/`                    | Routes: the landing page, sign-in, the invitation page, the signed-in area, `/api/*`                                        |
-| `src/db/`                 | Configuration, clients, schemas per dialect, migrations at start-up (§24) — **copied from Tusk**                            |
-| `src/auth/`               | better-auth, its settings, the sign-up policy, the screens, the fake Sovereign for tests (§19) — **copied from Tusk**       |
-| `src/access/`             | Every page, route and operation with who may use it; the conditions for an account's rows and a trip's roles (§5.2)         |
-| `src/crypto/`             | The instance key, envelope encryption, sealed rows and sealed files (§18) — envelope **copied from Tusk**, sealing Roam's   |
-| `src/media/`              | Uploads judged by their bytes, re-encoding, thumbnails, the store under `/data/media`, serving (§18.3)                      |
-| `src/places/`             | Places, the place search adapters, reverse lookup, time zones from coordinates (§7)                                         |
-| `src/map/`                | The tile service: upstream proxy and cache, PMTiles, style, glyphs, sprites (§8)                                            |
-| `src/checkins/`           | Check-ins, their photos, their actions and validators (§9)                                                                  |
-| `src/trips/`              | Trips, stops, days, items, attachments, links, status, the operations (§10)                                                 |
-| `src/sharing/`            | Roles, invitations, sharing check-ins, leaving and handing over (§11)                                                       |
-| `src/autolink/`           | Choosing the trip a check-in falls into (§12) — pure                                                                        |
-| `src/journal/`            | Planned versus actual (§13) — pure                                                                                          |
-| `src/today/`              | Today's plan, next and countdown (§14) — pure                                                                               |
-| `src/figures/`            | Counts, places, countries, years (§9.5) — pure                                                                              |
-| `src/sync/`               | The protocol, `/api/sync`, applying a mutation, cursors, tombstones (§15) — the shape **from Tally**                        |
-| `src/local/`              | The device's store, the outbox, the sync loop, Couldn't sync, photos waiting to upload (§15) — browser only, **from Tally** |
-| `src/import/`             | Import jobs and the Swarm reader (§16)                                                                                      |
-| `src/notices/`            | Notices, preferences, delivery, reminders, Web Push (§17)                                                                   |
-| `src/portability/`        | The file format, export and import (§22)                                                                                    |
-| `src/sovereign/`          | Core's notices, `People.deletePerson`, the bell, email, activity and directory calls (§19, §23) — **from Tusk**             |
-| `src/jobs/`, `src/mail/`  | The runner and claims; the SMTP mailer and the mail outbox — **copied from Tusk**, the outbox **from Tally**                |
-| `src/sw/`                 | The service worker: the shell by allow-list, the offline shell page, a trip's tiles, Background Sync — **from Tusk**        |
-| `src/screens/`, `src/ui/` | The signed-in screens and the shell                                                                                         |
-| `migrations/`, `deploy/`  | Generated SQL (`sqlite/`, `postgres/`, `auth/`); the Compose setups                                                         |
+| Path                      | What                                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `app/`                    | Routes: the landing page, sign-in, the invitation page, the signed-in area, `/api/*`                                         |
+| `src/db/`                 | Configuration, clients, schemas per dialect, migrations at start-up (§24) — **copied from Tusk**                             |
+| `src/auth/`               | better-auth, its settings, the sign-up policy, the screens, the fake Sovereign for tests (§19) — **copied from Tusk**        |
+| `src/access/`             | Every page, route and operation with who may use it; the conditions for an account's rows and a trip's roles (§5.2)          |
+| `src/crypto/`             | The instance key, envelope encryption, sealed rows and sealed files (§18) — envelope **copied from Tusk**, sealing Waymark's |
+| `src/media/`              | Uploads judged by their bytes, re-encoding, thumbnails, the store under `/data/media`, serving (§18.3)                       |
+| `src/places/`             | Places, the place search adapters, reverse lookup, time zones from coordinates (§7)                                          |
+| `src/map/`                | The tile service: upstream proxy and cache, PMTiles, style, glyphs, sprites (§8)                                             |
+| `src/checkins/`           | Check-ins, their photos, their actions and validators (§9)                                                                   |
+| `src/trips/`              | Trips, stops, days, items, attachments, links, status, the operations (§10)                                                  |
+| `src/sharing/`            | Roles, invitations, sharing check-ins, leaving and handing over (§11)                                                        |
+| `src/autolink/`           | Choosing the trip a check-in falls into (§12) — pure                                                                         |
+| `src/journal/`            | Planned versus actual (§13) — pure                                                                                           |
+| `src/today/`              | Today's plan, next and countdown (§14) — pure                                                                                |
+| `src/figures/`            | Counts, places, countries, years (§9.5) — pure                                                                               |
+| `src/sync/`               | The protocol, `/api/sync`, applying a mutation, cursors, tombstones (§15) — the shape **from Tally**                         |
+| `src/local/`              | The device's store, the outbox, the sync loop, Couldn't sync, photos waiting to upload (§15) — browser only, **from Tally**  |
+| `src/import/`             | Import jobs and the Swarm reader (§16)                                                                                       |
+| `src/notices/`            | Notices, preferences, delivery, reminders, Web Push (§17)                                                                    |
+| `src/portability/`        | The file format, export and import (§22)                                                                                     |
+| `src/sovereign/`          | Core's notices, `People.deletePerson`, the bell, email, activity and directory calls (§19, §23) — **from Tusk**              |
+| `src/jobs/`, `src/mail/`  | The runner and claims; the SMTP mailer and the mail outbox — **copied from Tusk**, the outbox **from Tally**                 |
+| `src/sw/`                 | The service worker: the shell by allow-list, the offline shell page, a trip's tiles, Background Sync — **from Tusk**         |
+| `src/screens/`, `src/ui/` | The signed-in screens and the shell                                                                                          |
+| `migrations/`, `deploy/`  | Generated SQL (`sqlite/`, `postgres/`, `auth/`); the Compose setups                                                          |
 
 **Copied** (building-an-app §15: until the kit is published, an app copies, and says which files): from Tusk, `src/db/`, `src/jobs/`, `src/auth/` and its
 fake Sovereign, `src/sovereign/`, `src/crypto/`'s envelope, `src/mail/`, `src/config/`, `src/security/` and `proxy.ts`, `src/limits/`, `src/sw/`,
 `src/theme/`, `scripts/`, the Dockerfile and `deploy/`; from Tally (once built), the sync's shape with a counter per stream, the mail outbox, the profile
-copy of name and email, invitations, and notice delivery. Each is renamed to `ROAM_` and trimmed of what Roam does not use; none is changed in
+copy of name and email, invitations, and notice delivery. Each is renamed to `WAYMARK_` and trimmed of what Waymark does not use; none is changed in
 behaviour without saying so in its task.
 
 ### 5.2 Access
@@ -227,9 +227,9 @@ m.role IN (…) AND m.left_at IS NULL)`. One SQL fragment per role set, in `src/
 
 ### 6.1 A profile
 
-`profile` is Roam's own copy of an account's **name and email**, made with the account and kept in step from Settings, as Tally keeps `person`: names
+`profile` is Waymark's own copy of an account's **name and email**, made with the account and kept in step from Settings, as Tally keeps `person`: names
 shown to a trip's other members are read from `profile`, never from the auth store or from core, so no feature depends on core for who someone is.
-Roam has **no placeholders**: everyone in a trip has an account, since a role is something one signs in to use; someone without one is invited (§11.2).
+Waymark has **no placeholders**: everyone in a trip has an account, since a role is something one signs in to use; someone without one is invited (§11.2).
 
 - **A name** is seen by everyone who shares a trip with the person. **An email** is seen by the person themselves and by the Organizers of a trip they are
   in; never by Travelers or Followers, never in a notice and never in someone else's export. One visibility function, used by every read that returns a
@@ -238,7 +238,7 @@ Roam has **no placeholders**: everyone in a trip has an account, since a role is
 
 ### 6.2 Who may sign up
 
-`ROAM_AUTH_SIGNUP` decides who may make a local account, one policy in better-auth's user-creation hook, as Tally's §6.4:
+`WAYMARK_AUTH_SIGNUP` decides who may make a local account, one policy in better-auth's user-creation hook, as Tally's §6.4:
 
 | Value                  | Local sign-up                                                            |
 | ---------------------- | ------------------------------------------------------------------------ |
@@ -247,7 +247,7 @@ Roam has **no placeholders**: everyone in a trip has an account, since a role is
 | `closed`               | The first account only; an invitation can be accepted only by signing in |
 
 **Signing in through core always gets an account,** whatever the value (`app-manifest.md` §4). `invite` waits on the same change to `contracts/env.md`
-that Tally waits on (§27); until it lands, Roam offers `open` and `closed`, and phase 1, which has no invitations, needs nothing else.
+that Tally waits on (§27); until it lands, Waymark offers `open` and `closed`, and phase 1, which has no invitations, needs nothing else.
 
 ## 7. Places
 
@@ -273,8 +273,8 @@ places, which is where a count is read.
 One field, on the server only (`/api/places`), the browser never reaching a third party:
 
 1. **The person's own places** (and, inside a trip, the trip's), matched by name in memory after unsealing (§18), nearest first when a point is known.
-2. **The operator's place search** (`ROAM_PLACES_PROVIDER`: `nominatim` by default, `photon`, or `off`) at `ROAM_PLACES_URL` (by default the public
-   OpenStreetMap Nominatim). For the public instance Roam keeps its usage policy: at most one request a second from the whole server, a User-Agent naming
+2. **The operator's place search** (`WAYMARK_PLACES_PROVIDER`: `nominatim` by default, `photon`, or `off`) at `WAYMARK_PLACES_URL` (by default the public
+   OpenStreetMap Nominatim). For the public instance Waymark keeps its usage policy: at most one request a second from the whole server, a User-Agent naming
    the software and the instance's address (never a person's), results cached for a day, no autocomplete on every keystroke (a search runs after a pause
    and at least three characters). Pointing it at one's own Nominatim or Photon lifts all of that.
 3. **"Add a new place"**: a name and a point picked on the map, or the person's position. Always offered, so place search is never required.
@@ -293,24 +293,24 @@ its place's, and its items' times are in it (§10.5). So a trip across the date 
 
 ## 8. Maps
 
-The map is built on **OpenStreetMap** data and drawn in the browser with **MapLibre GL JS** (BSD-3-Clause), from **vector tiles served by Roam
+The map is built on **OpenStreetMap** data and drawn in the browser with **MapLibre GL JS** (BSD-3-Clause), from **vector tiles served by Waymark
 itself.** The browser loads nothing from elsewhere: style, tiles, fonts (glyphs) and icons (sprites) all come from `/api/map/*`.
 
 ### 8.1 Where the tiles come from
 
-`ROAM_MAP_SOURCE`, chosen by the operator:
+`WAYMARK_MAP_SOURCE`, chosen by the operator:
 
-| Value             | What Roam serves                                                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `proxy` (default) | Tiles fetched by the server from `ROAM_MAP_UPSTREAM_URL`, a free, keyless vector tile service built from OpenStreetMap, and kept in a cache on disk |
-| `pmtiles`         | Tiles read from a Protomaps PMTiles file at `ROAM_MAP_PMTILES_PATH` (under `/data/map`): a region or the planet, with no request to anyone, ever    |
-| `off`             | No map: every map view shows its list instead, and picking a point is by the person's position only                                                 |
+| Value             | What Waymark serves                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proxy` (default) | Tiles fetched by the server from `WAYMARK_MAP_UPSTREAM_URL`, a free, keyless vector tile service built from OpenStreetMap, and kept in a cache on disk |
+| `pmtiles`         | Tiles read from a Protomaps PMTiles file at `WAYMARK_MAP_PMTILES_PATH` (under `/data/map`): a region or the planet, with no request to anyone, ever    |
+| `off`             | No map: every map view shows its list instead, and picking a point is by the person's position only                                                    |
 
 - **The default upstream** is chosen in the task that builds the service (4.3), after reading its terms: OpenFreeMap is the candidate (free, no key, no
   stated limit, OpenStreetMap data). The choice and its terms are written in the README.
-- **The cache** is `/data/map/cache`, bounded by `ROAM_MAP_CACHE_MAX_MB` (default 2048), oldest-read first out, pruned by a job. It holds tiles and
+- **The cache** is `/data/map/cache`, bounded by `WAYMARK_MAP_CACHE_MAX_MB` (default 2048), oldest-read first out, pruned by a job. It holds tiles and
   nothing about who asked for them. It is not encrypted: it is public map data.
-- **The style** is Roam's own, in the suite's tokens: a light and a dark one, chosen by the theme, so the map follows dark mode. Glyphs and sprites for
+- **The style** is Waymark's own, in the suite's tokens: a light and a dark one, chosen by the theme, so the map follows dark mode. Glyphs and sprites for
   it ship in the image, or are proxied and cached like tiles, decided in 4.3 by their size.
 - **Attribution** to OpenStreetMap contributors (and the tile service where its terms ask) is on every map, as the licence requires.
 - Serving tiles is a route like any other: signed in only, rate-limited per account.
@@ -318,7 +318,7 @@ itself.** The browser loads nothing from elsewhere: style, tiles, fonts (glyphs)
 ### 8.2 The map in the interface
 
 A `Map` component in `@sovereignfs/ui`, built there first (§20.11): MapLibre with the suite's styling, markers, clusters, a line through points, fitting
-to a set of points, picking a point, and the user's position. Where Roam uses it:
+to a set of points, picking a point, and the user's position. Where Waymark uses it:
 
 - **Map** (§20.7): every check-in, clustered; filtered by year, trip and category; a marker opens the check-in or the place.
 - **A place** (§20.8): its point, small.
@@ -329,7 +329,7 @@ to a set of points, picking a point, and the user's position. Where Roam uses it
 ### 8.3 What it does not do
 
 No routing, no directions, no turn-by-turn: _Directions_ hands off to the device's maps (§14.3). No satellite imagery. No search inside the map other
-than Roam's place search.
+than Waymark's place search.
 
 ## 9. Check-ins
 
@@ -453,21 +453,21 @@ on one day.
 ### 10.7 Links
 
 A trip has a short list of links (up to 10): a title and an `https` address. **The first kind is _Expenses in Tally_** (the owner's decision): pasting a
-Tally group's address shows it with Tally's name, as the trip's place for money. Roam never fetches a link, shows no preview, and knows nothing of Tally
+Tally group's address shows it with Tally's name, as the trip's place for money. Waymark never fetches a link, shows no preview, and knows nothing of Tally
 beyond the address: no app imports another. Followers see links; any member may open them.
 
 ### 10.8 Limits
 
 Checked by the server and said in a sentence when reached. **Every limit is a setting** (the owner's decision), with these defaults:
 
-| Setting                       | Default | Limits                         |
-| ----------------------------- | ------- | ------------------------------ |
-| `ROAM_LIMIT_TRIP_MEMBERS`     | 30      | Members of a trip              |
-| `ROAM_LIMIT_TRIP_STOPS`       | 50      | Stops of a trip                |
-| `ROAM_LIMIT_DAY_ITEMS`        | 200     | Items on a day                 |
-| `ROAM_LIMIT_TRIP_ATTACHMENTS` | 100     | Attachments of a trip          |
-| `ROAM_LIMIT_ACCOUNT_TRIPS`    | 300     | Trips an account is in         |
-| `ROAM_MEDIA_MAX_ACCOUNT_MB`   | 500     | Files an account holds (§18.3) |
+| Setting                          | Default | Limits                         |
+| -------------------------------- | ------- | ------------------------------ |
+| `WAYMARK_LIMIT_TRIP_MEMBERS`     | 30      | Members of a trip              |
+| `WAYMARK_LIMIT_TRIP_STOPS`       | 50      | Stops of a trip                |
+| `WAYMARK_LIMIT_DAY_ITEMS`        | 200     | Items on a day                 |
+| `WAYMARK_LIMIT_TRIP_ATTACHMENTS` | 100     | Attachments of a trip          |
+| `WAYMARK_LIMIT_ACCOUNT_TRIPS`    | 300     | Trips an account is in         |
+| `WAYMARK_MEDIA_MAX_ACCOUNT_MB`   | 500     | Files an account holds (§18.3) |
 
 Lowering a limit never deletes anything: what is over it stays, and only adding more is refused.
 
@@ -511,7 +511,7 @@ when already a member changes nothing and says so.
 
 **A check-in is private to its author by default, even when it is linked to a shared trip** (confirmed by the owner, §29):
 
-- **A choice per trip:** the first time one of a Traveler's check-ins links to a trip that has other members, Roam asks once, on the check-in: _Share
+- **A choice per trip:** the first time one of a Traveler's check-ins links to a trip that has other members, Waymark asks once, on the check-in: _Share
   your check-ins on Japan 2027 with its 3 members?_ The answer is that Traveler's setting for that trip, changeable on the trip's page.
 - **A choice per check-in,** overriding it: _Share with the trip_ or _Keep private_.
 - **Who sees a shared check-in:** every active member of the trip, Followers included: its place, moment, note, photos and companions. Not its other
@@ -599,7 +599,7 @@ it says when the trip starts or that it has ended, and links to the plan. Phone 
 ### 14.3 Directions
 
 **Directions** opens the device's own maps with the item's point and name: `geo:` on Android, `maps://` (Apple Maps) on iPhone and iPad, and an
-`https://www.openstreetmap.org/directions` link elsewhere. One convention, decided by the device, documented; nothing is fetched by Roam for it.
+`https://www.openstreetmap.org/directions` link elsewhere. One convention, decided by the device, documented; nothing is fetched by Waymark for it.
 
 ### 14.4 Reminders
 
@@ -618,7 +618,7 @@ A job on a one-minute tick, for Ongoing trips (and the eve of Upcoming ones):
 ### 14.5 Offline
 
 Before an Upcoming trip and each day of it, the device keeps what Trip Mode needs: the trip's rows (always, by sync, §15) and **the map tiles around
-each stop** to a street level, fetched through Roam into the service worker's tile cache (a bounded number per trip, removed after the trip ends).
+each stop** to a street level, fetched through Waymark into the service worker's tile cache (a bounded number per trip, removed after the trip ends).
 _Download for offline_ on the trip lets a person do it at once on Wi-Fi. Position needs no network. **Push needs a network;** offline, nothing reminds.
 
 ## 15. Offline and sync
@@ -628,7 +628,7 @@ is Tally's (§11 of its design), with two kinds of stream.
 
 ### 15.1 The model
 
-- **The device holds**, in IndexedDB through `idb`, one database per account (`roam-<account id>`): **the person's own stream** (their places,
+- **The device holds**, in IndexedDB through `idb`, one database per account (`waymark-<account id>`): **the person's own stream** (their places,
   check-ins with photo records, settings and the per-trip sharing choices) and **one stream per trip they are a member of** (the trip, its members' names,
   stops, days, items, trip places, links, the attachments' records for those who may see them, and the shared check-ins). Screens read from it, and
   figures, auto-link, the journal and today are computed from it, so everything already seen is readable offline.
@@ -690,7 +690,7 @@ photo that cannot be uploaded (too large, not an image) goes to Couldn't sync wi
 
 Stated in the app and in the documentation: signing in and the first load; searching the place search and reverse lookup (own places work offline);
 **trips, stops, ready, members, roles, invitations, attachments and links**, which are online operations (`/api/ops`, answering at once, undone with a
-toast on a refusal, as a Tusk board is); importing; export; settings; notices; map tiles not already kept (§14.5). On iPhone, sync happens only while Roam is
+toast on a refusal, as a Tusk board is); importing; export; settings; notices; map tiles not already kept (§14.5). On iPhone, sync happens only while Waymark is
 open. Persistent storage is requested (`navigator.storage.persist()`); a browser could still evict unsent changes.
 
 ### 15.8 First load, sign-out, an ended session, keeping it small
@@ -713,7 +713,7 @@ From **Settings > Data > Import from Swarm** (and the Check-ins empty state), on
 - **Resumable:** the job keeps a cursor in `import_job`; a restart, a crash or a deploy carries on from it. **Progress** (check-ins done, photos fetched,
   failed) shows on the import screen, live while open, and the bell says when it is finished (§17). The ZIP is deleted when the job ends.
 - **The mapping is checked against a real export before it is fixed** (the plugin's mapping was inferred and never verified): the task that builds the
-  reader starts from one, which the owner provides (§28). Fields the export has and Roam does not are counted and reported, not silently dropped.
+  reader starts from one, which the owner provides (§28). Fields the export has and Waymark does not are counted and reported, not silently dropped.
 
 ## 17. Notices
 
@@ -741,11 +741,11 @@ A row per person told, written in the change's transaction, **never for what a p
 
 The bell always. Beyond it, per kind and channel in Settings (`notice_pref`):
 
-| Channel         | Alone                       | Hosted, person linked to core                         |
-| --------------- | --------------------------- | ----------------------------------------------------- |
-| **Email**       | Roam's mail (`ROAM_SMTP_*`) | Core's email (`email:send`), or Roam's if not granted |
-| **Core's bell** | —                           | `notifications:send`, a link back to the notice       |
-| **Web Push**    | Phase 3 (§17.3)             | Phase 3                                               |
+| Channel         | Alone                             | Hosted, person linked to core                            |
+| --------------- | --------------------------------- | -------------------------------------------------------- |
+| **Email**       | Waymark's mail (`WAYMARK_SMTP_*`) | Core's email (`email:send`), or Waymark's if not granted |
+| **Core's bell** | —                                 | `notifications:send`, a link back to the notice          |
+| **Web Push**    | Phase 3 (§17.3)                   | Phase 3                                                  |
 
 Mail goes through `mail_outbox` in the background, never logged with its address or content (Tally's). Each send to core carries a `key`; no core, or an
 older one, sends nothing and changes nothing else. With no channel beyond the bell, Settings says so.
@@ -753,15 +753,15 @@ older one, sends nothing and changes nothing else. With no channel beyond the be
 ### 17.3 Web Push
 
 In phase 3, because reminders on a trip are worth little without it (§29). Keys generated once by the instance (`generate`:
-`ROAM_VAPID_PRIVATE_KEY`; the public key derived), a subscription per device in `push_subscription`, sent by a job with the same claims as mail, a
+`WAYMARK_VAPID_PRIVATE_KEY`; the public key derived), a subscription per device in `push_subscription`, sent by a job with the same claims as mail, a
 payload that says what and where without a place name, note or person's name in it (the push service carries it). Browser push services cost nothing.
-On iPhone only once Roam is on the home screen; Settings says so. The design is Tally's §21.4, so the two apps share it.
+On iPhone only once Waymark is on the home screen; Settings says so. The design is Tally's §21.4, so the two apps share it.
 
 ## 18. Encryption and media
 
 ### 18.1 What is encrypted
 
-**Server-side envelope encryption at rest** (the owner's decision, §29), under `ROAM_ENCRYPTION_KEY`: Tusk's envelope (a random data key per row, wrapped
+**Server-side envelope encryption at rest** (the owner's decision, §29), under `WAYMARK_ENCRYPTION_KEY`: Tusk's envelope (a random data key per row, wrapped
 under the instance key, bound to the row's id and purpose), copied. Everything that says **where or what** is sealed; only what the database must sort,
 join or count stays readable:
 
@@ -775,7 +775,7 @@ join or count stays readable:
 - **Search, distance, the map and the figures** work on unsealed rows in memory, on the device or on the server for the person's or trip's own rows: a
   person's data is thousands of rows, not millions. No sealed field is ever in a `WHERE`, `ORDER BY` or index.
 - **Dates stay readable** (they order the timeline and find auto-link candidates); what they say alone, without a place, is accepted (§29).
-- **Rotation:** a new key with the old as `ROAM_ENCRYPTION_KEY_PREVIOUS`; a job re-wraps every data key, then the old key can go.
+- **Rotation:** a new key with the old as `WAYMARK_ENCRYPTION_KEY_PREVIOUS`; a job re-wraps every data key, then the old key can go.
 - **What it protects against:** a copied database, a backup, a disk, an operator reading tables. **What it does not:** someone in control of the running
   server, which holds the key and reads everything to do its work. The README says so, plainly.
 
@@ -787,9 +787,9 @@ place search, auto-link on import, reminders and photo fetching all need the ser
 
 ### 18.3 Files
 
-Roam's own, never core's (the suite's rule): under `/data/media` (declared in the manifest's `data`), one file per photo, thumbnail and attachment, named
+Waymark's own, never core's (the suite's rule): under `/data/media` (declared in the manifest's `data`), one file per photo, thumbnail and attachment, named
 by a random id, sealed with its own data key. Served by `/api/media/<id>` after the access check, with `Cache-Control: private`, a `Content-Type` from
-the stored type, `X-Content-Type-Options: nosniff`, and for a PDF a sandboxing CSP. **Limits:** 15 MB a file; `ROAM_MEDIA_MAX_ACCOUNT_MB` per account
+the stored type, `X-Content-Type-Options: nosniff`, and for a PDF a sandboxing CSP. **Limits:** 15 MB a file; `WAYMARK_MEDIA_MAX_ACCOUNT_MB` per account
 (default 500, §10.8), counted on what is stored, said in a sentence when reached. Deleting a check-in, trip or account deletes its files in the same job that
 deletes the rows' last trace; an orphan sweep finds any left by a crash.
 
@@ -797,8 +797,8 @@ deletes the rows' last trace; an orphan sweep finds any left by a crash.
 
 ### 19.1 Sign-in
 
-**As Tusk's §6, with `ROAM_` for `TUSK_`:** better-auth in a store of its own; local accounts (password, passkey, authenticator app with backup codes) when
-`ROAM_AUTH_LOCAL=1`; a Sovereign core through `genericOAuth` with PKCE when `ROAM_CORE_*` are set; either or both, from one image, both allowed when
+**As Tusk's §6, with `WAYMARK_` for `TUSK_`:** better-auth in a store of its own; local accounts (password, passkey, authenticator app with backup codes) when
+`WAYMARK_AUTH_LOCAL=1`; a Sovereign core through `genericOAuth` with PKCE when `WAYMARK_CORE_*` are set; either or both, from one image, both allowed when
 hosted. Email is verified and passwords reset only with mail set up. A person is their better-auth user id; a `sub` is identity, an email is never
 matched to an account at sign-in; no implicit linking.
 
@@ -812,8 +812,8 @@ answering `200` only once done), verified by the SDK, replays refused (`notice_s
 ```json
 {
   "manifest": 2,
-  "prefix": "roam",
-  "name": "Roam",
+  "prefix": "waymark",
+  "name": "Waymark",
   "description": "Check in where you are, plan trips with the people going, and look back on everywhere you have been",
   "icon": "/icons/icon.svg",
   "port": 3005,
@@ -828,9 +828,9 @@ answering `200` only once done), verified by the SDK, replays refused (`notice_s
   "database": true,
   "data": ["/data"],
   "generate": [
-    "ROAM_AUTH_SECRET",
-    { "name": "ROAM_ENCRYPTION_KEY", "bytes": 32 },
-    "ROAM_VAPID_PRIVATE_KEY"
+    "WAYMARK_AUTH_SECRET",
+    { "name": "WAYMARK_ENCRYPTION_KEY", "bytes": 32 },
+    "WAYMARK_VAPID_PRIVATE_KEY"
   ],
   "core": ">=0.57.0 <1.0.0"
 }
@@ -840,20 +840,20 @@ answering `200` only once done), verified by the SDK, replays refused (`notice_s
 - **`directory` and `offline_access`** are for finding people in core's directory as the person (Tally's §14.4): the refresh token is a credential, kept
   only through `src/crypto/`. If the scopes are refused, inviting works exactly as alone. They are added in phase 2, when invitations are built; phase 1's
   manifest asks for `openid`, `profile` and `email` only.
-- **`ROAM_VAPID_PRIVATE_KEY`** joins `generate` in phase 3; whether `generate` can make a VAPID key (an EC key, not random bytes) is checked then (§27).
-- **The `core` floor** is raised, if needed, to the first release with the directory scope and the app scopes Roam calls.
+- **`WAYMARK_VAPID_PRIVATE_KEY`** joins `generate` in phase 3; whether `generate` can make a VAPID key (an EC key, not random bytes) is checked then (§27).
+- **The `core` floor** is raised, if needed, to the first release with the directory scope and the app scopes Waymark calls.
 - `pooling` is not set: the jobs take locks.
 
 ### 19.4 Core's services
 
-| What                            | Hosted                                                                | Alone                  |
-| ------------------------------- | --------------------------------------------------------------------- | ---------------------- |
-| Sign-in                         | Core, and local accounts if `ROAM_AUTH_LOCAL=1`                       | Local accounts         |
-| Finding people to invite        | Roam's own, and core's directory (§11.2)                              | Roam's own             |
-| Notices                         | Roam's bell, and core's bell (`notifications:send`)                   | Roam's bell            |
-| Email                           | Core's (`email:send`) for linked accounts; Roam's for other addresses | Roam's (`ROAM_SMTP_*`) |
-| Export, import, account deleted | A line on the person's activity page (`activity:write`)               | Nothing                |
-| Files, map, place search, push  | **Roam's own, always**                                                | Roam's own             |
+| What                            | Hosted                                                                   | Alone                        |
+| ------------------------------- | ------------------------------------------------------------------------ | ---------------------------- |
+| Sign-in                         | Core, and local accounts if `WAYMARK_AUTH_LOCAL=1`                       | Local accounts               |
+| Finding people to invite        | Waymark's own, and core's directory (§11.2)                              | Waymark's own                |
+| Notices                         | Waymark's bell, and core's bell (`notifications:send`)                   | Waymark's bell               |
+| Email                           | Core's (`email:send`) for linked accounts; Waymark's for other addresses | Waymark's (`WAYMARK_SMTP_*`) |
+| Export, import, account deleted | A line on the person's activity page (`activity:write`)                  | Nothing                      |
+| Files, map, place search, push  | **Waymark's own, always**                                                | Waymark's own                |
 
 ## 20. Interface
 
@@ -872,7 +872,7 @@ Two rows, as Tusk's and Tally's: the header, and the sidebar beside the content.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ☰  roam.                                                      (bell) (avatar) │
+│ ☰  waymark.                                                      (bell) (avatar) │
 ├────────────────────────┬─────────────────────────────────────────────────────┤
 │ [ ⊕ Check in ]         │                                                     │
 │ ⌂ Home                 │                                                     │
@@ -1067,10 +1067,10 @@ Reached from **Settings > Data**, after the password or a fresh session, saying 
 
 ### 24.1 Database
 
-**As Tusk's §23.1, with `ROAM_`:** `ROAM_DB_DIALECT` is `sqld` (default; namespaces `roam` and `roam_auth`), `sqlite` (`file:/data/roam.db`,
-`roam_auth.db` beside it) or `postgres` (schemas `roam` and `roam_auth`). Drizzle, a schema and a migration set per dialect, generated, applied at
+**As Tusk's §23.1, with `WAYMARK_`:** `WAYMARK_DB_DIALECT` is `sqld` (default; namespaces `waymark` and `waymark_auth`), `sqlite` (`file:/data/waymark.db`,
+`waymark_auth.db` beside it) or `postgres` (schemas `waymark` and `waymark_auth`). Drizzle, a schema and a migration set per dialect, generated, applied at
 start-up under a lock; a parity test across dialects. Standard SQL, values bound; no `LISTEN/NOTIFY`, trigger, extension or foreign key; every deletion
-names what it deletes, in a transaction; no sealed column in a condition. Tests run on all three and read `ROAM_TEST_*` only.
+names what it deletes, in a transaction; no sealed column in a condition. Tests run on all three and read `WAYMARK_TEST_*` only.
 
 ### 24.2 Representations
 
@@ -1103,7 +1103,7 @@ Beyond better-auth's, in the auth store. `(s)` marks what is in `sealed`.
 | `item_done`                                             | `item_id`, `account_id` (the key), `trip_id`, `at`, `seq`                                                                                                                                                      | 3     |
 | `reminder_sent`                                         | `account_id`, `kind`, `subject_id`, `at_key` (the key), `sent_at`                                                                                                                                              | 3     |
 | `push_subscription`                                     | `id`, `account_id`, (s) endpoint and keys, `created_at`                                                                                                                                                        | 3     |
-| `notice`, `notice_pref`, `mail_outbox`                  | As Tally's, with Roam's kinds; addresses and content in (s)                                                                                                                                                    | 1     |
+| `notice`, `notice_pref`, `mail_outbox`                  | As Tally's, with Waymark's kinds; addresses and content in (s)                                                                                                                                                 | 1     |
 | `applied_mutation`, `tombstone`                         | As Tally's, by stream                                                                                                                                                                                          | 1     |
 | `credential`, `notice_seen`, `job_claim`, `rate_bucket` | As Tusk's                                                                                                                                                                                                      | 1     |
 
@@ -1135,15 +1135,15 @@ OpenStreetMap data is ODbL: the attribution is shown on every map.
 One image (Debian, for libSQL and `sharp`), not root, on port 3005, and three Compose setups in `deploy/`:
 
 ```bash
-docker run -v roam:/data -e ROAM_DB_DIALECT=sqlite -e ROAM_SQLITE_URL=file:/data/roam.db \
-  -e ROAM_URL=https://roam.example.com -e ROAM_AUTH_LOCAL=1 -e ROAM_AUTH_SECRET=… -e ROAM_ENCRYPTION_KEY=… ghcr.io/sovereignfs/roam
+docker run -v waymark:/data -e WAYMARK_DB_DIALECT=sqlite -e WAYMARK_SQLITE_URL=file:/data/waymark.db \
+  -e WAYMARK_URL=https://waymark.example.com -e WAYMARK_AUTH_LOCAL=1 -e WAYMARK_AUTH_SECRET=… -e WAYMARK_ENCRYPTION_KEY=… ghcr.io/sovereignfs/waymark
 ```
 
-- **Settings:** the shared names of `contracts/env.md`, and Roam's own: `ROAM_WORKER`; `ROAM_PLACES_PROVIDER`, `ROAM_PLACES_URL`; `ROAM_MAP_SOURCE`,
-  `ROAM_MAP_UPSTREAM_URL`, `ROAM_MAP_PMTILES_PATH`, `ROAM_MAP_CACHE_MAX_MB`; the limits of §10.8 (`ROAM_LIMIT_*`, `ROAM_MEDIA_MAX_ACCOUNT_MB`); `ROAM_VAPID_PRIVATE_KEY` (phase 3). Each declared
+- **Settings:** the shared names of `contracts/env.md`, and Waymark's own: `WAYMARK_WORKER`; `WAYMARK_PLACES_PROVIDER`, `WAYMARK_PLACES_URL`; `WAYMARK_MAP_SOURCE`,
+  `WAYMARK_MAP_UPSTREAM_URL`, `WAYMARK_MAP_PMTILES_PATH`, `WAYMARK_MAP_CACHE_MAX_MB`; the limits of §10.8 (`WAYMARK_LIMIT_*`, `WAYMARK_MEDIA_MAX_ACCOUNT_MB`); `WAYMARK_VAPID_PRIVATE_KEY` (phase 3). Each declared
   once in `@sovereignfs/config`, in `.env.example` and in the README.
-- **Hosted:** `sv app add roam`, from the manifest; the operator grants the three app scopes, sets `ROAM_SMTP_*` to email people not on the instance and
-  `ROAM_AUTH_LOCAL=1` to let them make an account, and chooses the map source.
+- **Hosted:** `sv app add waymark`, from the manifest; the operator grants the three app scopes, sets `WAYMARK_SMTP_*` to email people not on the instance and
+  `WAYMARK_AUTH_LOCAL=1` to let them make an account, and chooses the map source.
 - **A PMTiles file** is the operator's to place under `/data/map`; the README says where to get one (Protomaps' builds) and how large a region is.
 - **Releases** as Tusk's: `scripts/release.sh`, a `vX.Y.Z` tag publishes amd64 and arm64 to `ghcr.io`; a patch has no migration.
 - `/api/health` answers `200` once the database is ready and `/data` is writable.
@@ -1197,7 +1197,7 @@ mistaken for decisions.
 - **`AUTH_SIGNUP`'s `invite`** (§6.2) is not in `contracts/env.md`; it is the same task in `sovereign` that Tally waits on (Tally 14.5, here 17.2).
 - **The directory as a person** needs the SDK's `tokenStore` fed from better-auth's `genericOAuth`, as Tally's §22; whichever app builds it first settles
   it for both.
-- **A VAPID key in `generate`:** the manifest's `generate` makes random secrets; whether it can make an EC P-256 key, or Roam derives one from a random
+- **A VAPID key in `generate`:** the manifest's `generate` makes random secrets; whether it can make an EC P-256 key, or Waymark derives one from a random
   secret, is checked in 12.4, and a gap raised in `sovereign` if needed. Tally's push plan has the same question.
 - **`Map` in the design system** brings MapLibre (and its worker) into `@sovereignfs/ui`; whether it is an entry point of its own is the design system's
   call (17.1).
@@ -1214,36 +1214,36 @@ The eleven choices the first draft made on its own were reviewed by the owner on
 
 ## 29. Decision log
 
-| Date       | Decision                                                                                                                 | Why                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| 2026-11-09 | An app of its own, Tusk's shape: local and core sign-in, three database forms; **every feature works alone**             | The owner's golden rule for every app                                                    |
-| 2026-11-09 | Name **Roam**, prefix `roam`, port 3005                                                                                  | Chosen by the owner from a shortlist; 3004 is Tally's                                    |
-| 2026-11-09 | The plugin's idea kept: **check-ins stand alone; a trip is a folder they fall into by date**                             | It is what makes the product more than a planner or a log                                |
-| 2026-11-09 | **All three parts planned now, built one after another** (check-ins, trips, Trip Mode), a release each                   | The owner's direction                                                                    |
-| 2026-11-09 | **A map in phase 1,** on OpenStreetMap, drawn with MapLibre from tiles **served by Roam** (proxy and cache, or PMTiles)  | The owner wants a map now; the suite allows no third-party request from the browser      |
-| 2026-11-09 | Place search **from the server only**, Nominatim or Photon, the public instance used within its policy                   | No browser request elsewhere; self-hosting keeps search text in                          |
-| 2026-11-09 | **Real shared trips** with invitations, replacing companion tags                                                         | The owner's decision                                                                     |
-| 2026-11-09 | Roles by **how one takes part**: Organizer, Traveler, Follower                                                           | The owner asked for real-life roles, not permission levels                               |
-| 2026-11-09 | **Check-in from the web** as well as the phone                                                                           | The owner's decision; one responsive app                                                 |
-| 2026-11-09 | **Swarm import first;** other importers later                                                                            | The owner's decision                                                                     |
-| 2026-11-09 | A trip is **Planning until marked ready,** then its dates decide; it can go back                                         | The owner's decision, replacing the plugin's purely derived status                       |
-| 2026-11-09 | The timeline shows **every check-in**, with its trip                                                                     | The owner's decision                                                                     |
-| 2026-11-09 | **Auto-link:** local date, then the nearest stop, then the shorter trip; a manual link is never changed                  | Left to the draft by the owner; the plugin's rule with distance added                    |
-| 2026-11-09 | Keep the words **"stop"** and **"check-in"**                                                                             | The owner's decision                                                                     |
-| 2026-11-09 | The **trip page** and **planned versus actual** designed now; the Planner becomes a trip's Plan view                     | The owner's decision                                                                     |
-| 2026-11-09 | A trip **links to its Tally group** by address, nothing more                                                             | The owner's decision; no app imports another                                             |
-| 2026-11-09 | **Encryption at rest on the server** (envelope under `ROAM_ENCRYPTION_KEY`), sealing places, points and words, and files | The owner chose it over end to end and per-trip keys; sharing then needs no key exchange |
-| 2026-11-09 | **Check-ins private by default** on shared trips, shared by choice                                                       | Left to the draft by the owner; location history is the most sensitive data              |
-| 2026-11-09 | **Roam keeps its own profile** (name, email); no placeholders                                                            | No dependence on core for who someone is; every member signs in to use a role            |
-| 2026-11-09 | **Files are Roam's own,** under `/data`                                                                                  | The suite's rule: file storage is the app's concern, never core's                        |
-| 2026-11-09 | **No reward mechanics** in any phase                                                                                     | Carried over from the plugin                                                             |
-| 2026-11-09 | **No migration** from the plugin; interface designed anew                                                                | No data needs to move; the owner's direction                                             |
-| 2026-11-09 | **Places belong to a person or a trip,** one shape, replacing the plugin's one shared table                              | Shared trips and complete deletion; a count is read within a person's places             |
-| 2026-11-09 | **Only Organizers invite** and change roles                                                                              | The trip's people stay under its Organizers' control                                     |
-| 2026-11-09 | **Followers never see attachments**                                                                                      | Bookings carry names, numbers and addresses                                              |
-| 2026-11-09 | Sharing check-ins **asked once per trip,** overridable per check-in; Followers see shared ones                           | Private by default, without asking on every check-in                                     |
-| 2026-11-09 | **Check-ins, items and day notes sync offline;** trips, stops, roles and attachments are online; items keep no history   | A plan is edited on the road; stop dates reshape days, which the server must decide      |
-| 2026-11-09 | Photos **re-encoded with all metadata removed;** the original is not kept                                                | A photo may be shared with a trip; location in its metadata must not travel              |
-| 2026-11-09 | **Web Push in phase 3,** with reminders                                                                                  | It matters most for Trip Mode's reminders                                                |
-| 2026-11-09 | **Dates and times stay readable;** places, points and words are sealed                                                   | The database orders the timeline and finds auto-link candidates                          |
-| 2026-11-09 | **Every limit is a setting;** files default to **500 MB an account**                                                     | The owner's decision; operators size their own server                                    |
+| Date       | Decision                                                                                                                    | Why                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 2026-11-09 | An app of its own, Tusk's shape: local and core sign-in, three database forms; **every feature works alone**                | The owner's golden rule for every app                                                    |
+| 2026-11-09 | Name **Waymark** (renamed from Roam), prefix `waymark`, port 3005                                                           | Renamed from Roam by the owner; the port is unchanged, and 3004 is Tally's               |
+| 2026-11-09 | The plugin's idea kept: **check-ins stand alone; a trip is a folder they fall into by date**                                | It is what makes the product more than a planner or a log                                |
+| 2026-11-09 | **All three parts planned now, built one after another** (check-ins, trips, Trip Mode), a release each                      | The owner's direction                                                                    |
+| 2026-11-09 | **A map in phase 1,** on OpenStreetMap, drawn with MapLibre from tiles **served by Waymark** (proxy and cache, or PMTiles)  | The owner wants a map now; the suite allows no third-party request from the browser      |
+| 2026-11-09 | Place search **from the server only**, Nominatim or Photon, the public instance used within its policy                      | No browser request elsewhere; self-hosting keeps search text in                          |
+| 2026-11-09 | **Real shared trips** with invitations, replacing companion tags                                                            | The owner's decision                                                                     |
+| 2026-11-09 | Roles by **how one takes part**: Organizer, Traveler, Follower                                                              | The owner asked for real-life roles, not permission levels                               |
+| 2026-11-09 | **Check-in from the web** as well as the phone                                                                              | The owner's decision; one responsive app                                                 |
+| 2026-11-09 | **Swarm import first;** other importers later                                                                               | The owner's decision                                                                     |
+| 2026-11-09 | A trip is **Planning until marked ready,** then its dates decide; it can go back                                            | The owner's decision, replacing the plugin's purely derived status                       |
+| 2026-11-09 | The timeline shows **every check-in**, with its trip                                                                        | The owner's decision                                                                     |
+| 2026-11-09 | **Auto-link:** local date, then the nearest stop, then the shorter trip; a manual link is never changed                     | Left to the draft by the owner; the plugin's rule with distance added                    |
+| 2026-11-09 | Keep the words **"stop"** and **"check-in"**                                                                                | The owner's decision                                                                     |
+| 2026-11-09 | The **trip page** and **planned versus actual** designed now; the Planner becomes a trip's Plan view                        | The owner's decision                                                                     |
+| 2026-11-09 | A trip **links to its Tally group** by address, nothing more                                                                | The owner's decision; no app imports another                                             |
+| 2026-11-09 | **Encryption at rest on the server** (envelope under `WAYMARK_ENCRYPTION_KEY`), sealing places, points and words, and files | The owner chose it over end to end and per-trip keys; sharing then needs no key exchange |
+| 2026-11-09 | **Check-ins private by default** on shared trips, shared by choice                                                          | Left to the draft by the owner; location history is the most sensitive data              |
+| 2026-11-09 | **Waymark keeps its own profile** (name, email); no placeholders                                                            | No dependence on core for who someone is; every member signs in to use a role            |
+| 2026-11-09 | **Files are Waymark's own,** under `/data`                                                                                  | The suite's rule: file storage is the app's concern, never core's                        |
+| 2026-11-09 | **No reward mechanics** in any phase                                                                                        | Carried over from the plugin                                                             |
+| 2026-11-09 | **No migration** from the plugin; interface designed anew                                                                   | No data needs to move; the owner's direction                                             |
+| 2026-11-09 | **Places belong to a person or a trip,** one shape, replacing the plugin's one shared table                                 | Shared trips and complete deletion; a count is read within a person's places             |
+| 2026-11-09 | **Only Organizers invite** and change roles                                                                                 | The trip's people stay under its Organizers' control                                     |
+| 2026-11-09 | **Followers never see attachments**                                                                                         | Bookings carry names, numbers and addresses                                              |
+| 2026-11-09 | Sharing check-ins **asked once per trip,** overridable per check-in; Followers see shared ones                              | Private by default, without asking on every check-in                                     |
+| 2026-11-09 | **Check-ins, items and day notes sync offline;** trips, stops, roles and attachments are online; items keep no history      | A plan is edited on the road; stop dates reshape days, which the server must decide      |
+| 2026-11-09 | Photos **re-encoded with all metadata removed;** the original is not kept                                                   | A photo may be shared with a trip; location in its metadata must not travel              |
+| 2026-11-09 | **Web Push in phase 3,** with reminders                                                                                     | It matters most for Trip Mode's reminders                                                |
+| 2026-11-09 | **Dates and times stay readable;** places, points and words are sealed                                                      | The database orders the timeline and finds auto-link candidates                          |
+| 2026-11-09 | **Every limit is a setting;** files default to **500 MB an account**                                                        | The owner's decision; operators size their own server                                    |

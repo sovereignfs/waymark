@@ -6,7 +6,7 @@
 
 ## Overview
 
-Years of history brought in from Swarm, so that Roam starts full. A resumable job that reads the export, makes places and check-ins, links them, and then
+Years of history brought in from Swarm, so that Waymark starts full. A resumable job that reads the export, makes places and check-ins, links them, and then
 fetches their photos from Foursquare's servers only. The job is general, so that later importers (`DESIGN.md` §26.2) are a reader each.
 
 ## Related
@@ -33,7 +33,7 @@ deleted at the end; `import_finished` raised once 12.1 is in. A reader is an int
 
 **Technical:** the ZIP read in a stream, never whole in memory; check-ins and venues mapped (venue to a place, de-duplicated by Foursquare venue id within
 the person's places; `createdAt` and `timeZoneOffset` to the moment and zone, the zone confirmed from the point with 4.4; `shout` to the note; `with` to
-companions; the Foursquare check-in id as `external_id`); fields Roam does not keep counted and reported; each check-in through the write path with
+companions; the Foursquare check-in id as `external_id`); fields Waymark does not keep counted and reported; each check-in through the write path with
 `source = import:swarm` and auto-link (once 9.7 is in, re-run for earlier imports); photos fetched through 1.7's helper from `*.4sqi.net` and
 `*.foursquare.com` over HTTPS only, redirects within them only, size-capped, two at a time, backoff, judged and re-encoded by 3.2, a failure recorded and
 skipped.

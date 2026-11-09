@@ -31,9 +31,9 @@ journal (11.5) and import (8.2); search over a person's places by name and dista
 
 **Goal:** `/api/places` search and reverse lookup through the operator's provider. **Design:** §7.2. **Depends on:** 4.1, 1.7.
 
-**Technical:** `ROAM_PLACES_PROVIDER` (`nominatim` default, `photon`, `off`) and `ROAM_PLACES_URL` (default the public Nominatim); adapters to one
+**Technical:** `WAYMARK_PLACES_PROVIDER` (`nominatim` default, `photon`, `off`) and `WAYMARK_PLACES_URL` (default the public Nominatim); adapters to one
 candidate shape (name, point, address parts, category, source id); the person's places first, then the provider's; for the public Nominatim, one request a
-second from the whole server (a claim in the database, so several processes share it), a User-Agent naming Roam and `ROAM_URL`, results cached a day,
+second from the whole server (a claim in the database, so several processes share it), a User-Agent naming Waymark and `WAYMARK_URL`, results cached a day,
 queries of three characters or more after a pause; through 1.7's outbound helper; provider down or `off` said plainly; a local fake for tests and
 `pnpm dev`. No search text, name or point in a log.
 
@@ -42,10 +42,10 @@ public instance; with `off`, the manual way works and says why search does not.
 
 #### 📋 4.3 — The tile service
 
-**Goal:** style, tiles, glyphs and sprites served by Roam. **Design:** §8.1, §8.2. **Depends on:** 1.10, 1.6.
+**Goal:** style, tiles, glyphs and sprites served by Waymark. **Design:** §8.1, §8.2. **Depends on:** 1.10, 1.6.
 
-**Technical:** `ROAM_MAP_SOURCE` (`proxy` default, `pmtiles`, `off`), `ROAM_MAP_UPSTREAM_URL`, `ROAM_MAP_PMTILES_PATH`, `ROAM_MAP_CACHE_MAX_MB` (2048);
-`/api/map/style/<theme>.json` (Roam's light and dark styles in `--sv-*` colours, pointing at Roam's own URLs only), `/api/map/tiles/{z}/{x}/{y}`,
+**Technical:** `WAYMARK_MAP_SOURCE` (`proxy` default, `pmtiles`, `off`), `WAYMARK_MAP_UPSTREAM_URL`, `WAYMARK_MAP_PMTILES_PATH`, `WAYMARK_MAP_CACHE_MAX_MB` (2048);
+`/api/map/style/<theme>.json` (Waymark's light and dark styles in `--sv-*` colours, pointing at Waymark's own URLs only), `/api/map/tiles/{z}/{x}/{y}`,
 `/api/map/glyphs/…`, `/api/map/sprites/…`; proxy through 1.7's helper with a disk cache under `/data/map/cache`, pruned oldest-read first by a job;
 PMTiles read by range from the file; signed in only, rate-limited per account; attribution in the style. **First:** read the candidate upstream's terms
 (OpenFreeMap) and record the choice in the README; decide whether glyphs and sprites ship in the image or are proxied, by their size; check the fonts'

@@ -1,6 +1,6 @@
 # Roadmap
 
-The order of work. **This file tracks progress; it does not define behaviour.** [`DESIGN.md`](DESIGN.md) says what Roam does, and where it disagrees with
+The order of work. **This file tracks progress; it does not define behaviour.** [`DESIGN.md`](DESIGN.md) says what Waymark does, and where it disagrees with
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
@@ -28,7 +28,7 @@ Three phases, each a release (`DESIGN.md` §2): **check-ins** (0.1.0), **trips**
 Phase 2 builds trips and their data first (H), then sharing (I), then the trip screens (J). Phase 3 builds today's plan as a pure function before its screen,
 and Web Push before reminders (L).
 
-**Epic 17 is work in `sovereign`**, tracked here because Roam waits on it: the map component, a photo viewer, a date range picker, `AvatarStack` and a
+**Epic 17 is work in `sovereign`**, tracked here because Waymark waits on it: the map component, a photo viewer, a date range picker, `AvatarStack` and a
 floating button (the last two shared with Tally), and the `invite` sign-up value (shared with Tally). Each is started early enough to be released before the
 task that needs it.
 
@@ -71,7 +71,7 @@ name in plain text, and deleting a person leaves nothing of them.
 ### Milestone C — Places and the map
 
 Places can be found and made, and a map can be drawn with nothing loaded from elsewhere. **Done when** a place is found through the configured search, a
-map of it renders in light and dark from Roam's own tiles, and the browser made no request off the app's origin.
+map of it renders in light and dark from Waymark's own tiles, and the browser made no request off the app's origin.
 
 | #   | ID                             | Task                   | Priority | Depends on | Status |
 | --- | ------------------------------ | ---------------------- | -------- | ---------- | ------ |
@@ -138,20 +138,20 @@ second run creates nothing; and the bell and email say it finished.
 Part of the suite, and a person can take their data and leave. **Done when** it signs in through core, honours both notices, a person's check-ins and
 photos round-trip through a file, and 0.1.0 is published and hosted on the live instance.
 
-| #   | ID                                | Task                                   | Priority | Depends on      | Status |
-| --- | --------------------------------- | -------------------------------------- | -------- | --------------- | ------ |
-| 50  | [2.3](docs/epics/accounts.md)     | Sign-in through core                   | P0       | 2.1, 2.7        | 📋     |
-| 51  | [2.4](docs/epics/accounts.md)     | Core's notices                         | P0       | 2.3, 2.5        | 📋     |
-| 52  | [14.1](docs/epics/suite.md)       | Core's bell, email, activity           | P2       | 2.3, 12.3       | 📋     |
-| 53  | [15.1](docs/epics/portability.md) | Export                                 | P2       | 5.3, 1.6        | 📋     |
-| 54  | [15.2](docs/epics/portability.md) | Import                                 | P2       | 15.1            | 📋     |
-| 55  | [3.3](docs/epics/encryption.md)   | Rotating the key                       | P2       | 3.1, 3.2        | 📋     |
-| 56  | [16.1](docs/epics/release.md)     | Development seed                       | P1       | 5.3, 4.1        | 📋     |
-| 57  | [17.3](docs/epics/upstream.md)    | Roam's port in the guide (`sovereign`) | P3       | —               | 📋     |
-| 58  | [16.3](docs/epics/release.md)     | Documents                              | P2       | 1.10, 4.3       | 📋     |
-| 59  | [16.2](docs/epics/release.md)     | Security review, phase 1               | P2       | 8.3, 15.2, 14.1 | 📋     |
-| 60  | [16.4](docs/epics/release.md)     | Release 0.1.0                          | P2       | 16.2, 16.3      | 📋     |
-| 61  | [16.5](docs/epics/release.md)     | Hosting on an instance                 | P2       | 16.4            | 📋     |
+| #   | ID                                | Task                                      | Priority | Depends on      | Status |
+| --- | --------------------------------- | ----------------------------------------- | -------- | --------------- | ------ |
+| 50  | [2.3](docs/epics/accounts.md)     | Sign-in through core                      | P0       | 2.1, 2.7        | 📋     |
+| 51  | [2.4](docs/epics/accounts.md)     | Core's notices                            | P0       | 2.3, 2.5        | 📋     |
+| 52  | [14.1](docs/epics/suite.md)       | Core's bell, email, activity              | P2       | 2.3, 12.3       | 📋     |
+| 53  | [15.1](docs/epics/portability.md) | Export                                    | P2       | 5.3, 1.6        | 📋     |
+| 54  | [15.2](docs/epics/portability.md) | Import                                    | P2       | 15.1            | 📋     |
+| 55  | [3.3](docs/epics/encryption.md)   | Rotating the key                          | P2       | 3.1, 3.2        | 📋     |
+| 56  | [16.1](docs/epics/release.md)     | Development seed                          | P1       | 5.3, 4.1        | 📋     |
+| 57  | [17.3](docs/epics/upstream.md)    | Waymark's port in the guide (`sovereign`) | P3       | —               | 📋     |
+| 58  | [16.3](docs/epics/release.md)     | Documents                                 | P2       | 1.10, 4.3       | 📋     |
+| 59  | [16.2](docs/epics/release.md)     | Security review, phase 1                  | P2       | 8.3, 15.2, 14.1 | 📋     |
+| 60  | [16.4](docs/epics/release.md)     | Release 0.1.0                             | P2       | 16.2, 16.3      | 📋     |
+| 61  | [16.5](docs/epics/release.md)     | Hosting on an instance                    | P2       | 16.4            | 📋     |
 
 ## Phase 2 — Trips (0.2.0)
 

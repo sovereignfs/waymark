@@ -52,7 +52,7 @@ check-in's page with the photo viewer (17.6), Edit (the sheet filled) and Delete
 **Goal:** `/map`. **Design:** §8.2, §20.7. **Depends on:** 7.3, 4.3, 17.1.
 
 **Technical:** every check-in clustered from the store; the timeline's filters; a selected marker shows the place, times and last visit; the list of what
-is in view beside the map wide, and alone when `ROAM_MAP_SOURCE` is `off`; the style follows the theme.
+is in view beside the map wide, and alone when `WAYMARK_MAP_SOURCE` is `off`; the style follows the theme.
 
 **Accepts when:** the map shows a seeded decade without request off the origin, and the list matches the markers in view.
 

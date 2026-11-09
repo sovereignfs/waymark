@@ -32,7 +32,7 @@ change a role, a person's "going"; the last Organizer held; `role_changed` raise
 **Technical:** `invitation` (one trip, one role; email sealed); by a name of someone the Organizer shares a trip with (a notice), by email (a notice to
 an account with it, mail through 12.2 to any other address; the lookup rate-limited per account and hour), or as a link; token of 32 random bytes, stored
 as its hash, compared in constant time, 14 days, single-use, revocable, resent once an hour; `/invite/<token>` showing the trip's name, dates and inviter
-only, every invalid link the same page; accept by signing in or signing up (`ROAM_AUTH_SIGNUP=invite` from 17.2, the default from then); `invited` and
+only, every invalid link the same page; accept by signing in or signing up (`WAYMARK_AUTH_SIGNUP=invite` from 17.2, the default from then); `invited` and
 `invite_accepted`; the manifest's scopes gain `offline_access` and `directory` (used by 14.2).
 
 **Accepts when:** a link sent through any channel is accepted by whoever holds it, once; an expired, revoked or used link shows the same page as a

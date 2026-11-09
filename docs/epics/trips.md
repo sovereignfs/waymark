@@ -22,7 +22,7 @@ into the trip their date and place match. Trips, stops, ready, attachments and l
 
 **Technical:** `trip` (name and description sealed) and `trip_member` (the creator as Organizer, going); `/api/ops` as Tusk's and Tally's (session,
 `Origin`, one handler per operation, the trip's new state or a refusal that reads as not found); create, rename, recolour, describe, delete (confirmed,
-naming what goes; linked check-ins unlinked); the membership-and-role fragment in `src/access/`; `src/access/routes.ts` and the second-person test; the limits of §10.8, each a setting (`ROAM_LIMIT_*`, declared in `src/config/` and `.env.example`), lowering one never deleting anything.
+naming what goes; linked check-ins unlinked); the membership-and-role fragment in `src/access/`; `src/access/routes.ts` and the second-person test; the limits of §10.8, each a setting (`WAYMARK_LIMIT_*`, declared in `src/config/` and `.env.example`), lowering one never deleting anything.
 
 **Accepts when:** a second person gets not found from every operation on the trip; deleting a trip leaves no row of it and unlinks its check-ins.
 

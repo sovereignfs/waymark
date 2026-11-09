@@ -6,7 +6,7 @@
 
 ## Overview
 
-Who can sign in, how, and what Roam keeps of them: local accounts and core, from one image; Roam's own profile of name and email; core's two notices; the
+Who can sign in, how, and what Waymark keeps of them: local accounts and core, from one image; Waymark's own profile of name and email; core's two notices; the
 one routine that removes everything of a person; the landing page; Settings. Sign-in is copied from Tusk; the profile follows Tally's `person`, without
 placeholders.
 
@@ -20,8 +20,8 @@ placeholders.
 
 **Goal:** local accounts, as Tusk's. **Design:** §19.1, §6.2. **Depends on:** 1.5, 1.8.
 
-**Technical:** copy Tusk's `src/auth/` (better-auth in `roam_auth`, password, passkey, authenticator app with backup codes, the `Auth` screens), on when
-`ROAM_AUTH_LOCAL=1`, the sign-in pages 404 otherwise; the sign-up policy hook with `open` and `closed` (`invite` is 10.2); email verification and
+**Technical:** copy Tusk's `src/auth/` (better-auth in `waymark_auth`, password, passkey, authenticator app with backup codes, the `Auth` screens), on when
+`WAYMARK_AUTH_LOCAL=1`, the sign-in pages 404 otherwise; the sign-up policy hook with `open` and `closed` (`invite` is 10.2); email verification and
 password reset only with mail set up (through 12.2 once it is in; until then, Tusk's direct send); rate limits on sign-up and sign-in.
 
 **Accepts when:** the first account can be made and signed in to; with `closed`, a second sign-up is refused; with `AUTH_LOCAL` off, every sign-in page
@@ -31,7 +31,7 @@ answers 404.
 
 **Goal:** what a visitor sees, and Home for a signed-in person. **Design:** §20.3, §20.4. **Depends on:** 2.1.
 
-**Technical:** `/` renders a short landing page (what Roam is, sign in, sign up when allowed) for a visitor and Home (7.6) when signed in; nothing personal
+**Technical:** `/` renders a short landing page (what Waymark is, sign in, sign up when allowed) for a visitor and Home (7.6) when signed in; nothing personal
 in the landing page's HTML; the shell page for the worker is separate (1.11).
 
 **Accepts when:** a visitor and a signed-in person get the right page from `/`, and the visitor's page carries no data of anyone.
@@ -40,7 +40,7 @@ in the landing page's HTML; the shell page for the worker is separate (1.11).
 
 **Goal:** a Sovereign core as a way in. **Design:** §19.1, §19.2, §19.4. **Depends on:** 2.1, 2.7.
 
-**Technical:** copy Tusk's `genericOAuth` provider with PKCE, on when `ROAM_CORE_*` are set; an account for anyone core signs in, whatever
+**Technical:** copy Tusk's `genericOAuth` provider with PKCE, on when `WAYMARK_CORE_*` are set; an account for anyone core signs in, whatever
 `AUTH_SIGNUP` says; its profile made from core's name and email, not overwritten after; no implicit linking (a core login whose email is a local account's
 is refused until linked from a signed-in session with the same address); the fake Sovereign for tests, copied. Scopes `openid profile email` in phase 1.
 
@@ -81,7 +81,7 @@ the second's rows intact; a new table fails the test until it is handled.
 
 #### 📋 2.7 — Profiles
 
-**Goal:** Roam's own copy of name and email. **Design:** §6.1. **Depends on:** 2.1, 3.1.
+**Goal:** Waymark's own copy of name and email. **Design:** §6.1. **Depends on:** 2.1, 3.1.
 
 **Technical:** `profile`, made in the same transaction as the account (better-auth's user-creation hook, after the policy), name and email sealed (3.1);
 kept in step from Settings; one visibility function for email (`src/access/visibility.ts`), used by every read that returns a profile; names never read

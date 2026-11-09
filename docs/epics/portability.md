@@ -6,7 +6,7 @@
 
 ## Overview
 
-A person can take what is theirs and bring it to another Roam: one ZIP of JSON and files, built by a job. Phase 1 covers places and check-ins; phase 2 adds
+A person can take what is theirs and bring it to another Waymark: one ZIP of JSON and files, built by a job. Phase 1 covers places and check-ins; phase 2 adds
 trips. This is the app's own format, separate from the Swarm import (epic 8).
 
 ## Related
@@ -19,7 +19,7 @@ trips. This is the app's own format, separate from the Swarm import (epic 8).
 
 **Goal:** a person's data in one file. **Design:** §22. **Depends on:** 5.3, 1.6.
 
-**Technical:** a job builds a ZIP: `roam.json` (`format`, `version`, profile, settings, places, check-ins with companions and links) and the photos as files;
+**Technical:** a job builds a ZIP: `waymark.json` (`format`, `version`, profile, settings, places, check-ins with companions and links) and the photos as files;
 stored sealed under `/data/exports`, downloadable from Settings > Data within a day, then deleted; no one else's email; noted on core's activity page once
 14.1 is in.
 
@@ -29,7 +29,7 @@ stored sealed under `/data/exports`, downloadable from Settings > Data within a 
 
 **Goal:** a file made into new rows. **Design:** §22. **Depends on:** 15.1.
 
-**Technical:** upload a Roam ZIP; validated whole before anything is written; places and check-ins made new for the importer, skipping ones already there
+**Technical:** upload a Waymark ZIP; validated whole before anything is written; places and check-ins made new for the importer, skipping ones already there
 by id, photos through 3.2; a newer version refused with a sentence; a job for large files, with 8.1's resumable shape.
 
 **Accepts when:** export, import into a second account, export again: the two exports match but for ids and times; importing the same file twice creates

@@ -39,36 +39,36 @@ with why.
 
 **Goal:** what an operator and a person need. **Design:** §25 Deployment. **Depends on:** 1.10, 4.3.
 
-**Technical:** the README (running alone with each database form and `/data`, hosting with `sv app add roam`, every setting, the map's sources and
+**Technical:** the README (running alone with each database form and `/data`, hosting with `sv app add waymark`, every setting, the map's sources and
 attribution, where to get a PMTiles file, the place search and what leaves the server, what encryption at rest does and does not protect, backups of
 `/data` with the database), `RELEASING.md` copied from Tusk, and a short user guide (checking in, offline, importing).
 
-**Accepts when:** someone new runs Roam alone from the README alone.
+**Accepts when:** someone new runs Waymark alone from the README alone.
 
 #### 📋 16.4 — Release 0.1.0
 
 **Goal:** phase 1 published. **Design:** §2. **Depends on:** 16.2, 16.3.
 
-**Technical:** `scripts/release.sh` copied from Tusk; `CHANGELOG.md`'s 0.1.0; the tag publishes amd64 and arm64 to `ghcr.io/sovereignfs/roam`, attested,
+**Technical:** `scripts/release.sh` copied from Tusk; `CHANGELOG.md`'s 0.1.0; the tag publishes amd64 and arm64 to `ghcr.io/sovereignfs/waymark`, attested,
 booted; the package made public.
 
-**Accepts when:** `ghcr.io/sovereignfs/roam:0.1.0` is published and boots from `deploy/`.
+**Accepts when:** `ghcr.io/sovereignfs/waymark:0.1.0` is published and boots from `deploy/`.
 
 #### 📋 16.5 — Hosting on an instance
 
-**Goal:** Roam on the live instance. **Design:** §19.4, §25 Deployment. **Depends on:** 16.4.
+**Goal:** Waymark on the live instance. **Design:** §19.4, §25 Deployment. **Depends on:** 16.4.
 
-**Technical:** `./sv app add roam --image ghcr.io/sovereignfs/roam:0.1.0` in `openfs-suite`, the three app scopes granted, the map source and SMTP set in
+**Technical:** `./sv app add waymark --image ghcr.io/sovereignfs/waymark:0.1.0` in `openfs-suite`, the three app scopes granted, the map source and SMTP set in
 `suite.yml`, `./sv push && ./sv deploy`; checked by signing in through core, checking in, importing a small export.
 
-**Accepts when:** Roam answers at its subdomain on the live instance and a person signed in through core can check in.
+**Accepts when:** Waymark answers at its subdomain on the live instance and a person signed in through core can check in.
 
 #### 📋 16.6 — Security review and release 0.2.0
 
 **Goal:** phase 2 published. **Design:** §2, §25 Security. **Depends on:** 11.8, 15.3, 14.2.
 
 **Technical:** the review of 16.2 for phase 2 (`docs/security/0.2.0.md`): roles in every statement and in sync, sharing (§11.3), invitations, attachments
-for Followers, auto-link across members; then the release and `./sv app update roam` on the live instance, with `./sv backup` first (it has migrations).
+for Followers, auto-link across members; then the release and `./sv app update waymark` on the live instance, with `./sv backup` first (it has migrations).
 
 **Accepts when:** the review is merged, 0.2.0 is published and the live instance runs it.
 

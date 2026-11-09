@@ -6,12 +6,12 @@ in `ROADMAP.md`, the task's epic and the PR body.
 
 This repository follows the conventions of [`sovereignfs/sovereign`](https://github.com/sovereignfs/sovereign) (its `AGENTS.md`,
 `docs/building-an-app.md` and `docs/development-workflow.md`), of [`sovereignfs/tusk`](https://github.com/sovereignfs/tusk) (its `AGENTS.md`, the closest
-model: an app of its own built from a roadmap) and of `sovereignfs/tally` (whose sync, invitations and notice delivery Roam follows). Where this file is
+model: an app of its own built from a roadmap) and of `sovereignfs/tally` (whose sync, invitations and notice delivery Waymark follows). Where this file is
 silent, do what Tusk does; where they differ, this file says which.
 
 ## What this is
 
-**Roam**, an app of the Sovereign suite exactly as Tusk, Fjord, Ledger and Tally are: check in where you are, plan trips with the people going and the
+**Waymark**, an app of the Sovereign suite exactly as Tusk, Fjord, Ledger and Tally are: check in where you are, plan trips with the people going and the
 people following, and look back on everywhere you have been, on a map. Check-ins stand alone; a trip is a folder they fall into when the dates match. A
 Sovereign instance can host it, and **it runs fully on its own, with every feature, needing no instance**: its own accounts, mail, notices, files and map.
 It replaces the legacy plugin `sovereignfs/sovereign-plugin-travellog`, whose behaviour is the starting point and none of whose code, data or interface is
@@ -27,7 +27,7 @@ Read the relevant document before a task. Where two disagree, the earlier one wi
 1. **The contracts Sovereign publishes**, in the `sovereign` repository: `contracts/app-manifest.md`, `contracts/env.md`, `docs/using-the-sdk.md` and
    `docs/specs/sdk.md`, `docs/specs/design-system.md` and `docs/design-system.md`, `docs/connecting-an-app.md`. A gap is raised in `sovereign`, not
    patched here.
-2. **`DESIGN.md`**: what Roam is and how it is built, with numbered sections that tasks cite.
+2. **`DESIGN.md`**: what Waymark is and how it is built, with numbered sections that tasks cite.
 3. **`ROADMAP.md`**: the order of work, one row per task, canonical for status.
 4. **`docs/epics/`**: each task's detail (goal, "Accepts when", and once done, how it was done and what was left out).
 
@@ -42,7 +42,7 @@ Directories are created when they are needed. Research (`docs/research/`), RFCs 
 - **A finished task is marked done in its roadmap row and written up in its epic** (Done as: what, where, what was left out), in the same change as
   the work.
 - **Copying from Tusk or Tally is said, not hidden:** a task that copies a file names it in its Done as, and changes in behaviour are stated.
-- **Epic 17 is work in `sovereign`;** a Roam task that depends on it waits for the published release. Where Tally needs the same part, one build serves
+- **Epic 17 is work in `sovereign`;** a Waymark task that depends on it waits for the published release. Where Tally needs the same part, one build serves
   both.
 - **`DESIGN.md` §28 lists what still waits on an input** (a real Swarm export, the default tile upstream); the task it blocks says so.
 
@@ -68,11 +68,11 @@ Directories are created when they are needed. Research (`docs/research/`), RFCs 
 
 ## Rules of an app
 
-Tusk's rules, as they apply here, and Roam's own. They describe the app as `DESIGN.md` designs it.
+Tusk's rules, as they apply here, and Waymark's own. They describe the app as `DESIGN.md` designs it.
 
 - **Every feature works with no Sovereign instance.** Core adds a way in, a directory, a bell and email; a feature that only works with core is not
   done. A call to core that fails, is refused or is not supported changes nothing but that call (`DESIGN.md` §19.4). **Files, the map, place search and
-  push are always Roam's own.**
+  push are always Waymark's own.**
 - **An account is known by its better-auth user id (`account_id`).** Names and emails are read from `profile`, never from the auth store or core. A `sub`
   is identity; an email is never matched to an account at sign-in.
 - **An email is shown only to whom `DESIGN.md` §6.1 allows,** through the one visibility function, and never in a notice or another person's export.
@@ -111,12 +111,12 @@ Tusk's rules, as they apply here, and Roam's own. They describe the app as `DESI
 - **The database has three forms and two dialects:** a schema and migrations per dialect, generated with `pnpm db:generate`, never written by hand or
   `push`ed; standard SQL, values bound; no `LISTEN/NOTIFY`, trigger, extension or foreign key; every deletion names what it deletes, in a transaction;
   short transactions, nothing held across a call to core, SMTP, place search or a tile upstream. A data-layer test runs on sqld, a `file:` database and
-  PostgreSQL. **Tests read `ROAM_TEST_*` and never the app's variables, and never reach the internet.**
+  PostgreSQL. **Tests read `WAYMARK_TEST_*` and never the app's variables, and never reach the internet.**
 - **A released migration is never edited:** a fix is a new migration.
 - **Secrets never appear in an error, a log, a URL or the browser.** Credentials (core's refresh token, push keys) are stored only through `src/crypto/`.
 - **The manifest is the one copy** (`sovereign.manifest.json`) of what an instance reads. `pnpm manifest:check` passes, and the image is built with
   `pnpm exec sovereign-manifest docker-args`. The port is 3005 everywhere.
-- **Environment variables carry the prefix `ROAM_`,** declared once through `@sovereignfs/config`; every one is in `.env.example`; the server refuses to
+- **Environment variables carry the prefix `WAYMARK_`,** declared once through `@sovereignfs/config`; every one is in `.env.example`; the server refuses to
   start on a wrong setting; no secret has a default; never `NEXT_PUBLIC_*` for a value that varies at run time.
 - **The design system is imported from `@sovereignfs/ui` directly,** pinned exactly; style with `--sv-*` tokens only, the map's style included; Hanken
   Grotesk served by the app. **Reusable UI is built in `@sovereignfs/ui` in `sovereign`, released, then used** (epic 17), never forked here.

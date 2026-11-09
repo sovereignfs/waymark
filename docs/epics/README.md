@@ -20,7 +20,7 @@ the task is corrected.
   is in); a screen works with a keyboard, in light and dark, at a phone's width, and offline where `DESIGN.md` §15 says it does; no place name, point,
   note, title, search, name or address reaches a log; no request leaves the browser for another origin; a safeguard's test was seen to fail with it
   switched off.
-- **Epic 17 is done in `sovereign`,** following that repository's conventions; its tasks here record what Roam needs and are marked done when the
+- **Epic 17 is done in `sovereign`,** following that repository's conventions; its tasks here record what Waymark needs and are marked done when the
   release that carries it is published. Where Tally needs the same, one build serves both.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_

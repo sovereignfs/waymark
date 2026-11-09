@@ -6,9 +6,9 @@
 
 ## Overview
 
-The repository that can hold Roam as `DESIGN.md` designs it: a Next.js app that runs alone or hosted, on three forms of database, with files under
-`/data`. Nothing a person would notice. **Tusk is the model throughout, and its infrastructure is copied** (`DESIGN.md` §5.1), renamed to `ROAM_`, and
-trimmed of what Roam does not use (workspaces, the cipher, backup to git). Where Tally or Ledger already trimmed a file the same way, its copy may be the
+The repository that can hold Waymark as `DESIGN.md` designs it: a Next.js app that runs alone or hosted, on three forms of database, with files under
+`/data`. Nothing a person would notice. **Tusk is the model throughout, and its infrastructure is copied** (`DESIGN.md` §5.1), renamed to `WAYMARK_`, and
+trimmed of what Waymark does not use (workspaces, the cipher, backup to git). Where Tally or Ledger already trimmed a file the same way, its copy may be the
 starting point, and the task says so. Each task says which files it copied.
 
 ## Related
@@ -22,7 +22,7 @@ starting point, and the task says so. Each task says which files it copied.
 **Goal:** the files a repository of the suite is expected to have. **Design:** §25, `AGENTS.md`. **Depends on:** nothing.
 
 **Technical:** `LICENSE` (AGPL-3.0-or-later), `CHANGELOG.md` with `[Unreleased]`, `CONTRIBUTING.md`, `README.md`, PR template, Dependabot,
-`.editorconfig`, `.node-version`; `package.json` (`@sovereignfs/roam`, `type: module`, engines `>=24.15 <25`, pnpm 11 with `minimumReleaseAge` and
+`.editorconfig`, `.node-version`; `package.json` (`@sovereignfs/waymark`, `type: module`, engines `>=24.15 <25`, pnpm 11 with `minimumReleaseAge` and
 `allowBuilds`); Next.js 16 (latest stable), React 19, TypeScript strict with `noUncheckedIndexedAccess`; `@sovereignfs/ui`, `sdk`, `config`, `manifest`
 pinned exactly at Tusk's versions.
 
@@ -51,8 +51,8 @@ with 1.10, the browser with 1.9. Skipped on drafts and `skip-ci`. No leg reaches
 
 **Goal:** settings declared once and checked before anything is served. **Design:** §19.1, §25 Deployment. **Depends on:** 1.2.
 
-**Technical:** `@sovereignfs/config` with prefix `ROAM`: `URL`, `AUTH_SECRET`, `AUTH_LOCAL`, `AUTH_SIGNUP` (`open`, `closed`; `invite` joins with 10.2
-once 17.2 is released), `AUTH_PASSWORD_MIN_LENGTH`, `CORE_*`, `DB_*`, `SMTP_*`, `ENCRYPTION_KEY(_PREVIOUS)`, `WORKER`; Roam's own are declared by the
+**Technical:** `@sovereignfs/config` with prefix `WAYMARK`: `URL`, `AUTH_SECRET`, `AUTH_LOCAL`, `AUTH_SIGNUP` (`open`, `closed`; `invite` joins with 10.2
+once 17.2 is released), `AUTH_PASSWORD_MIN_LENGTH`, `CORE_*`, `DB_*`, `SMTP_*`, `ENCRYPTION_KEY(_PREVIOUS)`, `WORKER`; Waymark's own are declared by the
 tasks that use them (4.2, 4.3, 3.2, 12.4). `_FILE` forms for secrets; `instrumentation.ts` hands to `instrumentation-node.ts`, which checks and stops on a
 wrong setting; `.env.example` held to the declarations by a test; `/api/health`. Copied: Tusk's `src/config/`, instrumentation.
 
@@ -63,8 +63,8 @@ wrong setting; `.env.example` held to the declarations by a test; `/api/health`.
 **Goal:** three forms, two dialects, migrations at start-up. **Design:** §24.1, §24.2. **Depends on:** 1.4.
 
 **Technical:** copy Tusk's `src/db/` (config, clients, provision, migrate, boot with retries and `DB_CONNECT_TIMEOUT_MS`, `exec.ts`, the column
-vocabulary, `test-support.ts` reading `ROAM_TEST_*`); add a `sealed` column type (a binary envelope, `blob` and `bytea`); the two stores `roam` and
-`roam_auth`; `pnpm db:generate`, `pnpm db:dev`; the parity test; CI legs on sqld, a file and PostgreSQL.
+vocabulary, `test-support.ts` reading `WAYMARK_TEST_*`); add a `sealed` column type (a binary envelope, `blob` and `bytea`); the two stores `waymark` and
+`waymark_auth`; `pnpm db:generate`, `pnpm db:dev`; the parity test; CI legs on sqld, a file and PostgreSQL.
 
 **Accepts when:** an empty database of each form is provisioned and migrated at start-up, twice safely; CI fails if generating would write anything.
 
@@ -72,7 +72,7 @@ vocabulary, `test-support.ts` reading `ROAM_TEST_*`); add a `sealed` column type
 
 **Goal:** background work in the web process, safe across processes. **Design:** §5. **Depends on:** 1.5.
 
-**Technical:** copy Tusk's `src/jobs/` (runner, `claim.ts`, `index.ts`) and `job_claim`; `ROAM_WORKER=off`; stopped on SIGTERM, letting a running import
+**Technical:** copy Tusk's `src/jobs/` (runner, `claim.ts`, `index.ts`) and `job_claim`; `WAYMARK_WORKER=off`; stopped on SIGTERM, letting a running import
 step finish or record its cursor (8.1).
 
 **Accepts when:** a job's work is done once when two processes run it; SIGTERM stops the runner and the server cleanly.
@@ -94,7 +94,7 @@ outbound helper refuses a private address and a redirect to another host.
 
 **Technical:** tokens and Hanken Grotesk served by the app; `src/theme/` sets `data-theme` before paint; `AppShell` with the header (wordmark, a place for
 the bell, the avatar menu) and the sidebar's frame (_Check in_, Home, Check-ins, Map, Places; the Trips section hidden until phase 2), full or a rail,
-remembered on the device; `MobileFooter` at a phone's width; the app's CSS check (only `--sv-*` colours); Roam's mark in `public/icons/`; not-found and
+remembered on the device; `MobileFooter` at a phone's width; the app's CSS check (only `--sv-*` colours); Waymark's mark in `public/icons/`; not-found and
 error pages. The places are filled by epic 7.
 
 **Accepts when:** the shell renders in light and dark at desktop and phone widths, with no literal colour anywhere.
@@ -124,7 +124,7 @@ a `/data` volume; `scripts/deploy-check.sh`; `publish.yml` on a `vX.Y.Z` tag.
 
 **Goal:** installable, with a service worker that keeps the shell only. **Design:** §20.12. **Depends on:** 1.8.
 
-**Technical:** copy Tusk's `src/sw/` and `app/manifest.ts` (name Roam, icons with a maskable one, `display: standalone`); an allow-list of build files and
+**Technical:** copy Tusk's `src/sw/` and `app/manifest.ts` (name Waymark, icons with a maskable one, `display: standalone`); an allow-list of build files and
 icons; the public shell page holding nothing of a person; an offline page for every other address. Answering signed-in addresses offline is 6.4; a trip's
 tiles are 13.5.
 

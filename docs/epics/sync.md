@@ -30,12 +30,12 @@ join with 6.6.
 
 **Goal:** IndexedDB per account, an outbox, and a loop that syncs. **Design:** §15.1, §15.3, §15.8. **Depends on:** 6.1.
 
-**Technical:** `src/local/` with `idb`: one database per account (`roam-<account id>`); the person's places, check-ins and photo records; writes to the
+**Technical:** `src/local/` with `idb`: one database per account (`waymark-<account id>`); the person's places, check-ins and photo records; writes to the
 store and the outbox in one transaction; the loop after a write (debounced), on load, on focus, on coming online, every 30 seconds while visible, and from
 Background Sync; Web Locks so one tab syncs, BroadcastChannel to tell the others; first load in pages, newest first; sign-out sends the outbox, then deletes
 the database; an ended session keeps the outbox for the same account. Copied: Tally's `src/local/` shape.
 
-**Accepts when:** two browsers of one account, one offline, both end with the same check-ins; signing out leaves no Roam database in the browser.
+**Accepts when:** two browsers of one account, one offline, both end with the same check-ins; signing out leaves no Waymark database in the browser.
 
 #### 📋 6.3 — Couldn't sync
 
