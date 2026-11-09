@@ -48,6 +48,11 @@ export const ROUTES: RouteRule[] = [
     route: '/api/media/[id]',
     methods: { GET: { kind: 'account' }, PUT: { kind: 'account' }, DELETE: { kind: 'account' } },
   },
+  // Deleting the account (DESIGN.md §23): what it would do, and doing it with the password (or a session made just now, for an account with none); the account is the session's.
+  {
+    route: '/api/account/delete',
+    methods: { GET: { kind: 'account' }, POST: { kind: 'account' } },
+  },
   // better-auth's own: it checks `Origin` and the session cookie itself, and rate-limits sign-in (src/auth/auth.ts). Absent, with a 404, when sign-in is off.
   {
     route: '/api/auth/[...all]',

@@ -262,3 +262,32 @@ export async function sweepOrphans(deps: MediaDeps): Promise<SweepResult> {
   }
   return result;
 }
+
+/**
+ * Removes every file of an account, for `People.deletePerson` (DESIGN.md §23): **the files first, then their rows**, so that a run that stops part way leaves the rows that name the
+ * files still to go, and running it again finishes. Returns how many files there were. Safe to run twice.
+ */
+export async function deleteMediaOf(deps: MediaDeps, accountId: string): Promise<number> {
+  const rows = await dbAll<{ id: string }>(
+    deps.database,
+    sql`SELECT id FROM ${table(deps.database)} WHERE account_id = ${accountId}`,
+  );
+  for (const row of rows) await removeFile(deps.dir, row.id);
+  await dbAll(
+    deps.database,
+    sql`DELETE FROM ${table(deps.database)} WHERE account_id = ${accountId} RETURNING id`,
+  );
+  return rows.length;
+}
+
+/** What an account has stored: the number of files and their size, for what a deletion says goes. */
+export async function summaryOf(
+  database: Database,
+  accountId: string,
+): Promise<{ files: number; bytes: number }> {
+  const row = await dbGet<{ n: number | string; bytes: number | string | null }>(
+    database,
+    sql`SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS bytes FROM ${table(database)} WHERE account_id = ${accountId}`,
+  );
+  return { files: Number(row?.n ?? 0), bytes: Number(row?.bytes ?? 0) };
+}

@@ -78,7 +78,7 @@ account deleted runs `People.deletePerson` and answers `200` only once rows and 
 **Accepts when:** against `createFakeCore`, logout ends every session of the person, account deleted removes them, and a replayed notice is refused after
 a restart.
 
-#### 📋 2.5 — Deleting a person
+#### ✅ 2.5 — Deleting a person
 
 **Goal:** one routine that removes everything of an account. **Design:** §23. **Depends on:** 2.7, 3.2.
 
@@ -89,6 +89,16 @@ after the password or a fresh session, with what goes said; the device's databas
 
 **Accepts when:** a test seeding one row of every table for the person and a second person finds nothing of the first afterwards, files included, and
 the second's rows intact; a new table fails the test until it is handled.
+
+**Done as:** `src/sovereign/people.ts` written from Tusk's shape for Waymark's phase-1 tables: **1.** the account's files, the files first and then their rows (`deleteMediaOf`, so that a run that stops between the two
+leaves the rows that name the files still to go), **2.** in one transaction of the app store their profile and their rate counters, **3.** the sign-in store: sessions, sign-ins, second factors, passkeys, verifications named
+by their address, and the account last. Safe to run twice. `src/sovereign/delete-account.ts` and `app/api/account/delete/route.ts` (copied from Tusk and trimmed): the preview (does it ask for a password, and how many files and
+bytes go; places, check-ins and trips join as those tables do) and the deletion with the password, **counted** (5 in 10 minutes), or for an account with no password a session made in the last ten minutes; the account is the session's and
+no other, `Origin` is checked, the route is in `src/access/routes.ts`. Settings > Data (2.6) is where it is reached. **Tests:** `people.test.ts` asks the schema for its tables and **fails for one that is in none of its three lists**
+(seen with a planted table), then seeds a profile, a photo, a rate counter and sign-in rows for two people, deletes one twice, and finds nothing of them, files on disk included, and the other whole; a run cut off after one file
+is finished by the next; `delete-account.test.ts` over HTTP: signed-in and from the app, wrong or absent password deletes nothing, the limit, the right password deletes the session's account and not another's and ends the session,
+the no-password path; 459 tests pass on a `file:` database, sqld and PostgreSQL (and the profile deletion's removal fails the seeding test). Left out: the device's database being deleted (6.2) and core's `account-deleted`
+notice (2.4), which calls this routine; the rules for trips and for later tables join with them (`AGENTS.md`: a new table is handled here in the same change).
 
 #### 📋 2.6 — Settings
 
