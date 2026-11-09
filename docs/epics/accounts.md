@@ -100,7 +100,7 @@ is finished by the next; `delete-account.test.ts` over HTTP: signed-in and from 
 the no-password path; 459 tests pass on a `file:` database, sqld and PostgreSQL (and the profile deletion's removal fails the seeding test). Left out: the device's database being deleted (6.2) and core's `account-deleted`
 notice (2.4), which calls this routine; the rules for trips and for later tables join with them (`AGENTS.md`: a new table is handled here in the same change).
 
-#### 📋 2.6 — Settings
+#### ✅ 2.6 — Settings
 
 **Goal:** `/settings` with its sections. **Design:** §21. **Depends on:** 2.7, 1.8.
 
@@ -108,6 +108,17 @@ notice (2.4), which calls this routine; the rules for trips and for later tables
 15.2, 2.5); Check-ins, Notifications and This device are filled by 10.3, 12.3 and 6.3. Online only, saying so offline.
 
 **Accepts when:** each section saves and reads back; changing the name changes it wherever the person is shown.
+
+**Done as:** `/settings` (`app/(app)/settings/page.tsx`, from the avatar menu's new _Settings_) with `src/settings/`: the shell (Tusk's, with its sections down the left, the ones not shown kept mounted, and the design
+system's `OfflineGate` so that with no connection it says it needs one and shows nothing that could be stale), **Profile** (name, units, the first day of the week, saved through `PATCH /api/settings`; the address is shown and
+not changed here, since it is the one the person signs in with), **Sign-in** (Tusk's `SecuritySection`, `PasskeysPanel` and `TwoFactorPanel` copied and renamed: password, authenticator app with backup codes, passkeys, devices; `qrcode.react` is
+installed for the authenticator's code; linking core waits for 2.3) and **Data** (storage used against the account's limit, and _Delete account_ from 2.5 saying what goes and asking for the password). `src/settings/api.ts`
+holds the two handlers (taking their dependencies, so a test calls them as a second person) and `app/api/settings/route.ts` binds them: `GET` and `PATCH` of the session's own profile, a body cut off at 4 KB, only `name`, `units`,
+`weekStart` and `shareDefault` accepted, a refusal that says `BAD_REQUEST` and nothing of what was sent; both in `src/access/routes.ts`. **The sections that depend on other tasks are not shown yet** (Check-ins 10.3,
+Notifications 12.3, This device 6.3, and Data's import and export 8.3, 15.1, 15.2): an empty section is worse than none. **Seen:** the handlers as the person, as someone else, as a visitor and from another origin (each person
+reads and changes only their own; a change as one is not a change to the other); 468 tests on a `file:` database, sqld and PostgreSQL; the whole browser suite, 58 tests in Chromium and WebKit, including opening Settings from the menu, each
+section, a saved name and units reading back after a reload and showing in the menu on another page, an invalid name refused, and the offline notice. `src/settings/query.test.ts` holds what an address can ask for. Left out: changing the
+sign-in address (better-auth's `changeEmail` and its verification, which is decided apart from the profile's copy) and the check-ins section's `share_default` control, which saves through the same route when 10.3 adds it.
 
 #### ✅ 2.7 — Profiles
 

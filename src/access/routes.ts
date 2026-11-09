@@ -37,11 +37,15 @@ export const ROUTES: RouteRule[] = [
   { route: '/checkins', page: { kind: 'account' } },
   { route: '/map', page: { kind: 'account' } },
   { route: '/places', page: { kind: 'account' } },
+  // Settings (DESIGN.md §21): the profile, sign-in and data, for the signed-in account only.
+  { route: '/settings', page: { kind: 'account' } },
 
   // APIs
   { route: '/api/health', methods: { GET: { kind: 'public' } } },
   // The service worker's text (DESIGN.md §20.12): the same for everyone, the build's version and the names of its files, and nothing of an account.
   { route: '/sw.js', methods: { GET: { kind: 'public' } } },
+  // What Settings reads and changes of the signed-in account's own profile.
+  { route: '/api/settings', methods: { GET: { kind: 'account' }, PATCH: { kind: 'account' } } },
   // Files (DESIGN.md §18.3): the account is the session's, and every statement names it, so another person's file is not found.
   { route: '/api/media', methods: { POST: { kind: 'account' } } },
   {
