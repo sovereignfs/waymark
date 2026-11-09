@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-09: **Milestone A in progress** (1.1 to 1.9 and 1.11 done; 1.10 is written and its image not yet built). **Milestone B in progress** (2.1, 3.1, 2.7 and 2.2 done). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-09: **Milestone A in progress** (1.1 to 1.9 and 1.11 done; 1.10 is written and its image not yet built). **Milestone B in progress** (2.1, 3.1, 2.7, 2.2 and 3.2 done). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -64,7 +64,7 @@ name in plain text, and deleting a person leaves nothing of them.
 | 13  | [3.1](docs/epics/encryption.md) | Sealed rows                      | P0       | 1.5        | ✅     |
 | 14  | [2.7](docs/epics/accounts.md)   | Profiles                         | P0       | 2.1, 3.1   | ✅     |
 | 15  | [2.2](docs/epics/accounts.md)   | Landing page and the address `/` | P1       | 2.1        | ✅     |
-| 16  | [3.2](docs/epics/encryption.md) | The media store                  | P0       | 3.1, 1.6   | 📋     |
+| 16  | [3.2](docs/epics/encryption.md) | The media store                  | P0       | 3.1, 1.6   | ✅     |
 | 17  | [2.6](docs/epics/accounts.md)   | Settings                         | P1       | 2.7, 1.8   | 📋     |
 | 18  | [2.5](docs/epics/accounts.md)   | Deleting a person                | P0       | 2.7, 3.2   | 📋     |
 

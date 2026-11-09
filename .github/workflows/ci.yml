@@ -216,7 +216,8 @@ jobs:
       - name: A fresh instance boots
         run: |
           WAYMARK_ENCRYPTION_KEY="$(openssl rand -hex 32)"
-          export WAYMARK_ENCRYPTION_KEY
+          WAYMARK_DATA_DIR="$RUNNER_TEMP/waymark-boot-data"
+          export WAYMARK_ENCRYPTION_KEY WAYMARK_DATA_DIR
           pnpm boot-check
 
       # What only a browser can show, on this leg's database, **before the unit tests**, which empty and refill the stores: the smoke test, in Chromium. The server is

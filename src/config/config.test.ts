@@ -264,6 +264,28 @@ describe('loadConfig', () => {
   });
 });
 
+describe('files', () => {
+  it('are under /data with 500 MB for each account, unless told otherwise', () => {
+    expect(load({})).toMatchObject({
+      ok: true,
+      config: { media: { dataDir: '/data', maxAccountBytes: 500 * 1024 * 1024 } },
+    });
+    expect(
+      load({ WAYMARK_DATA_DIR: '/srv/waymark/', WAYMARK_MEDIA_MAX_ACCOUNT_MB: '20' }),
+    ).toMatchObject({
+      config: { media: { dataDir: '/srv/waymark', maxAccountBytes: 20 * 1024 * 1024 } },
+    });
+  });
+
+  it('stop the server for a relative directory and a limit that is not a number of megabytes, naming the setting', () => {
+    expect(problems(load({ WAYMARK_DATA_DIR: 'data/here' }))[0]).toContain('WAYMARK_DATA_DIR');
+    for (const value of ['0', '-5', 'lots', '1.5'])
+      expect(problems(load({ WAYMARK_MEDIA_MAX_ACCOUNT_MB: value }))[0], value).toContain(
+        'WAYMARK_MEDIA_MAX_ACCOUNT_MB',
+      );
+  });
+});
+
 describe('reading the environment', () => {
   const read = (env: Record<string, string | undefined>, name: string, readFile?: () => string) => {
     const reading = readEnvironment(env, readFile);

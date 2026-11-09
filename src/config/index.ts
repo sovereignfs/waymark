@@ -17,9 +17,20 @@ export interface Config {
   readonly database: DatabaseSettings;
   /** The instance key, and the one it replaces while rows are moved to it. Always present: what Waymark stores is sealed with it (DESIGN.md §18.1). */
   readonly encryption: KeyRing;
+  /** Where files are kept and how much one account may keep (DESIGN.md §18.3). */
+  readonly media: MediaSettings;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either (DESIGN.md §19.1). */
   readonly mail: MailSettings | undefined;
 }
+
+/** The directory everything the app writes beside the database is under (`/data` in the image), and the most one account may keep in files. */
+export interface MediaSettings {
+  readonly dataDir: string;
+  readonly maxAccountBytes: number;
+}
+
+export const DEFAULT_DATA_DIR = '/data';
+export const DEFAULT_MEDIA_MAX_ACCOUNT_MB = 500;
 
 /** One thing that is wrong, in words that name the setting and never its value. */
 export type Problem = string;
@@ -148,6 +159,19 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
     problems,
   );
 
+  // Files (DESIGN.md §18.3): the data directory is `/data`, which the image makes and the manifest declares, unless the operator says another; a limit for each account.
+  const rawDataDir = read('WAYMARK_DATA_DIR');
+  const dataDir = (rawDataDir ?? DEFAULT_DATA_DIR).replace(/\/+$/, '') || '/';
+  if (!dataDir.startsWith('/')) problems.push('WAYMARK_DATA_DIR is an absolute path.');
+  const rawLimit = read('WAYMARK_MEDIA_MAX_ACCOUNT_MB');
+  let limitMb = DEFAULT_MEDIA_MAX_ACCOUNT_MB;
+  if (rawLimit !== undefined) {
+    const parsed = Number(rawLimit);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000_000)
+      problems.push('WAYMARK_MEDIA_MAX_ACCOUNT_MB is a whole number of megabytes, 1 or more.');
+    else limitMb = parsed;
+  }
+
   // Mail is optional, but a host with no sender would send nothing anyone could answer, so it stops here rather than at the first message.
   const mail = resolveMail(read, problems);
 
@@ -169,6 +193,14 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
   }
   return {
     ok: true,
-    config: { url, auth, worker: rawWorker !== 'off', database, encryption, mail },
+    config: {
+      url,
+      auth,
+      worker: rawWorker !== 'off',
+      database,
+      encryption,
+      media: { dataDir, maxAccountBytes: limitMb * 1024 * 1024 },
+      mail,
+    },
   };
 }

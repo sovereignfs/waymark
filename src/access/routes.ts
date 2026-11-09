@@ -42,6 +42,12 @@ export const ROUTES: RouteRule[] = [
   { route: '/api/health', methods: { GET: { kind: 'public' } } },
   // The service worker's text (DESIGN.md §20.12): the same for everyone, the build's version and the names of its files, and nothing of an account.
   { route: '/sw.js', methods: { GET: { kind: 'public' } } },
+  // Files (DESIGN.md §18.3): the account is the session's, and every statement names it, so another person's file is not found.
+  { route: '/api/media', methods: { POST: { kind: 'account' } } },
+  {
+    route: '/api/media/[id]',
+    methods: { GET: { kind: 'account' }, PUT: { kind: 'account' }, DELETE: { kind: 'account' } },
+  },
   // better-auth's own: it checks `Origin` and the session cookie itself, and rate-limits sign-in (src/auth/auth.ts). Absent, with a 404, when sign-in is off.
   {
     route: '/api/auth/[...all]',

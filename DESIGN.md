@@ -1139,7 +1139,7 @@ docker run -v waymark:/data -e WAYMARK_DB_DIALECT=sqlite -e WAYMARK_SQLITE_URL=f
   -e WAYMARK_URL=https://waymark.example.com -e WAYMARK_AUTH_LOCAL=1 -e WAYMARK_AUTH_SECRET=… -e WAYMARK_ENCRYPTION_KEY=… ghcr.io/sovereignfs/waymark
 ```
 
-- **Settings:** the shared names of `contracts/env.md`, and Waymark's own: `WAYMARK_WORKER`; `WAYMARK_PLACES_PROVIDER`, `WAYMARK_PLACES_URL`; `WAYMARK_MAP_SOURCE`,
+- **Settings:** the shared names of `contracts/env.md`, and Waymark's own: `WAYMARK_WORKER`; `WAYMARK_DATA_DIR` (default `/data`, where everything beside the database is written); `WAYMARK_PLACES_PROVIDER`, `WAYMARK_PLACES_URL`; `WAYMARK_MAP_SOURCE`,
   `WAYMARK_MAP_UPSTREAM_URL`, `WAYMARK_MAP_PMTILES_PATH`, `WAYMARK_MAP_CACHE_MAX_MB`; the limits of §10.8 (`WAYMARK_LIMIT_*`, `WAYMARK_MEDIA_MAX_ACCOUNT_MB`); `WAYMARK_VAPID_PRIVATE_KEY` (phase 3). Each declared
   once in `@sovereignfs/config`, in `.env.example` and in the README.
 - **Hosted:** `sv app add waymark`, from the manifest; the operator grants the three app scopes, sets `WAYMARK_SMTP_*` to email people not on the instance and
@@ -1211,6 +1211,7 @@ The eleven choices the first draft made on its own were reviewed by the owner on
 
 1. **A real Swarm export** is needed before 8.2 fixes the mapping (§16); the owner provides one later.
 2. **The default tile upstream** is chosen in 4.3 after reading its terms (§8.1); OpenFreeMap is the candidate.
+3. **HEIC** (§9.3): `sharp`'s prebuilt libvips reads AVIF and not HEIC (HEVC is patent-encumbered), so 3.2 recognises a HEIC file by its bytes and refuses it with a sentence that says to share it as a JPEG, which iOS does itself for a photo chosen in a file input. Reading HEIC needs a libvips built with a HEVC decoder, which is a choice about licence and the image's build, made when a person needs it.
 
 ## 29. Decision log
 

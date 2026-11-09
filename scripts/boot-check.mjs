@@ -7,6 +7,9 @@
 //
 // Exits 0 if /api/health answers ok on the expected dialect, 1 otherwise.
 import { spawn } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { migrationsDir, prepareStandalone } from './lib/standalone.mjs';
 
 const port = process.env.BOOT_CHECK_PORT ?? '3999';
@@ -26,7 +29,14 @@ try {
 // The standalone server takes its port and address from the environment.
 const server = spawn('node', [entry], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, PORT: port, HOSTNAME: '127.0.0.1', WAYMARK_MIGRATIONS_DIR: migrationsDir },
+  env: {
+    ...process.env,
+    PORT: port,
+    HOSTNAME: '127.0.0.1',
+    WAYMARK_MIGRATIONS_DIR: migrationsDir,
+    // The data directory is `/data` in the image; a checkout has none, and health says so when it cannot write it.
+    WAYMARK_DATA_DIR: process.env.WAYMARK_DATA_DIR || mkdtempSync(join(tmpdir(), 'waymark-boot-')),
+  },
 });
 let log = '';
 server.stdout.on('data', (chunk) => (log += chunk));

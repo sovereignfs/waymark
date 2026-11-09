@@ -45,3 +45,27 @@ export const profile = sqliteTable('profile', {
   createdAt: epochMs('created_at').notNull(),
   updatedAt: epochMs('updated_at').notNull(),
 });
+
+/**
+ * A file's row (DESIGN.md §18.3, §24.3): a photo, its thumbnail, an attachment or an uploaded import. **The file is under `/data/media`, named by this id, sealed with a data key
+ * of its own**; the row holds only what the database must count and join by: the owner (`account_id`, or `trip_id` for a trip's file, exactly one), the `kind`, the stored `type`,
+ * the `bytes` stored, and whether the file is `ready` (written) or still `pending` (a row made before its file, which a sweep removes if the file never comes). A file is read only
+ * through `/api/media/<id>` after the access check.
+ */
+export const media = sqliteTable(
+  'media',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    tripId: ref('trip_id'),
+    kind: text('kind').notNull(),
+    type: text('type').notNull(),
+    bytes: counter('bytes').notNull(),
+    state: text('state').notNull().default('pending'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('media_account_idx').on(table.accountId),
+    index('media_trip_idx').on(table.tripId),
+  ],
+);

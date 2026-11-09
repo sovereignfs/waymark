@@ -1,6 +1,8 @@
 import type { Config } from '../config';
 import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
+import { serverMedia } from '../media/server';
+import { sweepOrphans } from '../media/service';
 import { claimJob } from './claim';
 import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runner';
 
@@ -19,6 +21,22 @@ export const jobs: readonly JobDefinition[] = [
       const database = await getDatabase();
       if (!(await claimJob(database, 'sweep-rate-buckets', 55 * 60 * 1000, now.getTime()))) return;
       await new RateLimiter(database, () => now.getTime()).sweep();
+    },
+  },
+  {
+    // What a crash left in the media store: rows whose file never came, and files with no row (DESIGN.md §18.3). Under a lease like the sweep above, so that one process of
+    // several sweeps each hour; and it removes only what is already of no use, so a second one would be harmless too.
+    name: 'sweep-media',
+    everyMs: 60 * 60 * 1000,
+    runAtStart: true,
+    run: async ({ now }) => {
+      const media = await serverMedia();
+      if (!(await claimJob(media.database, 'sweep-media', 55 * 60 * 1000, now.getTime()))) return;
+      const swept = await sweepOrphans({ ...media, now: () => now.getTime() });
+      if (swept.rows + swept.files > 0)
+        console.info(
+          `[waymark] media: swept ${swept.rows} rows and ${swept.files} files with no use`,
+        );
     },
   },
 ];

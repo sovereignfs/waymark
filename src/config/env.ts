@@ -38,6 +38,8 @@ const SECRETS = new Set([
 const TEXT = [
   'URL',
   'WORKER',
+  'DATA_DIR',
+  'MEDIA_MAX_ACCOUNT_MB',
   'AUTH_LOCAL',
   'AUTH_SIGNUP',
   'AUTH_PASSWORD_MIN_LENGTH',

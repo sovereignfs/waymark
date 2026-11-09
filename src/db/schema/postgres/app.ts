@@ -33,3 +33,22 @@ export const profile = app.table('profile', {
   createdAt: epochMs('created_at').notNull(),
   updatedAt: epochMs('updated_at').notNull(),
 });
+
+/** See `schema/sqlite/app.ts`. */
+export const media = app.table(
+  'media',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    tripId: ref('trip_id'),
+    kind: text('kind').notNull(),
+    type: text('type').notNull(),
+    bytes: counter('bytes').notNull(),
+    state: text('state').notNull().default('pending'),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('media_account_idx').on(table.accountId),
+    index('media_trip_idx').on(table.tripId),
+  ],
+);

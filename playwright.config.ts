@@ -25,7 +25,7 @@ const PORT = PORTS.app;
 const OFF_PORT = PORTS.off;
 const SECRET = 'e2e-only-secret-not-for-anything-real-0123456789';
 // Playwright loads this file again in every worker: the first load makes the directory and the others, which inherit the variable, use it.
-const directory = process.env.WAYMARK_E2E_DIR ?? mkdtempSync(join(tmpdir(), 'waymark-e2e-'));
+const directory = process.env.WAYMARK_E2E_DIR || mkdtempSync(join(tmpdir(), 'waymark-e2e-'));
 process.env.WAYMARK_E2E_DIR = directory;
 
 // Next reads `.env.local` and does not override what is already set, so a developer's own settings there would reach this instance. Setting a
@@ -43,6 +43,8 @@ const BLANK = Object.fromEntries(
     'WAYMARK_SMTP_HOST',
     'WAYMARK_WORKER',
     'WAYMARK_ENCRYPTION_KEY',
+    'WAYMARK_DATA_DIR',
+    'WAYMARK_MEDIA_MAX_ACCOUNT_MB',
   ].map((name) => [name, '']),
 );
 
@@ -84,6 +86,7 @@ export default defineConfig({
         ...BLANK,
         ...database,
         WAYMARK_URL: `http://localhost:${PORT}`,
+        WAYMARK_DATA_DIR: join(directory, 'data'),
         WAYMARK_AUTH_LOCAL: '1',
         WAYMARK_AUTH_SECRET: SECRET,
         WAYMARK_AUTH_SIGNUP: 'closed',
@@ -100,6 +103,7 @@ export default defineConfig({
         WAYMARK_DB_DIALECT: 'sqlite',
         WAYMARK_SQLITE_URL: `file:${own('off')}`,
         WAYMARK_URL: `http://localhost:${OFF_PORT}`,
+        WAYMARK_DATA_DIR: join(directory, 'off-data'),
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       } as Record<string, string>,
     },

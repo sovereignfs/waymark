@@ -34,6 +34,9 @@ describe('the image', () => {
     expect(dockerfile).toContain('/app/migrations ./migrations');
     expect(dockerfile).toContain('/usr/share/licenses/waymark/LICENSE');
     expect(dockerfile).toContain('/usr/share/licenses/sovereignfs-ui/NOTICE');
+    // sharp, and the libvips its platform package carries, whose licences travel with the image (DESIGN.md §25).
+    expect(dockerfile).toContain('/usr/share/licenses/sharp/LICENSE');
+    expect(dockerfile).toContain('/usr/share/licenses/libvips/LICENSE');
   });
 
   it('copies pnpm-workspace.yaml before it installs, which carries the platforms the lockfile covers', () => {

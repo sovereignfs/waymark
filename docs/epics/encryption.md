@@ -40,7 +40,7 @@ column only if it is declared, no sealed field is ever a column, the `sealed` co
 **Seen to fail:** with the payload layer's binding removed (the layer's own test), with a planted table whose sealed field is a column, and the source reading against planted statements; 403 tests pass on a `file:`
 database, sqld and PostgreSQL. Left out: the credential store of Tusk's `store.ts` and `tables.ts` (the `credential` table comes with 2.3), and the rotation (3.3).
 
-#### 📋 3.2 — The media store
+#### ✅ 3.2 — The media store
 
 **Goal:** photos, attachments and uploads stored, sealed and served by Waymark. **Design:** §9.3, §10.6, §18.3. **Depends on:** 3.1, 1.6.
 
@@ -52,6 +52,22 @@ sweep job. Uploads accept a device-made id (6.5) and are idempotent on it.
 
 **Accepts when:** an HTML file named `.jpg` is refused; a JPEG's location metadata is gone after upload; a file on disk is unreadable without the key; a
 second person gets not found for a file; going over the limit is refused with a sentence; an orphan is swept.
+
+**Done as:** written for Waymark (Tusk has no media): `src/media/detect.ts` (the allow-list by bytes: JPEG, PNG, WebP, GIF, AVIF, HEIC for a photo; those and PDF for an attachment; ZIP for an import; a thumbnail is
+never uploaded), `images.ts` (`sharp`: upright by orientation, every piece of metadata gone, WebP at most 2,560 px, a 480 px thumbnail, decoding bounded to 100 megapixels), `files.ts` (`<data>/media/<uuid>`,
+one envelope per file under a data key of its own, bound to the id; written to a temporary name and moved), `service.ts` (`putMedia` idempotent on a device-made id and refused as not found for another owner's, the 15 MB
+cap and the account's limit counted on what is stored including thumbnails, `readMedia` and `deleteMedia` with the owner in the statement, `sweepOrphans`), `http.ts` (a body cut off at the limit whatever its
+`Content-Length` said, the headers a file is served with: the stored type, `nosniff`, `private`, `default-src 'none'; sandbox`), and the routes `POST /api/media?kind=`, `PUT /api/media/<id>?kind=`, `GET` and
+`DELETE /api/media/<id>`, each an `accountRoute` limited to 60 uploads a minute and in `src/access/routes.ts`. `media` is the app store's `0003_media` (owner, kind, type, bytes, state; its file's id is the row's and
+a photo's thumbnail's is derived from it, `thumbIdOf`). A `sweep-media` job runs hourly under a lease. **A new setting, `WAYMARK_DATA_DIR`** (default `/data`; and `WAYMARK_MEDIA_MAX_ACCOUNT_MB`, default 500), in the
+config, `.env.example`, `DESIGN.md` §25 and the e2e instances; **`/api/health` now answers 503 unless the data directory is writable**, and `boot-check` gives it a temporary one. `sharp` is installed (the
+install script was allowed in 1.10), and its and libvips's licences are collected in the image (the Dockerfile stops if either is missing; **not yet built**, see 1.10). **Seen to fail** with the allow-list removed, with the orientation
+step swapped for one that keeps metadata, and (in the earlier test) with the binding removed; 451 tests pass on a `file:` database, sqld and PostgreSQL; the browser tests add a photo, read it back as WebP with the
+right headers, refuse an HTML page named `.jpg` with a sentence, replay a device-made id (201 then 200), and give a visitor 401 and a foreign origin or none 403. **Decisions and limits:** (1) **HEIC:** sharp's prebuilt
+libvips carries AVIF's decoder and not HEIC's (HEVC is patent-encumbered and left out), so a HEIC file is recognised by its bytes and refused with the sentence "share it as a JPEG"; iOS Safari converts a photo to JPEG when a person chooses it
+in a file input, so the phone's own path is unaffected, and the design's "HEIC read" is open until a build that decodes it is chosen (`DESIGN.md` §28). (2) The limit is checked, then the row made: two uploads at once can pass it together by one file. (3) What
+a photo is referenced by (a check-in's photo list) is not known here, so the sweep removes only rows that never got their file and files with no row; the reference joins with 5.3 and 9.5. (4) Another person's file is tested at the
+service, where a second account can be made; the browser instance is closed to one.
 
 #### 📋 3.3 — Rotating the key
 
