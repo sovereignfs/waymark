@@ -52,7 +52,7 @@ test.
 once 1.10 exists. Seen to fail: a badly formatted file (`format:check`), an `any` and an unused variable (`lint`), a `string` assigned to a `number`
 (`typecheck`), and a test expecting `1` to be `2` (`test`); each planted file was removed.
 
-#### 📋 1.3 — Continuous integration
+#### ✅ 1.3 — Continuous integration
 
 **Goal:** CI that runs what a change can affect. **Design:** §25. **Depends on:** 1.2.
 
@@ -60,6 +60,12 @@ once 1.10 exists. Seen to fail: a badly formatted file (`format:check`), an `any
 with 1.10, the browser with 1.9. Skipped on drafts and `skip-ci`. No leg reaches the internet: place search and tiles are faked (4.2, 4.3).
 
 **Accepts when:** a PR runs only the legs its files affect, and a failing leg fails the PR.
+
+**Done as:** `scripts/ci-changes.sh` and `scripts/test-ci-changes.sh` copied from Tusk (40 cases pass; the cases' example paths renamed to Waymark's), and
+`.github/workflows/ci.yml` copied from Tusk and trimmed to the legs that can exist now: `what changed`, `format, lint, type-check, test and build`, and
+`shell scripts` (shellcheck and the classifier's tests). The pinned actions, the draft and `skip-ci` guard, the weekly schedule and the pinned database
+images are Tusk's. The manifest check, the migrations check and the database legs (1.5), the browser legs (1.9), the image leg and the release script's tests
+(1.10) are added with their tasks; the workflow says so. Checked with `actionlint` and `shellcheck`. Not exercised: a run on GitHub, which waits for a push.
 
 #### 📋 1.4 — Configuration and start-up
 

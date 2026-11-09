@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    # `ready_for_review` is how a draft starts running CI, and `labeled` and `unlabeled` are how `skip-ci` takes effect straight away.
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  # So that a dependency's new release cannot quietly break the build unnoticed between commits.
+  schedule:
+    - cron: '0 6 * * 1'
+
+# A pull request that is a draft, or carries the `skip-ci` label, runs nothing: the `changes` job has the guard, and every other job needs it.
+# A push to main runs, because a rebase-and-merge makes new commits and the pull request's run does not vouch for the one that lands. The weekly
+# schedule runs every job, because it exists to catch what a dependency broke.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The database images are pinned, not `latest`: a database that changes under a test run is not something a CI setup should have. Bump them
+  # deliberately, and in scripts/dev-db.mjs too: a test keeps the two equal. sqld must be 0.24.33 or later: earlier releases (the newest GitHub
+  # *release* is 0.24.32, which is why this is easy to get wrong) ignore the `x-namespace` header, so every namespace is the one default
+  # database and the app's tables and better-auth's would share it. The image tag exists without a release; a test checks isolation.
+  SQLD_IMAGE: ghcr.io/tursodatabase/libsql-server:v0.24.33
+  POSTGRES_IMAGE: postgres:16-alpine
+
+jobs:
+  # Works out what this change touches. It carries the draft / skip-ci guard, so on a draft it is skipped and everything that needs it is skipped
+  # with it.
+  changes:
+    name: what changed
+    runs-on: ubuntu-24.04
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-ci'))
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+      scripts: ${{ steps.classify.outputs.scripts }}
+      image: ${{ steps.classify.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: classify
+        name: Classify the changed paths
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=""
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            push) base="$PUSH_BEFORE" ;;
+          esac
+          # No base to compare with (a schedule, a new branch, a force-push that lost the old tip): run everything rather than guess.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] ||
+             ! git cat-file -e "$base^{commit}" 2>/dev/null ||
+             [ "$EVENT" = "schedule" ]; then
+            echo "No base to compare against, so running everything."
+            printf 'code=true\nscripts=true\nimage=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed since ${base:0:7}:"
+          git diff --name-only "$base" HEAD | sed 's/^/  /'
+          git diff --name-only "$base" HEAD | scripts/ci-changes.sh | tee -a "$GITHUB_OUTPUT"
+
+  check:
+    name: format, lint, type-check, test and build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The pnpm version is the one in package.json's `packageManager`, so the declaration and the thing that runs cannot drift apart.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      # `--frozen-lockfile` fails if package.json and the lockfile disagree, which is the point: the lockfile is what was reviewed.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+
+      # The legs that join as their tasks land: the manifest (1.10), the migrations against the schemas and the data layer on sqld, a file and
+      # PostgreSQL (1.5), the browser tests (1.9) and the image (1.10).
+
+  scripts:
+    name: shell scripts
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: shellcheck
+        run: shellcheck -x scripts/*.sh
+      - name: The classifier's tests
+        run: scripts/test-ci-changes.sh
