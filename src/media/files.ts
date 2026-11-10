@@ -9,11 +9,12 @@ import type { KeyRing } from '../crypto/keys';
  * to the id, so that a file copied from the disk is unreadable without the instance key and one moved to another id does not open. The directory holds nothing else and says
  * nothing: no extension, no type, no owner in a name. This is the only module that touches the directory.
  */
+import { FILE_ID } from '../sync/format';
+
 export const FILE_PURPOSE = 'file';
 
 /** A file's id is a UUID: it becomes a file name, so nothing else is let through (no `/`, no `..`). */
-export const isFileId = (id: string): boolean =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id);
+export const isFileId = (id: string): boolean => FILE_ID.test(id);
 
 /** The id of the thumbnail of a photo: derived, so that a device that knows the photo's id knows its thumbnail's, and the same each time. */
 export function thumbIdOf(photoId: string): string {

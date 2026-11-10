@@ -59,7 +59,7 @@ the future, a long note, a place with no name and a key the format does not have
 places, check-ins and tombstones are exactly what a plain model of the rules gives for that order, the stream ends where the changes say, no two rows share a number, and replaying everything changes nothing. Each safeguard was taken out in turn and seen to fail (the numbers, another person's row, the replay check, a place with check-ins, the tombstone of a restored row). **Left out:** the server's second run of auto-link
 (§12; it joins when 9.7 makes the rule, and the hook is `ctx.link` on the device side already); **merging two places** (4.1's `mergePlace`) moves check-ins without taking numbers in the stream, so a device would not hear of it: it is an online operation of 7.x's, which stamps what it moves; and pull, the endpoint and the device's store are 6.1 and 6.2.
 
-#### 📋 5.3 — Photos
+#### ✅ 5.3 — Photos
 
 **Goal:** photos on check-ins. **Design:** §9.3. **Depends on:** 5.2, 3.2.
 
@@ -68,6 +68,12 @@ places, check-ins and tombstones are exactly what a plain model of the rules giv
 in the viewer.
 
 **Accepts when:** a check-in with three photos round-trips; deleting it leaves no file on disk; a photo uploaded after its check-in attaches to it.
+
+**Done as:** migration `0006_checkin_photos` (both dialects): `checkin_photo` (`id` is **the media id the device made**, so a photo is on one check-in at most and moving it is writing it again; `checkin_id`, `account_id`, `position`, `seq`). **A check-in row carries `photos`**, ids in order, at most ten, **each a UUID** (it names the file on disk, so nothing else gets through; `FILE_ID` is now one definition in `src/sync/format.ts`, which `media/files.ts` uses too), validated by 5.1's
+`validatePhotos` and carried by the actions (`photos` when checking in, `photos` in a change, which sends the list again to add, remove or reorder). **In `applyMutation`** a put makes the check-in's photos what its row says: a photo **whose file has not arrived is accepted** (the check-in shows a placeholder until it does; the device asks `/api/media/<id>` and gets not found, so nothing needs to tell it), one whose file is **another person's**, or that is on **another person's**
+check-in, is `photos`, refused with nothing kept; one no longer listed leaves the check-in, and a delete takes all of a check-in's photos. The files of what left are removed **after the transaction commits** (`ApplyDeps.release`, `releasePhotos` over 3.2's `deleteMedia`, thumbnail with it): a file cannot be rolled back, and a failure to remove one leaves the mutation applied and the file to the sweep. **The sweep** (`src/checkins/photos.ts`, in the hourly `sweep-media` job) removes a photo
+uploaded more than **thirty days** ago that no check-in names, since an upload may come well before its check-in (it waits in the device's store, §15.6) and a person may be offline for days (the thirty days are mine). `People.deletePerson` removes the photo rows (their files were already its first step). **Seen:** three photos round-trip in order and each is readable by its owner and by no one else; reordering and taking one away works and removes its file and its thumbnail; deleting a check-in leaves **no file on
+disk** and no `media` row; a photo uploaded after its check-in attaches; another person's file, and a photo on another person's check-in, are refused; eleven, a non-UUID and a repeat are refused with a sentence; a release that fails does not undo the mutation, and the sweep takes the file once the wait is over; a photo that is attached, or recent, stays. **Left out:** thumbnails in lists and the full image in the viewer are the screens' (7.x), and the upload of a photo taken offline is the device's (6.5).
 
 #### 📋 5.4 — Figures
 

@@ -35,6 +35,7 @@ const GOES = [
   'profile',
   'place',
   'checkin',
+  'checkin_photo',
   'account_stream',
   'applied_mutation',
   'tombstone',

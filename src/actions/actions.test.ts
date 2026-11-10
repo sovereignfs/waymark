@@ -175,6 +175,51 @@ describe('checking in at a place', () => {
   });
 });
 
+describe('photos on a check-in', () => {
+  const [a, b, c] = [
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+    '33333333-3333-4333-8333-333333333333',
+  ];
+  const rowOf = (result: ActionResult) => {
+    const made = accepted(result);
+    return made.ok && made.mutation.changes[0]?.op === 'put'
+      ? made.mutation.changes[0].row
+      : undefined;
+  };
+
+  it('carries the ids the device made, in order, when checking in and when changing a check-in', () => {
+    expect(rowOf(checkInAtPlace(LISBON, { photos: [b, a] }, ctx()))).toMatchObject({
+      photos: [b, a],
+    });
+    expect(rowOf(editCheckin(CHECKIN, { photos: [a, b, c] }, ctx()))).toMatchObject({
+      photos: [a, b, c],
+    });
+    const withPhotos = { ...CHECKIN, photos: [a, b] };
+    expect(rowOf(editCheckin(withPhotos, { photos: [b, a] }, ctx()))).toMatchObject({
+      photos: [b, a],
+    });
+    expect(rowOf(editCheckin(withPhotos, { note: 'x' }, ctx()))).toMatchObject({ photos: [a, b] });
+    const taken = rowOf(editCheckin(withPhotos, { photos: [] }, ctx()));
+    expect(taken && 'photos' in taken).toBe(false);
+    expect(failure(editCheckin(withPhotos, { photos: [a, b] }, ctx())).reason).toBe('nothing');
+  });
+
+  it('refuses more than ten, and what is not an id the device made, with the sentence', () => {
+    const eleven = Array.from(
+      { length: 11 },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    );
+    expect(failure(checkInAtPlace(LISBON, { photos: eleven }, ctx())).sentence).toBe(
+      'A check-in has at most 10 photos.',
+    );
+    expect(failure(checkInAtPlace(LISBON, { photos: ['x'] }, ctx())).reason).toBe('photos');
+    expect(
+      failure(checkInAtNewPlace({ name: 'x', lat: 1, lng: 1 }, { photos: [a, a] }, ctx())).reason,
+    ).toBe('photos');
+  });
+});
+
 describe('checking in at a new place, and at a point', () => {
   it('makes the place and the check-in in one mutation, the place first, the zone found from the point', () => {
     const result = accepted(

@@ -177,3 +177,23 @@ export const tombstone = sqliteTable(
     index('tombstone_account_seq_idx').on(table.accountId, table.seq),
   ],
 );
+
+/**
+ * The photos of a check-in (DESIGN.md §9.3, §24.3), in order: the row's `id` is the media id the device made for the photo, so a photo is on one check-in at most and moving it is writing it
+ * again. The file is a `media` row's and is under `/data/media`; **this row may be made before the file arrives** (a photo taken offline uploads when there is a network), and the check-in shows
+ * a placeholder until it does. Written only by `src/sync/apply.ts`, which also removes a photo's files when it leaves a check-in or the check-in is deleted.
+ */
+export const checkinPhoto = sqliteTable(
+  'checkin_photo',
+  {
+    id: id('id'),
+    checkinId: ref('checkin_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    position: counter('position').notNull(),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    index('checkin_photo_checkin_idx').on(table.checkinId, table.position),
+    index('checkin_photo_account_idx').on(table.accountId),
+  ],
+);

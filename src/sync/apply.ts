@@ -31,10 +31,21 @@ export interface ApplyDeps {
   readonly database: Database;
   readonly sealer: Sealer;
   readonly now: () => number;
+  /**
+   * Removes the files of photos that have left a check-in, or went with it (3.2), **after the transaction has committed**: a file is not a row, and cannot be rolled back. A failure leaves
+   * the file for the sweep (`checkins/photos.ts`), which removes what no check-in names. Without it nothing is removed here.
+   */
+  readonly release?: (accountId: string, mediaIds: readonly string[]) => Promise<void>;
 }
 
 export type ApplyResult =
-  | { readonly status: 'applied'; readonly seq: number; readonly unnamed: readonly string[] }
+  | {
+      readonly status: 'applied';
+      readonly seq: number;
+      readonly unnamed: readonly string[];
+      /** The media ids of photos that left their check-in, whose files were released. */
+      readonly released: readonly string[];
+    }
   | { readonly status: 'replay' }
   | { readonly status: 'refused'; readonly reason: Reason; readonly sentence: string };
 
@@ -51,6 +62,8 @@ const schemaOf = (database: Database) =>
 interface Tables {
   place: SQL;
   checkin: SQL;
+  photo: SQL;
+  media: SQL;
   stream: SQL;
   applied: SQL;
   tombstone: SQL;
@@ -60,6 +73,8 @@ const tablesOf = (database: Database): Tables => {
   return {
     place: sql`${s.place}`,
     checkin: sql`${s.checkin}`,
+    photo: sql`${s.checkinPhoto}`,
+    media: sql`${s.media}`,
     stream: sql`${s.accountStream}`,
     applied: sql`${s.appliedMutation}`,
     tombstone: sql`${s.tombstone}`,
@@ -84,7 +99,7 @@ export async function applyMutation(
   const t = tablesOf(deps.database);
 
   try {
-    return await transaction(deps.database, async (tx): Promise<ApplyResult> => {
+    const result = await transaction(deps.database, async (tx): Promise<ApplyResult> => {
       // 1. Once: the id is taken first, and one that was taken already is a replay.
       const taken = await dbAll<{ id: string }>(
         tx,
@@ -106,6 +121,7 @@ export async function applyMutation(
       const last = Number(counted?.seq);
       const first = last - count + 1;
       const unnamed: string[] = [];
+      const released: string[] = [];
 
       for (const [index, change] of mutation.changes.entries()) {
         const seq = first + index;
@@ -113,11 +129,11 @@ export async function applyMutation(
           await putPlace(tx, deps, t, accountId, change.id, change.row, seq, now);
           if (change.row.unnamed) unnamed.push(change.id);
         } else if (change.table === 'checkin' && change.op === 'put') {
-          await putCheckin(tx, deps, t, accountId, change.id, change.row, seq, now);
+          await putCheckin(tx, deps, t, accountId, change.id, change.row, seq, now, released);
         } else if (change.table === 'place') {
-          await deleteRow(tx, t, 'place', accountId, change.id, seq, now);
+          await deleteRow(tx, t, 'place', accountId, change.id, seq, now, released);
         } else {
-          await deleteRow(tx, t, 'checkin', accountId, change.id, seq, now);
+          await deleteRow(tx, t, 'checkin', accountId, change.id, seq, now, released);
         }
       }
       await dbAll(
@@ -126,8 +142,12 @@ export async function applyMutation(
             WHERE account_id = ${accountId} AND mutation_id = ${mutation.mutationId}
             RETURNING mutation_id`,
       );
-      return { status: 'applied', seq: last, unnamed };
+      return { status: 'applied', seq: last, unnamed, released };
     });
+    // The files go once the rows have: a file cannot be rolled back, and one that stays is the sweep's.
+    if (result.status === 'applied' && result.released.length > 0 && deps.release)
+      await deps.release(accountId, result.released).catch(() => undefined);
+    return result;
   } catch (error) {
     if (error instanceof Refused)
       return { status: 'refused', reason: error.reason, sentence: SENTENCES[error.reason] };
@@ -202,6 +222,7 @@ async function putCheckin(
   row: CheckinRow,
   seq: number,
   now: number,
+  released: string[],
 ): Promise<void> {
   // At a place of the same person's: one that is not there, or is someone else's, is the same answer.
   const place = await dbGet<{ id: string }>(
@@ -246,6 +267,58 @@ async function putCheckin(
     );
   }
   await clearTombstone(tx, t, accountId, 'checkin', id);
+  await setPhotos(tx, t, accountId, id, row.photos ?? [], seq, released);
+}
+
+/**
+ * Makes the check-in's photos what the row says, in its order. A photo's id is the one the device made, so a photo whose file has not arrived yet is accepted (the check-in shows a placeholder until
+ * it does); one whose file is **another person's**, or that is on **another person's** check-in, is refused. A photo that is no longer listed leaves the check-in and its file is released.
+ */
+async function setPhotos(
+  tx: Database,
+  t: Tables,
+  accountId: string,
+  checkinId: string,
+  photos: readonly string[],
+  seq: number,
+  released: string[],
+): Promise<void> {
+  for (const photo of photos) {
+    const file = await dbGet<{ accountId: string }>(
+      tx,
+      sql`SELECT account_id AS "accountId" FROM ${t.media} WHERE id = ${photo}`,
+    );
+    if (file && file.accountId !== accountId) throw new Refused('photos');
+    const attached = await dbGet<{ accountId: string }>(
+      tx,
+      sql`SELECT account_id AS "accountId" FROM ${t.photo} WHERE id = ${photo}`,
+    );
+    if (attached && attached.accountId !== accountId) throw new Refused('photos');
+  }
+  const before = await dbAll<{ id: string }>(
+    tx,
+    sql`SELECT id FROM ${t.photo} WHERE checkin_id = ${checkinId} AND account_id = ${accountId}`,
+  );
+  for (const gone of before.filter((each) => !photos.includes(each.id))) {
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${t.photo} WHERE id = ${gone.id} AND account_id = ${accountId} RETURNING id`,
+    );
+    released.push(gone.id);
+  }
+  for (const [position, photo] of photos.entries()) {
+    const updated = await dbAll<{ id: string }>(
+      tx,
+      sql`UPDATE ${t.photo} SET checkin_id = ${checkinId}, position = ${position}, seq = ${seq}
+          WHERE id = ${photo} AND account_id = ${accountId} RETURNING id`,
+    );
+    if (updated.length === 0)
+      await dbAll(
+        tx,
+        sql`INSERT INTO ${t.photo} (id, checkin_id, account_id, position, seq)
+            VALUES (${photo}, ${checkinId}, ${accountId}, ${position}, ${seq}) RETURNING id`,
+      );
+  }
 }
 
 async function deleteRow(
@@ -256,7 +329,16 @@ async function deleteRow(
   id: string,
   seq: number,
   now: number,
+  released: string[],
 ): Promise<void> {
+  // A check-in's photos go with it, and so do their files, once the transaction has committed.
+  if (table === 'checkin') {
+    const photos = await dbAll<{ id: string }>(
+      tx,
+      sql`DELETE FROM ${t.photo} WHERE checkin_id = ${id} AND account_id = ${accountId} RETURNING id`,
+    );
+    released.push(...photos.map((photo) => photo.id));
+  }
   // A place is deleted in the statement that finds nothing at it, so a check-in cannot slip in between a look and the delete.
   const deleted = await dbAll<{ id: string }>(
     tx,

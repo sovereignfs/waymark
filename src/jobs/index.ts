@@ -3,6 +3,7 @@ import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
+import { sweepUnattachedPhotos } from '../checkins/photos';
 import { serverMap } from '../map/server';
 import { nameWaitingPlaces } from '../places/naming';
 import { serverFind } from '../places/server';
@@ -36,6 +37,9 @@ export const jobs: readonly JobDefinition[] = [
       const media = await serverMedia();
       if (!(await claimJob(media.database, 'sweep-media', 55 * 60 * 1000, now.getTime()))) return;
       const swept = await sweepOrphans({ ...media, now: () => now.getTime() });
+      const unattached = await sweepUnattachedPhotos({ ...media, now: () => now.getTime() });
+      if (unattached > 0)
+        console.info(`[waymark] media: swept ${unattached} photos that no check-in names`);
       if (swept.rows + swept.files > 0)
         console.info(
           `[waymark] media: swept ${swept.rows} rows and ${swept.files} files with no use`,

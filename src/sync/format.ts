@@ -54,7 +54,7 @@ export type LinkSource = 'auto' | 'manual';
 export type Share = 'trip' | 'on' | 'off';
 export const SHARES: readonly Share[] = ['trip', 'on', 'off'];
 
-/** What a check-in is, as it travels (§9.1). Photos join with 5.3. */
+/** What a check-in is, as it travels (§9.1). */
 export interface CheckinRow {
   readonly placeId: string;
   /** The moment, in milliseconds since the epoch, UTC. */
@@ -68,6 +68,8 @@ export interface CheckinRow {
   readonly linkSource: LinkSource | null;
   readonly share: Share;
   readonly source: CheckinSource;
+  /** The ids of its photos, in order, which the device made (§9.3): a photo may arrive after the check-in. At most ten; absent when there are none. */
+  readonly photos?: readonly string[];
   /** The import's own id, so that importing again adds nothing twice (§16). Only for `import:swarm`. */
   readonly externalId?: string;
 }
@@ -95,6 +97,9 @@ export interface Mutation {
   readonly stream: Stream;
   readonly changes: readonly Change[];
 }
+
+/** A media id is a UUID: it becomes a file name on the server, so nothing else is let through. */
+export const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const LIMITS = {
   /** The most changes one mutation holds: a check-in at a new place is two. */

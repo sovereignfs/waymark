@@ -24,6 +24,8 @@ export interface CheckInOptions {
   readonly note?: string;
   readonly companions?: readonly string[];
   readonly share?: Share;
+  /** The ids of the photos, which the device made when it took them, in order (§9.3): they upload before or after the check-in. */
+  readonly photos?: readonly string[];
 }
 
 const mutation = (ctx: Context, changes: Change[]): Mutation => ({
@@ -65,6 +67,7 @@ function rowFor(
       linkSource: link ? 'auto' : null,
       share: options.share ?? 'trip',
       source: live ? 'live' : 'manual',
+      photos: options.photos,
     },
     ctx.now,
   );
@@ -150,6 +153,8 @@ export interface CheckinPatch {
   readonly note?: string | null;
   readonly companions?: readonly string[];
   readonly share?: Share;
+  /** The photos, in order: adding, removing or reordering sends them all again. */
+  readonly photos?: readonly string[];
   /** A trip chosen by hand, or `null` to take the link away by hand: either is `manual`, and nothing automatic changes it again. `'auto'` hands it back to the app. */
   readonly trip?: { readonly tripId: string } | null | 'auto';
 }
@@ -204,6 +209,7 @@ export function editCheckin(
       linkSource,
       share: patch.share ?? current.share,
       source: current.source,
+      photos: patch.photos ?? current.photos,
       externalId: current.externalId,
     },
     ctx.now,

@@ -14,6 +14,7 @@ import {
   type Mutation,
   type PlaceRow,
   CHECKIN_SOURCES,
+  FILE_ID,
   LIMITS,
   SHARES,
   TABLES,
@@ -183,10 +184,14 @@ export function validateCompanions(input: unknown): Result<string[]> {
   return out.length > LIMITS.companions ? refuse('companions') : ok(out);
 }
 
-/** The ids of a check-in's photos: ids the device made, at most 10, none twice (5.3 attaches them). */
+/** The ids of a check-in's photos: ids the device made (UUIDs, which name the files), at most 10, none twice. */
 export function validatePhotos(input: unknown): Result<string[]> {
   if (!Array.isArray(input) || input.length > LIMITS.photos) return refuse('photos');
-  if (!input.every(isId) || new Set(input).size !== input.length) return refuse('photos');
+  if (
+    !input.every((id) => typeof id === 'string' && FILE_ID.test(id)) ||
+    new Set(input).size !== input.length
+  )
+    return refuse('photos');
   return ok([...input] as string[]);
 }
 
@@ -209,6 +214,7 @@ export function validateCheckinRow(input: unknown, now: number): Result<CheckinR
       'linkSource',
       'share',
       'source',
+      'photos',
       'externalId',
     ])
   )
@@ -267,6 +273,8 @@ export function validateCheckinRow(input: unknown, now: number): Result<CheckinR
       return refuse('source');
     externalId = input.externalId;
   } else if (source === 'import:swarm') return refuse('source');
+  const photos = validatePhotos(input.photos ?? []);
+  if (!photos.ok) return photos;
   return ok({
     placeId: input.placeId,
     at,
@@ -278,6 +286,7 @@ export function validateCheckinRow(input: unknown, now: number): Result<CheckinR
     linkSource: linkSource as CheckinRow['linkSource'],
     share: share as CheckinRow['share'],
     source: source as CheckinRow['source'],
+    ...(photos.value.length > 0 ? { photos: photos.value } : {}),
     ...(externalId ? { externalId } : {}),
   });
 }

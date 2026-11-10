@@ -173,13 +173,35 @@ describe('companions and photos', () => {
     expect(refusal(validateCompanions([1]))).toBe('companions');
   });
 
-  it('are at most ten, each an id the device made, none twice', () => {
-    const ids = Array.from({ length: 10 }, (_, i) => `photo-${i}`);
+  const uuid = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
+  it('are at most ten, each a UUID the device made (it names the file), none twice', () => {
+    const ids = Array.from({ length: 10 }, (_, i) => uuid(i));
     expect(validatePhotos(ids)).toEqual({ ok: true, value: ids });
-    expect(refusal(validatePhotos([...ids, 'photo-10']))).toBe('photos');
-    expect(refusal(validatePhotos(['a', 'a']))).toBe('photos');
-    expect(refusal(validatePhotos(['has space']))).toBe('photos');
+    expect(refusal(validatePhotos([...ids, uuid(10)]))).toBe('photos');
+    expect(refusal(validatePhotos([uuid(1), uuid(1)]))).toBe('photos');
+    for (const bad of [
+      'photo-1',
+      'has space',
+      '../../etc/passwd',
+      'ABCDEF00-0000-4000-8000-000000000001',
+      `${uuid(1)}x`,
+      3,
+    ])
+      expect(refusal(validatePhotos([bad])), String(bad)).toBe('photos');
     expect(refusal(validatePhotos('photo'))).toBe('photos');
+  });
+
+  it('are part of a check-in as it travels, in order, and left out when there are none', () => {
+    const photos = [uuid(2), uuid(1)];
+    expect(validateCheckinRow({ ...CHECKIN, photos }, NOW)).toEqual({
+      ok: true,
+      value: { ...CHECKIN, photos },
+    });
+    expect(validateCheckinRow({ ...CHECKIN, photos: [] }, NOW)).toEqual({
+      ok: true,
+      value: CHECKIN,
+    });
+    expect(refusal(validateCheckinRow({ ...CHECKIN, photos: ['x'] }, NOW))).toBe('photos');
   });
 });
 

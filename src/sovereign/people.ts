@@ -52,6 +52,10 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     );
     // Their check-ins and places (a trip's places are the trip's, and go with it, §23), and what orders them: the stream, the mutations applied and the tombstones.
     await dbAll(tx, sql`DELETE FROM ${app.checkin} WHERE account_id = ${accountId} RETURNING id`);
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${app.checkinPhoto} WHERE account_id = ${accountId} RETURNING id`,
+    );
     await deletePlacesOf(tx, accountId);
     await dbAll(
       tx,

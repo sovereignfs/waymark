@@ -43,6 +43,13 @@
       "when": 1794304228529,
       "tag": "0005_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794305037545,
+      "tag": "0006_checkin_photos",
+      "breakpoints": true
     }
   ]
 }

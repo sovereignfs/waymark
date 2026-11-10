@@ -140,3 +140,19 @@ export const tombstone = app.table(
     index('tombstone_account_seq_idx').on(table.accountId, table.seq),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const checkinPhoto = app.table(
+  'checkin_photo',
+  {
+    id: id('id'),
+    checkinId: ref('checkin_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    position: counter('position').notNull(),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    index('checkin_photo_checkin_idx').on(table.checkinId, table.position),
+    index('checkin_photo_account_idx').on(table.accountId),
+  ],
+);

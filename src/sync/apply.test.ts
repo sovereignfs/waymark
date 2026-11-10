@@ -154,7 +154,7 @@ describe(`applying a mutation (${leg})`, () => {
         putCheckin(checkin, place, { note: 'Zxqv secret note', companions: ['Ada', 'Grace'] }),
       ]),
     );
-    expect(result).toEqual({ status: 'applied', seq: 2, unnamed: [] });
+    expect(result).toEqual({ status: 'applied', seq: 2, unnamed: [], released: [] });
     const [row] = (await checkins(ADA)).filter((c) => c.id === checkin);
     expect(row).toMatchObject({
       placeId: place,
