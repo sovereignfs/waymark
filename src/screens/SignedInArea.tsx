@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import { AccountMenu } from '../auth/screens/AccountMenu';
 import { LocalProvider } from '../local/LocalProvider';
@@ -9,6 +9,7 @@ import { AppShell } from '../ui/AppShell';
 import { MobileNavProvider } from '../ui/mobile-nav';
 import { SidebarToggle } from '../ui/SidebarToggle';
 import { AppFrame } from './AppFrame';
+import { CheckInSheet } from './CheckInSheet';
 import { DrawerNavigation } from './AppSidebar';
 import { PhoneFooter } from './PhoneFooter';
 import { RegisterWorker } from './RegisterWorker';
@@ -47,6 +48,10 @@ export function SignedInArea({
       >
         <AppFrame>{children}</AppFrame>
         <DrawerNavigation />
+        {/* The check-in sheet is in the address, and so is read on the client: a page that is built ahead of time needs a boundary to wait at. */}
+        <Suspense fallback={null}>
+          <CheckInSheet />
+        </Suspense>
       </AppShell>
     </MobileNavProvider>
   );

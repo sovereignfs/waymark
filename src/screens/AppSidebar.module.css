@@ -54,6 +54,22 @@
   font-weight: var(--sv-font-weight-semibold);
 }
 
+.checkin {
+  margin-bottom: var(--sv-space-2);
+  background: var(--sv-color-accent);
+  color: var(--sv-color-text-on-accent);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.checkin:hover {
+  background: var(--sv-color-accent-hover);
+}
+
+.checkin kbd {
+  margin-left: auto;
+  opacity: 0.8;
+}
+
 .row:focus-visible,
 .collapse:focus-visible {
   outline: 2px solid var(--sv-color-focus-ring);

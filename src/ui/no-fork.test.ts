@@ -15,9 +15,11 @@ const RENDERING_ONLY: Record<string, string> = {
   'src/ui/useSidebar.ts': 'whether the sidebar is drawn (a phone has the footer and the drawer)',
   'src/ui/SidebarToggle.tsx':
     'what the header button does to what is drawn: hides the sidebar, or opens the drawer',
+  'src/screens/CheckInSurface.tsx':
+    'whether the check-in is a sheet or a drawer: the same content, opened and closed the same way by CheckInSheet',
   'src/theme/script.ts': 'the colour scheme the device prefers, not a width',
 };
-/** Files that draw by width and also write, because that is what they are for. None yet; the check-in sheet (7.2) may be one. */
+/** Files that draw by width and also write, because that is what they are for. None yet. */
 const ALSO_WRITES = new Set<string>([]);
 /** What a file that draws by width must not also do. */
 const NOT_BY_WIDTH =

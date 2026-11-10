@@ -15,7 +15,7 @@ places, Home, and the phone. Every map has a list beside or instead of it.
 
 ## Tasks
 
-#### 📋 7.1 — The shell's places
+#### ✅ 7.1 — The shell's places
 
 **Goal:** the sidebar and header working. **Design:** §20.2, §20.3. **Depends on:** 6.2.
 
@@ -24,6 +24,13 @@ menu (Settings, Notifications, Import, Sign out, back to core when set, Couldn't
 hidden until 11.1; keyboard `C` for check in.
 
 **Accepts when:** every place is reachable with the keyboard, and the sheet opens over any page and closes back to it.
+
+**Done as:** **_Check in_ is first in the sidebar** (full, rail and the phone's drawer): a real link to `?checkin=new` (so it can be opened in a new tab or copied), which a plain click turns into a push of the current path and query with `checkin=new` added, so **the rest of the query is kept**; it is marked with `aria-keyshortcuts="C"` and shows the key. **`src/screens/checkin.ts`**, pure: whether a query asks for the sheet (**exactly `checkin=new`**, nothing else opens it), the address that opens it over a page, the address that closes it
+(the same path and query without it), and the rule for the **`C` key**: no modifier (Ctrl, Cmd and Alt are the browser's), not held down, not already taken, **and not while typing** (an input, text area, select, anything editable, a `role` of text box or combobox). **`CheckInSheet`** (made by `SignedInArea`, inside a `Suspense` since it reads the address on the client): open when the address says so, **over any page**; Escape, its close button and the back button close it and the
+address and the page are as they were (the sheet is a step in the history); **a `Sheet` on a wide screen and a `Drawer` on a narrow one with the same content** (`CheckInContent`, which says what is true: the ways to check in are coming; **7.2 replaces it and nothing else of the sheet changes**). **Already there, and unchanged:** Home, Check-ins, Map and Places as links with the current one marked; the Trips section absent until 11.1; Couldn't sync in the avatar menu while there is any (6.3).
+**Not here, since the page it opens is not:** the avatar menu's Notifications (12.1) and Import (8.3) and a way back to core (2.3), and the bell's place (12.1): an entry is added with its page, as `places.ts` says. **Seen:** the address rules and the key rules with the odd and hostile cases (a stray query, a query that decodes to something, every modifier, every kind of field); **in Chromium and WebKit (`e2e/shell.spec.ts`):** every place of the sidebar goes where it says by Enter and marks itself current; in Chromium the Tab order is
+Check in, Home, Check-ins, Map, Places (**Safari does not Tab to links unless the person has asked it to, so the order of Tab is asked of the browsers that do**); the sheet opens over Home, Check-ins, Map, Places and Settings and closes back to the same address by Escape, by its button and by the back button; `C` opens it from a page, is not another request with it open, does nothing with Ctrl, and does nothing in a field (the typed `c` lands in the field); an address with `checkin=new` opens it on load with the rest of its query kept, and
+`checkin`, `checkin=old` and `checkin=NEW` do not; at 375 px it is a drawer with the same content and closes the same way. Each rule was taken out in turn and seen to fail its test (typing, a modifier, the rest of the query). **Left out:** the bell (12.1), and moving focus back to _Check in_ when the sheet closes, which the design system's `Sheet` and `Drawer` do or do not do for themselves.
 
 #### 📋 7.2 — Checking in
 
