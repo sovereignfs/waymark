@@ -7,7 +7,25 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { findSamePlace } from './match';
+import {
+  type Address,
+  type PlaceSource,
+  PLACE_SOURCES,
+  PlaceError,
+  PLACE_ID,
+  cleanAddress,
+  cleanCategory,
+  cleanPlaceName,
+  cleanPoint,
+  cleanSource,
+  cleanSourceId,
+  cleanZone,
+} from './clean';
 import { zoneOf } from './tz';
+
+export { PLACE_SOURCES, PlaceError, cleanPlaceName, cleanPoint };
+export type { Address, PlaceSource };
+export { CATEGORY_MAX, NAME_MAX } from './clean';
 
 /**
  * A person's places (DESIGN.md §7.1, §20.8): made, renamed, recategorized, moved, merged into another and deleted. **A place is its owner's:** every statement here names the owner
@@ -20,21 +38,6 @@ import { zoneOf } from './tz';
  * **What points at a place** (check-ins, and a trip's stops and items) is listed in `PLACE_REFERENCES`: merging moves each of them, and a place with any is not deleted. There is no foreign
  * key (§24.1), so a table that names a place is added there by the task that makes it, and `places.test.ts` fails for one that is not.
  */
-export type PlaceSource = 'manual' | 'osm' | 'import';
-export const PLACE_SOURCES: readonly PlaceSource[] = ['manual', 'osm', 'import'];
-
-/** The parts of an address (§7.1): the shape a Swarm export has. */
-export interface Address {
-  readonly street?: string;
-  readonly city?: string;
-  readonly region?: string;
-  readonly country?: string;
-  /** Two letters, upper case. */
-  readonly countryCode?: string;
-  readonly postalCode?: string;
-}
-const ADDRESS_PARTS = ['street', 'city', 'region', 'country', 'countryCode', 'postalCode'] as const;
-
 export interface Place {
   readonly id: string;
   readonly accountId: string;
@@ -58,11 +61,6 @@ export interface PlaceDeps {
   readonly database: Database;
   readonly sealer: Sealer;
   readonly now: () => number;
-}
-
-/** A value that is not a place: the message says which part, and never what it was given. */
-export class PlaceError extends Error {
-  override name = 'PlaceError';
 }
 
 /** A table that holds a `place_id`: where the rows of `ownerColumn` = the person move on a merge and stop a delete. */
@@ -91,91 +89,6 @@ const ident = (name: string): string => {
 /** A table of the app's store, as the statement spells it on this dialect. */
 const qualified = (database: Database, name: string): SQL =>
   sql.raw(database.dialect === 'postgres' ? `"${APP_STORE}"."${ident(name)}"` : ident(name));
-
-export const NAME_MAX = 200;
-export const CATEGORY_MAX = 60;
-const PART_MAX = 200;
-const ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-/** A name as it is kept: trimmed, one to 200 characters, one line. */
-export function cleanPlaceName(name: unknown): string {
-  const trimmed = typeof name === 'string' ? name.trim() : '';
-  if (trimmed === '' || trimmed.length > NAME_MAX || /[\r\n]/.test(trimmed))
-    throw new PlaceError(`a place's name is 1 to ${NAME_MAX} characters on one line`);
-  return trimmed;
-}
-
-/** A point on the globe: finite, latitude within ±90 and longitude within ±180. */
-export function cleanPoint(lat: unknown, lng: unknown): { lat: number; lng: number } {
-  if (
-    typeof lat !== 'number' ||
-    typeof lng !== 'number' ||
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng) ||
-    Math.abs(lat) > 90 ||
-    Math.abs(lng) > 180
-  )
-    throw new PlaceError('a point is a latitude from -90 to 90 and a longitude from -180 to 180');
-  return { lat, lng };
-}
-
-function cleanCategory(category: unknown): string | undefined {
-  if (category === undefined || category === null) return undefined;
-  const trimmed = typeof category === 'string' ? category.trim() : '';
-  if (trimmed === '') return undefined;
-  if (trimmed.length > CATEGORY_MAX || /[\r\n]/.test(trimmed))
-    throw new PlaceError(`a category is at most ${CATEGORY_MAX} characters on one line`);
-  return trimmed;
-}
-
-function cleanAddress(address: unknown): Address | undefined {
-  if (address === undefined || address === null) return undefined;
-  if (typeof address !== 'object' || Array.isArray(address))
-    throw new PlaceError('an address is made of parts');
-  const out: Record<string, string> = {};
-  for (const [part, value] of Object.entries(address)) {
-    if (!(ADDRESS_PARTS as readonly string[]).includes(part))
-      throw new PlaceError(
-        'an address has a street, city, region, country, country code and postal code',
-      );
-    if (value === undefined || value === null) continue;
-    const text = typeof value === 'string' ? value.trim() : '';
-    if (text.length > PART_MAX)
-      throw new PlaceError(`a part of an address is at most ${PART_MAX} characters`);
-    if (typeof value !== 'string') throw new PlaceError('a part of an address is text');
-    if (text === '') continue;
-    out[part] = part === 'countryCode' ? text.toUpperCase() : text;
-  }
-  if (out.countryCode !== undefined && !/^[A-Z]{2}$/.test(out.countryCode))
-    throw new PlaceError('a country code is two letters');
-  return Object.keys(out).length === 0 ? undefined : out;
-}
-
-function cleanSource(source: unknown): PlaceSource {
-  if (source === undefined) return 'manual';
-  if (!(PLACE_SOURCES as readonly unknown[]).includes(source))
-    throw new PlaceError('a place came from manual, osm or import');
-  return source as PlaceSource;
-}
-
-function cleanSourceId(sourceId: unknown): string | undefined {
-  if (sourceId === undefined || sourceId === null || sourceId === '') return undefined;
-  if (typeof sourceId !== 'string' || sourceId.length > 200)
-    throw new PlaceError('a source id is at most 200 characters');
-  return sourceId;
-}
-
-function cleanZone(tz: unknown): string | undefined {
-  if (tz === undefined || tz === null || tz === '') return undefined;
-  if (typeof tz !== 'string' || tz.length > 64)
-    throw new PlaceError('a time zone is a name such as Europe/Lisbon');
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: tz });
-  } catch {
-    throw new PlaceError('a time zone is a name such as Europe/Lisbon');
-  }
-  return tz;
-}
 
 interface Row {
   id: string;
@@ -257,7 +170,7 @@ export async function makePlace(
   input: NewPlace,
 ): Promise<Made> {
   const id = input.id ?? randomUUID();
-  if (!ID.test(id)) throw new PlaceError('a place id is letters, digits, - and _');
+  if (!PLACE_ID.test(id)) throw new PlaceError('a place id is letters, digits, - and _');
   const name = cleanPlaceName(input.name);
   const { lat, lng } = cleanPoint(input.lat, input.lng);
   const address = cleanAddress(input.address);
