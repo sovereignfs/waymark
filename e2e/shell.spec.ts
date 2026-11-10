@@ -12,6 +12,10 @@ const PLACES = [
   { name: 'Places', path: '/places' },
 ];
 
+// Four browsers' worth of instances share one machine in `pnpm e2e:fast`, and WebKit takes the address changes of the history API late when it is busy: a wait of fifteen seconds is for that, and a failure is still a failure.
+test.use({ actionTimeout: 15_000 });
+expect.configure({ timeout: 15_000 });
+
 const sheet = (page: Page) => page.getByRole('dialog', { name: 'Check in' });
 const url = (page: Page) => {
   const u = new URL(page.url());
@@ -154,7 +158,7 @@ test('at a phone’s width the same sheet is a drawer, with the same content, an
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/map?checkin=new');
   await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page).getByText('Close this to go back to where you were.')).toBeVisible();
+  await expect(sheet(page).getByLabel('Search for a place')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(sheet(page)).toHaveCount(0);
   expect(url(page)).toBe('/map');

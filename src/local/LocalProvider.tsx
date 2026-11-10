@@ -36,10 +36,13 @@ export interface LocalContext {
   /** Throws a refused mutation away. */
   discard(mutationId: string): Promise<void>;
   /**
-   * Keeps a photo taken on this device under a new id the device makes, and returns the id, to name in the check-in (`photos`): it is uploaded when there is a network, before or after the check-in,
+   * Keeps a photo taken on this device under an id the device makes (or is given, when the check-in that names it was made first), and returns the id, to name in the check-in (`photos`): it is uploaded when there is a network, before or after the check-in,
    * and shown from here meanwhile (`photoSrc`). Refuses, with a sentence, a file that is more than 15 MB: the server would, and the person need not wait to be told.
    */
-  addPhoto(blob: Blob): Promise<{ ok: true; id: string } | { ok: false; sentence: string }>;
+  addPhoto(
+    blob: Blob,
+    id?: string,
+  ): Promise<{ ok: true; id: string } | { ok: false; sentence: string }>;
   /** Where to show a photo from: the file on this device while it is only here, and the server's otherwise. */
   photoSrc(id: string): Promise<string>;
   /** Records what a person did: it shows at once and is sent when there is a network. */
@@ -152,12 +155,12 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         await read();
         loop.current?.nudge();
       },
-      async addPhoto(blob) {
+      async addPhoto(blob, given) {
         const current = store.current;
         if (!current) return { ok: false, sentence: 'This browser cannot keep photos.' };
         if (blob.size > LIMITS.fileBytes)
           return { ok: false, sentence: 'That file is larger than 15 MB.' };
-        const id = crypto.randomUUID();
+        const id = given ?? crypto.randomUUID();
         await current.addPhoto(id, blob);
         loop.current?.nudge();
         return { ok: true, id };

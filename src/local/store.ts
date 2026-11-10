@@ -59,11 +59,23 @@ export class LocalStore {
     };
   }
 
-  /** What the screens show: the rows with the outbox laid over them. */
+  /**
+   * What the screens show: the rows with the outbox laid over them. **Read in one transaction**: a sync settling between two reads would leave a mutation out of the outbox (applied) and its rows not yet in the
+   * rows the other read saw, and a check-in, or the place it was made at, would vanish from the screen for a moment (and from a search that was typed in that moment).
+   */
   async view(): Promise<{ places: PlaceView[]; checkins: CheckinView[] }> {
-    const [rows, outbox] = await Promise.all([this.rows(), this.db.getAll('outbox')]);
+    const tx = this.db.transaction(['places', 'checkins', 'outbox'], 'readonly');
+    const [places, checkins, outbox] = await Promise.all([
+      tx.objectStore('places').getAll(),
+      tx.objectStore('checkins').getAll(),
+      tx.objectStore('outbox').getAll(),
+    ]);
+    await tx.done;
     const seen = overlay(
-      rows,
+      {
+        places: new Map(places.map((row) => [row.id, row])),
+        checkins: new Map(checkins.map((row) => [row.id, row])),
+      },
       outbox.map((entry) => entry.mutation),
     );
     return {

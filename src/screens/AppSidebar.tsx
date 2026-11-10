@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { Drawer, Icon, Kbd } from '@sovereignfs/ui';
 import { useMobileNav } from '../ui/mobile-nav';
 import { useSidebar } from '../ui/useSidebar';
-import { checkInHref } from './checkin';
+import { openCheckIn } from './checkin-location';
 import { PLACES, isUnder } from './places';
 import styles from './AppSidebar.module.css';
 
@@ -19,16 +19,7 @@ import styles from './AppSidebar.module.css';
  * _Check in_, first and always one press away (DESIGN.md §20.2): a link whose address opens the sheet over this page, with the rest of the query kept. It is a real link, so that it can be opened in a new
  * tab or copied; a plain click is handled here so that the current query is the one kept. `C` is its shortcut.
  */
-function CheckInLink({
-  rail,
-  pathname,
-  onNavigate,
-}: {
-  rail: boolean;
-  pathname: string;
-  onNavigate?: () => void;
-}) {
-  const router = useRouter();
+function CheckInLink({ rail, onNavigate }: { rail: boolean; onNavigate?: () => void }) {
   const open = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
       event.defaultPrevented ||
@@ -41,7 +32,8 @@ function CheckInLink({
       return;
     event.preventDefault();
     onNavigate?.();
-    router.push(checkInHref(pathname, window.location.search), { scroll: false });
+    // The history API and not the router, so that this needs no network (the sheet is a place to check in with none): see `checkin-location.ts`.
+    openCheckIn();
   };
   return (
     <Link
@@ -76,7 +68,7 @@ function NavigationContent({
   return (
     <ul className={styles.list}>
       <li>
-        <CheckInLink rail={rail} pathname={pathname} {...(onNavigate ? { onNavigate } : {})} />
+        <CheckInLink rail={rail} {...(onNavigate ? { onNavigate } : {})} />
       </li>
       {PLACES.map((place) => (
         <li key={place.href}>

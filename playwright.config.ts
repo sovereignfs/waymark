@@ -54,6 +54,7 @@ const BLANK = Object.fromEntries(
 );
 // A browser test never reaches a place search on the internet: with none named, there is none. The task that searches in the browser (7.2) starts the fake of `src/places/fake.ts`.
 BLANK.WAYMARK_PLACES_PROVIDER = 'off';
+// (The main instance is given the fake place search below, which reaches nothing.)
 // Nor a map tile service: the browser tests have no map, and so no request to a tile upstream.
 BLANK.WAYMARK_MAP_SOURCE = 'off';
 
@@ -98,6 +99,14 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // A place search of a few real places, answered as Nominatim answers, which reaches nothing: what the main instance searches (DESIGN.md §7.2).
+      command: 'node scripts/fake-places.mjs',
+      url: `http://127.0.0.1:${PORTS.places}/search?q=tokyo`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: { PORT: String(PORTS.places) },
+    },
+    {
       command: `node scripts/serve-standalone.mjs ${PORT}`,
       url: `http://localhost:${PORT}/api/health`,
       timeout: 90_000,
@@ -110,6 +119,8 @@ export default defineConfig({
         WAYMARK_AUTH_LOCAL: '1',
         WAYMARK_AUTH_SECRET: SECRET,
         WAYMARK_AUTH_SIGNUP: 'closed',
+        WAYMARK_PLACES_PROVIDER: 'nominatim',
+        WAYMARK_PLACES_URL: `http://127.0.0.1:${PORTS.places}`,
         WAYMARK_MAP_SOURCE: 'pmtiles',
         WAYMARK_MAP_PMTILES_PATH: MAP_FILE,
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',

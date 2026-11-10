@@ -1,15 +1,418 @@
-import { EmptyState } from '@sovereignfs/ui';
+'use client';
+
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Button,
+  FormField,
+  Input,
+  SegmentedControl,
+  TagInput,
+  Textarea,
+  useToast,
+} from '@sovereignfs/ui';
+import { useLocal } from '../local/LocalProvider';
+import {
+  type Option,
+  buildOptions,
+  planCheckIn,
+  selectionOf,
+  zoneOfSelection,
+} from './checkin-flow';
+import { POSITION_SENTENCES } from './checkin-flow';
+import styles from './CheckIn.module.css';
+import { usePlaceSearch } from './usePlaceSearch';
+import { usePosition } from './usePosition';
 
 /**
- * What is in the check-in sheet (DESIGN.md §9.2, §20.5). **The ways to check in are 7.2's**: here, for now, is what is true: the sheet is there, in the address, over any page, and closes back. It is replaced by
- * 7.2's content and nothing else of the sheet changes.
+ * What is in the check-in sheet (DESIGN.md §9.2, §20.5): choose where, say when, add a note, photos and who was there, and press Check in. **Saving closes the sheet at once: the check-in is on the device and goes
+ * when there is a network** (§15). Everything below the place is optional.
+ *
+ * The decisions are `checkin-flow.ts`'s (which places are offered, which moment, which action); this draws them and passes on what the person did. **Nothing here needs a network or the position**: the person's own places
+ * are searched on the device; _Here_ is asked for when first used and left out, with a sentence, when it is refused; a place search that is off or out of reach says so; a new place can be made by name at the position, or a
+ * point alone can be saved to be named later. _On the map_ is 17.1's, and is not offered until it exists.
  */
-export function CheckInContent() {
+type Way = 'here' | 'search';
+
+const metres = (m: number | undefined) =>
+  m === undefined
+    ? ''
+    : m < 1000
+      ? `${Math.max(1, Math.round(m / 10) * 10)} m`
+      : `${(m / 1000).toFixed(1)} km`;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const nowTime = () => {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+export function CheckInContent({ onDone }: { onDone: () => void }) {
+  const local = useLocal();
+  const toast = useToast();
+  const { state: position, ask } = usePosition();
+  const [way, setWay] = useState<Way>('search');
+  const [query, setQuery] = useState('');
+  const here = position.status === 'granted' ? position.position : undefined;
+  const search = usePlaceSearch(way === 'search' ? query : '', here);
+  const [chosen, setChosen] = useState<string | undefined>();
+  const [newName, setNewName] = useState('');
+  const [another, setAnother] = useState(false);
+  const [date, setDate] = useState(today());
+  const [time, setTime] = useState(nowTime());
+  const [note, setNote] = useState('');
+  const [companions, setCompanions] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [error, setError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // The search field has the focus when the sheet opens on it, so typing is all it takes; the name of a new place has it when that is what was chosen.
+  useEffect(() => {
+    // After a moment: the sheet puts the focus where it likes as it opens, and this is where the person wants it.
+    if (way !== 'search') return;
+    const timer = setTimeout(() => searchRef.current?.focus(), 80);
+    return () => clearTimeout(timer);
+  }, [way]);
+  useEffect(() => {
+    if (chosen === 'new') nameRef.current?.focus();
+  }, [chosen]);
+
+  // Here is the first way when the device already allows it.
+  useEffect(() => {
+    if (position.status === 'granted')
+      setWay((current) => (current === 'search' && query === '' ? 'here' : current));
+  }, [position.status]);
+
+  const canHere = position.status !== 'denied' && position.status !== 'unavailable';
+  // Here is gone when it is refused: the person is left on Search, which does not need it.
+  useEffect(() => {
+    if (!canHere) setWay('search');
+  }, [canHere]);
+
+  const places = local?.places ?? [];
+  const options = useMemo(
+    () =>
+      buildOptions({
+        places,
+        query: way === 'here' ? '' : query,
+        position: here,
+        found: search.found,
+        reverse: way === 'here' ? search.reverse : undefined,
+      }),
+    [places, query, way, here, search.found, search.reverse],
+  );
+  const selected: Option | undefined = options.find((option) => option.key === chosen);
+  const selection = selectionOf(selected, newName);
+  const zone = selection ? zoneOfSelection(selection) : undefined;
+  const photoUrls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
+  useEffect(() => () => photoUrls.forEach((url) => URL.revokeObjectURL(url)), [photoUrls]);
+
+  const choose = (key: string) => {
+    setChosen(key);
+    setError(undefined);
+  };
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!local || busy) return;
+    // Enter in the search field with nothing chosen takes the first place on offer: a place of the person's, or the search's.
+    const first = options.find((option) => option.kind === 'mine' || option.kind === 'found');
+    const picked = selected ?? (selected === undefined ? first : undefined);
+    const sel = selectionOf(picked, newName);
+    setError(undefined);
+    const photoIds = files.map(() => crypto.randomUUID());
+    const plan = planCheckIn(
+      sel,
+      places,
+      { local: another ? { date, time } : undefined, note, companions, photos: photoIds },
+      {
+        ids: { newId: () => crypto.randomUUID() },
+        now: Date.now(),
+        deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    );
+    if (!plan.ok) {
+      setError(plan.sentence);
+      return;
+    }
+    setBusy(true);
+    try {
+      for (const [index, file] of files.entries()) {
+        const kept = await local.addPhoto(file, photoIds[index]);
+        if (!kept.ok) {
+          setError(kept.sentence);
+          return;
+        }
+      }
+      await local.record(plan.mutation);
+      toast.show({ title: 'Checked in', category: 'success', duration: 3000 });
+      onDone();
+    } catch {
+      setError('This browser could not keep the check-in. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!local)
+    return (
+      <div className={styles.form}>
+        <Alert variant="error">
+          This browser cannot keep check-ins on this device, so it cannot check in.
+        </Alert>
+      </div>
+    );
+
+  const needsName = selected?.kind === 'new';
+  const hereNote =
+    position.status === 'denied'
+      ? POSITION_SENTENCES.denied
+      : position.status === 'unavailable'
+        ? POSITION_SENTENCES.unavailable
+        : undefined;
+  const searchNote =
+    search.status === 'offline'
+      ? POSITION_SENTENCES.offline
+      : search.status === 'off'
+        ? POSITION_SENTENCES.off
+        : search.status === 'unavailable'
+          ? POSITION_SENTENCES.unreachable
+          : undefined;
+
   return (
-    <EmptyState
-      icon="map-pin"
-      heading="Check in"
-      description="Choosing where you are, searching for a place and picking one on the map are coming. Close this to go back to where you were."
-    />
+    <form
+      className={styles.form}
+      noValidate
+      onSubmit={(event) => void submit(event)}
+      aria-label="Check in"
+    >
+      <SegmentedControl
+        aria-label="How to find the place"
+        value={way}
+        onChange={(next) => {
+          setWay(next);
+          if (next === 'here' && position.status === 'idle') ask();
+        }}
+        options={[
+          ...(canHere ? [{ value: 'here' as const, label: 'Here' }] : []),
+          { value: 'search' as const, label: 'Search' },
+        ]}
+      />
+      {hereNote ? <p className={styles.hint}>{hereNote}</p> : null}
+
+      {way === 'search' ? (
+        <FormField
+          label="Search for a place"
+          hint={searchNote ?? 'Your own places first, then the place search.'}
+        >
+          {(field) => (
+            <Input
+              {...field}
+              type="search"
+              name="query"
+              autoComplete="off"
+              ref={searchRef}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setChosen(undefined);
+              }}
+            />
+          )}
+        </FormField>
+      ) : position.status === 'asking' ? (
+        <p className={styles.hint} role="status">
+          Finding where you are…
+        </p>
+      ) : null}
+
+      <fieldset className={styles.where}>
+        <legend>Where</legend>
+        {options.length === 0 ? (
+          <p className={styles.hint}>
+            {way === 'search'
+              ? query.trim() === ''
+                ? 'Type a name to search.'
+                : 'Nothing found yet.'
+              : position.status === 'granted'
+                ? ''
+                : 'Choose Search, or allow your position.'}
+          </p>
+        ) : (
+          <ul className={styles.options}>
+            {options.map((option) => (
+              <li key={option.key}>
+                <label className={styles.option}>
+                  <input
+                    type="radio"
+                    name="where"
+                    checked={chosen === option.key}
+                    onChange={() => choose(option.key)}
+                  />
+                  <span className={styles.name}>
+                    {option.kind === 'mine'
+                      ? option.place.name
+                      : option.kind === 'found'
+                        ? option.candidate.name
+                        : option.kind === 'new'
+                          ? 'New place here…'
+                          : `A place near ${option.point.lat.toFixed(4)}, ${option.point.lng.toFixed(4)}`}
+                  </span>
+                  <span className={styles.meta}>
+                    {option.kind === 'mine'
+                      ? `your place${option.distance !== undefined ? ` · ${metres(option.distance)}` : ''}`
+                      : option.kind === 'found'
+                        ? `${option.candidate.address?.city ?? option.candidate.category ?? 'from the place search'}${option.distance !== undefined ? ` · ${metres(option.distance)}` : ''}`
+                        : option.kind === 'point'
+                          ? 'named later'
+                          : ''}
+                  </span>
+                  {option.kind === 'new' && chosen === option.key ? (
+                    <span className={styles.newName}>
+                      <Input
+                        aria-label="Name of the new place"
+                        ref={nameRef}
+                        value={newName}
+                        onChange={(event) => setNewName(event.target.value)}
+                        placeholder="Name this place"
+                        maxLength={200}
+                      />
+                    </span>
+                  ) : null}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+      </fieldset>
+
+      <div className={styles.moment}>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-pressed={another}
+          onClick={() => setAnother((on) => !on)}
+        >
+          {another ? 'Now' : 'Another time'}
+        </Button>
+        {another ? (
+          <>
+            <FormField label="Date">
+              {(field) => (
+                <Input
+                  {...field}
+                  type="date"
+                  name="date"
+                  max={today()}
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                />
+              )}
+            </FormField>
+            <FormField label="Time">
+              {(field) => (
+                <Input
+                  {...field}
+                  type="time"
+                  name="time"
+                  value={time}
+                  onChange={(event) => setTime(event.target.value)}
+                />
+              )}
+            </FormField>
+            <p className={styles.hint}>
+              {zone
+                ? `On the clock where the place is (${zone}).`
+                : 'On the clock where the place is.'}
+            </p>
+          </>
+        ) : (
+          <p className={styles.hint}>Now</p>
+        )}
+      </div>
+
+      <FormField label="Note">
+        {(field) => (
+          <Textarea
+            {...field}
+            name="note"
+            rows={2}
+            maxLength={2000}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        )}
+      </FormField>
+
+      <FormField label="With…" hint="Names of who was there; press Enter after each.">
+        {(field) => (
+          <TagInput
+            {...field}
+            value={companions}
+            onChange={setCompanions}
+            placeholder="Add a name"
+          />
+        )}
+      </FormField>
+
+      <div>
+        <label className={styles.hint} htmlFor="checkin-photos">
+          Photos
+        </label>
+        <input
+          id="checkin-photos"
+          className={styles.file}
+          type="file"
+          name="photos"
+          accept="image/*"
+          multiple
+          onChange={(event) => {
+            const added = [...(event.target.files ?? [])];
+            setFiles((current) => [...current, ...added].slice(0, 10));
+            event.target.value = '';
+          }}
+        />
+        {files.length > 0 ? (
+          <ul className={styles.photos} aria-label="Photos to add">
+            {files.map((file, index) => (
+              <li key={`${file.name}-${index}`} className={styles.photo}>
+                {}
+                <img src={photoUrls[index]} alt={file.name} />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  aria-label={`Remove ${file.name}`}
+                  onClick={() => setFiles((current) => current.filter((_, at) => at !== index))}
+                >
+                  ×
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      <div className={styles.actions}>
+        <Button
+          type="submit"
+          loading={busy}
+          disabled={
+            (selection === undefined &&
+              !options.some((o) => o.kind === 'mine' || o.kind === 'found')) ||
+            (needsName && newName.trim() === '')
+          }
+        >
+          Check in
+        </Button>
+      </div>
+    </form>
   );
 }

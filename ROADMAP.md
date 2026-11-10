@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-10: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.3, 6.5 and 6.7 done (6.4, opening offline, waits for the screens). **Milestone E in progress** (7.1 done; the rest wait on `Map`, the photo viewer, `AvatarStack` and a floating button, work in `sovereign`). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-10: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.3, 6.5 and 6.7 done (6.4, opening offline, waits for the screens). **Milestone E in progress** (7.1 done, 7.2 done except picking a point on the map (17.1); the rest wait on `Map`, the photo viewer, `AvatarStack` and a floating button, work in `sovereign`). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -110,7 +110,7 @@ see everything on the map, at desktop and phone widths, with the keyboard, in li
 | 35  | [17.5](docs/epics/upstream.md) | A floating button (`sovereign`, with Tally) | P1       | —              | 📋     |
 | 36  | [17.6](docs/epics/upstream.md) | A photo viewer (`sovereign`)                | P1       | —              | 📋     |
 | 37  | [7.1](docs/epics/screens.md)   | The shell's places                          | P1       | 6.2            | ✅     |
-| 38  | [7.2](docs/epics/screens.md)   | Checking in                                 | P1       | 7.1, 4.2, 17.1 | 📋     |
+| 38  | [7.2](docs/epics/screens.md)   | Checking in                                 | P1       | 7.1, 4.2, 17.1 | ⏳     |
 | 39  | [7.3](docs/epics/screens.md)   | The timeline and a check-in                 | P1       | 7.2, 17.6      | 📋     |
 | 40  | [7.4](docs/epics/screens.md)   | The map                                     | P1       | 7.3, 4.3, 17.1 | 📋     |
 | 41  | [7.5](docs/epics/screens.md)   | Places and a place                          | P1       | 7.3            | 📋     |

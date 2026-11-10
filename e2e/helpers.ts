@@ -122,8 +122,18 @@ export async function trySignIn(page: Page, email: string, password: string) {
 }
 
 export async function signOut(page: Page) {
-  await page.getByRole('button', { name: 'User menu' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  // A click on the menu before the page has finished starting up does nothing, and the first run of a cold server is slow: if the menu has not opened, ask again.
+  const item = page.getByRole('menuitem', { name: 'Sign out' });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.getByRole('button', { name: 'User menu' }).click();
+    try {
+      await item.waitFor({ timeout: 4000 });
+      break;
+    } catch {
+      // not open yet
+    }
+  }
+  await item.click();
   await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
 }
 

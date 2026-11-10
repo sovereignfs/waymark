@@ -13,4 +13,6 @@ export const PORTS = {
   app: 4005 + offset,
   /** The instance with no way of signing in (`e2e/auth.spec.ts`): its sign-in pages and routes do not exist. */
   off: 4004 + offset,
+  /** The fake place search (`src/places/fake.ts`): the main instance's provider, so that the browser tests search with nothing reaching the internet. */
+  places: 4006 + offset,
 } as const;

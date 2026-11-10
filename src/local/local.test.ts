@@ -88,6 +88,23 @@ describe(`the device's store (${leg})`, () => {
     expect((await a.store.rows()).checkins.size).toBe(0);
   });
 
+  it('reads the rows and the outbox in one transaction, so that a sync settling cannot leave a check-in out of what is shown', async () => {
+    const a = await device(account());
+    await a.store.record(
+      must(checkInAtNewPlace({ name: 'Café', lat: 38.7, lng: -9.1 }, { note: 'one' }, ctx()))
+        .mutation,
+    );
+    const db = a.store.db as unknown as { transaction: (...args: unknown[]) => unknown };
+    const original = db.transaction.bind(db);
+    let opened = 0;
+    db.transaction = (...args: unknown[]) => {
+      opened++;
+      return original(...args);
+    };
+    expect((await a.store.view()).checkins).toHaveLength(1);
+    expect(opened).toBe(1);
+  });
+
   it('is deleted, with its outbox laid over it, so a delete shows at once', async () => {
     const id = account();
     const a = await device(id);
