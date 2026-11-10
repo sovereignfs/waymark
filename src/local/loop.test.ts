@@ -180,25 +180,56 @@ describe('the sync loop', () => {
     loop.stop();
   });
 
-  it('is one request when it is asked again while it is going', async () => {
+  it('does not start a second run while one is going, and does not lose the question: one more run follows, shared by all who asked meanwhile', async () => {
     const { store, sent } = await setup();
-    let release: () => void = () => undefined;
+    const releases: (() => void)[] = [];
     const slow: Transport = async (body) => {
       sent.push(body);
-      await new Promise<void>((resolve) => (release = resolve));
+      await new Promise<void>((resolve) => releases.push(resolve));
       return { status: 200, json: emptyAnswer };
     };
     const b = browser({ held: false, messages: new Map() });
     const loop = startLoop({ accountId: 'a', store, transport: slow, env: b.env });
     await settle();
+    expect(sent).toHaveLength(1); // the run on load, still going
     const [one, two] = [loop.syncNow(), loop.syncNow()];
     b.fire('focus');
     b.fire('online');
     await settle();
-    expect(sent).toHaveLength(1);
-    release();
+    expect(sent).toHaveLength(1); // not a second at the same time
+    releases.shift()?.();
+    await settle();
+    expect(sent).toHaveLength(2); // the one more that follows, for what was asked meanwhile
+    releases.shift()?.();
     expect(await one).toBe('ok');
     expect(await two).toBe('ok');
+    await settle();
+    expect(sent).toHaveLength(2); // and not a third
+    loop.stop();
+  });
+
+  it('sends what was recorded while a run was going, without waiting for the next trigger', async () => {
+    const { store, sent } = await setup();
+    const releases: (() => void)[] = [];
+    const slow: Transport = async (body) => {
+      sent.push(body);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return { status: 200, json: emptyAnswer };
+    };
+    const b = browser({ held: false, messages: new Map() });
+    const loop = startLoop({ accountId: 'a', store, transport: slow, env: b.env });
+    await settle();
+    const mutation = {
+      mutationId: 'late',
+      stream: 'account' as const,
+      changes: [{ table: 'checkin' as const, op: 'delete' as const, id: 'x' }],
+    };
+    await store.record(mutation); // written after the run read the outbox
+    b.fire('focus');
+    releases.shift()?.();
+    await settle();
+    expect((sent[1] as { outbox: unknown[] }).outbox).toEqual([mutation]);
+    releases.shift()?.();
     loop.stop();
   });
 

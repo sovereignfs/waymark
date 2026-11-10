@@ -52,24 +52,37 @@ export function startLoop(options: {
   let stopped = false;
   let running: Promise<SyncState | undefined> | undefined;
 
+  let queued: Promise<SyncState | undefined> | undefined;
+  const once = async (): Promise<SyncState | undefined> => {
+    let state: SyncState | undefined;
+    const had = await env.withLock(lock, async () => {
+      state = await syncOnce(store, transport);
+    });
+    if (had && state !== undefined) {
+      options.onState?.(state);
+      options.onChange?.();
+      channel.post('changed');
+    }
+    return had ? state : undefined;
+  };
+
+  /**
+   * Syncs. Asked again **while a run is going**, it does not start a second at once, and it does not let the question be lost either: that run may have read the outbox before what made the
+   * person ask was written, so **one more run follows it**, and everyone who asked meanwhile shares that one.
+   */
   const run = (): Promise<SyncState | undefined> => {
     if (stopped) return Promise.resolve(undefined);
-    // A run already going is the run: asking again at once is not another request.
-    running ??= (async () => {
-      let state: SyncState | undefined;
-      const had = await env.withLock(lock, async () => {
-        state = await syncOnce(store, transport);
+    if (!running) {
+      running = once().finally(() => {
+        running = undefined;
       });
-      if (had && state !== undefined) {
-        options.onState?.(state);
-        options.onChange?.();
-        channel.post('changed');
-      }
-      return had ? state : undefined;
-    })().finally(() => {
-      running = undefined;
+      return running;
+    }
+    queued ??= running.then(() => {
+      queued = undefined;
+      return run();
     });
-    return running;
+    return queued;
   };
 
   channel.onMessage((message) => {

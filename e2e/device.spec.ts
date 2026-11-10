@@ -207,3 +207,42 @@ test('signing out with something that was not sent asks first, and keeping the d
   await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
   await expect.poll(() => databases(page)).toEqual([]);
 });
+
+test('what the server refused is in Couldn’t sync, from the avatar menu, with its reason, and is sent again or discarded only by the person', async ({
+  page,
+}) => {
+  await signedIn(page);
+  const id = await accountId(page);
+  await expect.poll(() => databases(page)).toEqual([`waymark-${id}`]);
+  await expect(page.getByRole('menuitem', { name: /Couldn.t sync/ })).toHaveCount(0);
+  const doomed = at('no-such-place', randomUUID(), 'doomed');
+  await record(page, id, doomed);
+  await expect.poll(async () => (await readStore(page, id)).outbox).toBe(0);
+
+  // The avatar menu says so, and goes to where it is dealt with.
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: /Couldn.t sync \(1\)/ }).click();
+  await expect(page).toHaveURL(/\/settings\?section=device$/);
+  const list = page.getByRole('list', { name: 'Changes that could not sync' });
+  await expect(list.getByText('A check-in needs a place.')).toBeVisible();
+  await expect(list.getByText(/Check-in at a place, /)).toBeVisible();
+
+  // Sending it again, with nothing mended, is refused again for the same reason: it is not lost, and not sent twice.
+  await list.getByRole('button', { name: 'Send again' }).click();
+  await expect(list.getByText('A check-in needs a place.')).toBeVisible();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+
+  // Discarding asks, and keeping it keeps it.
+  await list.getByRole('button', { name: 'Discard' }).click();
+  await page.getByRole('button', { name: 'Keep it' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await list.getByRole('button', { name: 'Discard' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click();
+  await expect(
+    page.getByText('Everything on this device has been taken by the server.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await expect(page.getByRole('menuitem', { name: /Couldn.t sync/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await signOut(page);
+});

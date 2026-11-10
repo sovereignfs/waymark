@@ -69,7 +69,35 @@ export class LocalStore {
   }
 
   async refused(): Promise<Refused[]> {
-    return this.db.getAll('refused');
+    const all = await this.db.getAll('refused');
+    // The oldest first: the order they were refused in.
+    return all.sort((a, b) => a.at - b.at || a.mutationId.localeCompare(b.mutationId));
+  }
+
+  /**
+   * Puts a refused mutation back in the outbox, to be sent again (DESIGN.md §15.5): **in one transaction**, so it is never in neither. It goes to the end, with the id it had: the server rolled the refusal
+   * back with everything else, so the id was not spent. Returns whether there was one.
+   */
+  async retryRefused(mutationId: string): Promise<boolean> {
+    const tx = this.db.transaction(['refused', 'outbox'], 'readwrite');
+    const refused = await tx.objectStore('refused').get(mutationId);
+    if (!refused) {
+      await tx.done;
+      return false;
+    }
+    await tx
+      .objectStore('outbox')
+      .add({ mutationId, mutation: refused.mutation, queuedAt: this.now() });
+    await tx.objectStore('refused').delete(mutationId);
+    await tx.done;
+    return true;
+  }
+
+  /** Throws a refused mutation away, which only the person decides (§15.5). Returns whether there was one. */
+  async discardRefused(mutationId: string): Promise<boolean> {
+    const had = (await this.db.get('refused', mutationId)) !== undefined;
+    await this.db.delete('refused', mutationId);
+    return had;
   }
 
   /**

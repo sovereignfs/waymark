@@ -12,7 +12,7 @@ import {
 } from 'react';
 import type { CheckinView, PlaceView } from '../actions/types';
 import type { Mutation } from '../sync/format';
-import { deleteLocal, openLocal } from './db';
+import { type Refused, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
 import { LocalStore } from './store';
 import { type SyncState, fetchTransport } from './sync';
@@ -28,6 +28,12 @@ export interface LocalContext {
   readonly places: readonly PlaceView[];
   readonly checkins: readonly CheckinView[];
   readonly state: SyncState | 'starting';
+  /** What the server refused, with the reason in a sentence, kept until the person sends it again or discards it (Couldn't sync, §15.5). */
+  readonly refused: readonly Refused[];
+  /** Puts a refused mutation back to be sent again. */
+  retry(mutationId: string): Promise<void>;
+  /** Throws a refused mutation away. */
+  discard(mutationId: string): Promise<void>;
   /** Records what a person did: it shows at once and is sent when there is a network. */
   record(mutation: Mutation): Promise<void>;
   /** Sends what can be sent now, for sign-out. Says how it ended, or `undefined` when another tab is syncing. */
@@ -48,6 +54,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     checkins: [],
   });
   const [state, setState] = useState<SyncState | 'starting'>('starting');
+  const [refused, setRefused] = useState<Refused[]>([]);
   const store = useRef<LocalStore | undefined>(undefined);
   const loop = useRef<Loop | undefined>(undefined);
 
@@ -56,6 +63,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     if (!current) return;
     try {
       setRows(await current.view());
+      setRefused(await current.refused());
       setReady(true);
     } catch {
       // The database was closed under us (signed out in another tab): nothing to show.
@@ -100,6 +108,16 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       places: rows.places,
       checkins: rows.checkins,
       state,
+      refused,
+      async retry(mutationId) {
+        await store.current?.retryRefused(mutationId);
+        await read();
+        loop.current?.nudge();
+      },
+      async discard(mutationId) {
+        await store.current?.discardRefused(mutationId);
+        await read();
+      },
       async record(mutation) {
         const current = store.current;
         if (!current) throw new Error('the device store is not open');
@@ -120,7 +138,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         await deleteLocal(accountId);
       },
     }),
-    [accountId, ready, rows, state, read],
+    [accountId, ready, rows, state, refused, read],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

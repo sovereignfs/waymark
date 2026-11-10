@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-10: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D in progress** (5.1, 5.2, 5.3, 6.1 and 6.2 done). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-10: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D in progress** (5.1, 5.2, 5.3, 6.1, 6.2 and 6.3 done). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -93,7 +93,7 @@ back online, appears on a second device of the same account, and a replay writes
 | 26  | [5.3](docs/epics/checkins.md) | Photos                              | P0       | 5.2, 3.2   | ✅     |
 | 27  | [6.1](docs/epics/sync.md)     | The sync endpoint                   | P0       | 5.2        | ✅     |
 | 28  | [6.2](docs/epics/sync.md)     | The device's store, outbox and loop | P0       | 6.1        | ✅     |
-| 29  | [6.3](docs/epics/sync.md)     | Couldn't sync                       | P1       | 6.2        | 📋     |
+| 29  | [6.3](docs/epics/sync.md)     | Couldn't sync                       | P1       | 6.2        | ✅     |
 | 30  | [6.5](docs/epics/sync.md)     | Photos waiting                      | P1       | 6.2, 5.3   | 📋     |
 | 31  | [6.4](docs/epics/sync.md)     | Opening offline                     | P1       | 6.2, 1.11  | 📋     |
 | 32  | [5.4](docs/epics/checkins.md) | Figures                             | P1       | 4.1        | 📋     |

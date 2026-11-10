@@ -58,6 +58,16 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         size="sm"
         aria-label="User menu"
         items={[
+          // What the server would not take is on this device and nowhere else (§15.5): the menu says so while there is any, and it goes to where it is dealt with.
+          ...(local && local.refused.length > 0
+            ? [
+                {
+                  label: `Couldn’t sync (${local.refused.length})`,
+                  icon: 'alert-triangle' as const,
+                  onSelect: () => router.push('/settings?section=device'),
+                },
+              ]
+            : []),
           { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
           {
             label: leaving ? 'Signing out…' : 'Sign out',

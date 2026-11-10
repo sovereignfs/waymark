@@ -312,6 +312,81 @@ describe(`what goes wrong on the way (${leg})`, () => {
   });
 });
 
+describe(`Couldn't sync (${leg})`, () => {
+  /** A check-in at a place the server does not have, refused with a sentence, kept on the device. */
+  async function refusedOne(id: string) {
+    const a = await device(id);
+    const home = must(checkInAtNewPlace({ name: 'Elsewhere', lat: 1, lng: 1 }, {}, ctx()));
+    const place = {
+      ...(home.mutation.changes[0] as { row: object }).row,
+      id: 'no-such-place',
+      version: 1,
+    } as never;
+    const bad = must(checkInAtPlace(place, { note: 'doomed' }, ctx())).mutation;
+    await a.store.record(bad);
+    await syncOnce(a.store, toServer(id));
+    return { a, bad };
+  }
+
+  it('is sent again when it is mended, and then is no longer refused, and the check-in reaches the server', async () => {
+    const id = account();
+    const { a, bad } = await refusedOne(id);
+    expect((await a.store.refused()).map((r) => r.mutationId)).toEqual([bad.mutationId]);
+    // Mended: the place it was at is made. Sending the same mutation again is applied, with the id it had.
+    await a.store.record(
+      must(
+        checkInAtNewPlace(
+          { name: 'Mended', lat: 1, lng: 1 },
+          {},
+          {
+            ...ctx(),
+            ids: {
+              newId: (
+                (ids) => () =>
+                  ids.shift() ?? crypto.randomUUID()
+              )(['no-such-place']),
+            },
+          },
+        ),
+      ).mutation,
+    );
+    expect(await syncOnce(a.store, toServer(id))).toBe('ok');
+    expect(await a.store.retryRefused(bad.mutationId)).toBe(true);
+    expect(await a.store.refused()).toEqual([]);
+    expect(await a.store.pendingCount()).toBe(1);
+    expect(await syncOnce(a.store, toServer(id))).toBe('ok');
+    expect(await a.store.refused()).toEqual([]);
+    expect(await names(a)).toContain('doomed');
+    expect(await a.store.retryRefused(bad.mutationId)).toBe(false);
+  });
+
+  it('goes to the end of the outbox, still refused if nothing was mended, back in Couldn’t sync with its sentence', async () => {
+    const id = account();
+    const { a, bad } = await refusedOne(id);
+    await a.store.retryRefused(bad.mutationId);
+    expect(await names(a)).toEqual(['doomed']); // shown again while it waits
+    await syncOnce(a.store, toServer(id));
+    const again = await a.store.refused();
+    expect(again).toHaveLength(1);
+    expect(again[0]).toMatchObject({
+      mutationId: bad.mutationId,
+      sentence: 'A check-in needs a place.',
+    });
+    expect(await names(a)).toEqual([]);
+  });
+
+  it('is thrown away only when the person says so, and then it is gone for good', async () => {
+    const id = account();
+    const { a, bad } = await refusedOne(id);
+    expect(await syncOnce(a.store, toServer(id))).toBe('ok'); // another sync does not touch it
+    expect(await a.store.refused()).toHaveLength(1);
+    expect(await a.store.discardRefused(bad.mutationId)).toBe(true);
+    expect(await a.store.refused()).toEqual([]);
+    expect(await a.store.pendingCount()).toBe(0);
+    expect(await a.store.discardRefused(bad.mutationId)).toBe(false);
+  });
+});
+
 describe(`signing out (${leg})`, () => {
   it('deletes the account’s database from the browser, and leaves another account’s', async () => {
     const [mine, other] = [account(), account()];

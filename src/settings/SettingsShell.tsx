@@ -9,6 +9,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'security', label: 'Sign-in', icon: 'shield' },
   { id: 'data', label: 'Data', icon: 'database' },
+  { id: 'device', label: 'This device', icon: 'smartphone' },
 ];
 
 /**

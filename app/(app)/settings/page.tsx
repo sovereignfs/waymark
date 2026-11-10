@@ -6,6 +6,7 @@ import { getDatabase } from '@/src/db/boot';
 import { usageOf } from '@/src/media/service';
 import { ensureProfile } from '@/src/profile/profile';
 import { DataSection } from '@/src/settings/DataSection';
+import { DeviceSection } from '@/src/settings/DeviceSection';
 import { one, sectionOf } from '@/src/settings/query';
 import { ProfileSection } from '@/src/settings/ProfileSection';
 import { SecuritySection } from '@/src/settings/SecuritySection';
@@ -58,6 +59,7 @@ export default async function SettingsPage({
             limitBytes={getConfig().media.maxAccountBytes}
           />
         ),
+        device: <DeviceSection />,
       }}
     />
   );
