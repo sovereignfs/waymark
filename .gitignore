@@ -12,3 +12,6 @@ playwright-report/
 coverage/
 data/
 tools
+
+# Local development data (the SQLite file and files `pnpm dev` writes with .env)
+/.data

@@ -5,6 +5,8 @@ const config: NextConfig = {
   // One self-contained server in .next/standalone: what the image runs (see the Dockerfile, 1.10).
   output: 'standalone',
   poweredByHeader: false,
+  // `next dev` would write its own block into AGENTS.md, which is the one copy of this repository's conventions and is not edited by a tool.
+  agentRules: false,
   // Loaded by Node at run time, not bundled: pg is CommonJS with optional native parts, and libsql ships a native addon that only the `file:`
   // database loads.
   serverExternalPackages: ['pg', '@libsql/client', 'libsql'],

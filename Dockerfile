@@ -26,12 +26,13 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --froze
 COPY . .
 RUN pnpm build
 # The licences of what is built in and is not ours, collected where they are and kept in the image (DESIGN.md §25 Licence): sharp (Apache-2.0) and libvips (LGPL-3.0, a
-# dynamically linked library that sharp's platform package carries), whose text sharp's own README asks to accompany copies. The build stops if either is missing.
+# dynamically linked library that sharp's platform package carries), whose text sharp's own README asks to accompany copies. The platform package has no licence file: its README
+# is the notice, naming the licence of libvips and of every library built into it, so that is what is kept. The build stops if either is missing.
 RUN mkdir /licenses \
  && cp node_modules/sharp/LICENSE /licenses/sharp.LICENSE \
- && libvips="$(find node_modules/.pnpm -path '*@img/sharp-libvips-linux-*/LICENSE' | head -n 1)" \
- && test -n "$libvips" && cp "$libvips" /licenses/libvips.LICENSE \
- && test -s /licenses/sharp.LICENSE && test -s /licenses/libvips.LICENSE
+ && libvips="$(find node_modules/.pnpm -path '*@img/sharp-libvips-linux-*/README.md' | head -n 1)" \
+ && test -n "$libvips" && cp "$libvips" /licenses/libvips.NOTICE \
+ && test -s /licenses/sharp.LICENSE && test -s /licenses/libvips.NOTICE
 
 # --- What runs -----------------------------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
@@ -66,7 +67,7 @@ COPY --from=build /app/LICENSE /usr/share/licenses/waymark/LICENSE
 COPY --from=build /app/node_modules/@sovereignfs/ui/LICENSE /usr/share/licenses/sovereignfs-ui/LICENSE
 COPY --from=build /app/node_modules/@sovereignfs/ui/NOTICE /usr/share/licenses/sovereignfs-ui/NOTICE
 COPY --from=build /licenses/sharp.LICENSE /usr/share/licenses/sharp/LICENSE
-COPY --from=build /licenses/libvips.LICENSE /usr/share/licenses/libvips/LICENSE
+COPY --from=build /licenses/libvips.NOTICE /usr/share/licenses/libvips/NOTICE
 
 # Everything the app writes is under /data (the manifest's `data`): the database file when the instance keeps one (WAYMARK_SQLITE_URL=file:/data/waymark.db),
 # and the photos, files, imports and the map's cache that later tasks add. The directory is the app's user's, so that a volume made from it is too.
