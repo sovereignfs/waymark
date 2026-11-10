@@ -144,7 +144,7 @@ pnpm refuses a release less than a day old and an install script nobody decided 
 - `pnpm db:generate <name>` makes a migration for both dialects and both stores; CI fails if generating writes anything.
 - `pnpm build && pnpm boot-check` starts the built server on the database the environment names and asks `/api/health`.
 - `pnpm build && pnpm e2e` runs the browser tests in Chromium and WebKit (`pnpm e2e --project=chromium e2e/smoke.spec.ts` for one); `pnpm e2e:fast` runs them in
-  shards. `scripts/deploy-check.sh` boots every deployment setup from a built image (`WAYMARK_IMAGE=waymark:ci`). Still to come with its task: `seed` (16.1).
+  shards. `pnpm places:fake` runs a place search that reaches nothing, for `pnpm dev`. `scripts/deploy-check.sh` boots every deployment setup from a built image (`WAYMARK_IMAGE=waymark:ci`). Still to come with its task: `seed` (16.1).
 
 ## Layout
 

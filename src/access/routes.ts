@@ -52,6 +52,8 @@ export const ROUTES: RouteRule[] = [
     route: '/api/media/[id]',
     methods: { GET: { kind: 'account' }, PUT: { kind: 'account' }, DELETE: { kind: 'account' } },
   },
+  // Finding a place (DESIGN.md §7.2): the account's own places, opened for it alone, and then the operator's place search, which only the server reaches.
+  { route: '/api/places', methods: { GET: { kind: 'account' } } },
   // Deleting the account (DESIGN.md §23): what it would do, and doing it with the password (or a session made just now, for an account with none); the account is the session's.
   {
     route: '/api/account/delete',

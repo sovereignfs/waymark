@@ -276,7 +276,7 @@ One field, on the server only (`/api/places`), the browser never reaching a thir
 2. **The operator's place search** (`WAYMARK_PLACES_PROVIDER`: `nominatim` by default, `photon`, or `off`) at `WAYMARK_PLACES_URL` (by default the public
    OpenStreetMap Nominatim). For the public instance Waymark keeps its usage policy: at most one request a second from the whole server, a User-Agent naming
    the software and the instance's address (never a person's), results cached for a day, no autocomplete on every keystroke (a search runs after a pause
-   and at least three characters). Pointing it at one's own Nominatim or Photon lifts all of that.
+   and at least three characters). Pointing it at one's own Nominatim or Photon lifts all of that. (With the provider `photon` and no address, the public instance is Komoot's, `photon.komoot.io`, under the same policy; the public host is known by its name, so writing its address with another scheme does not lift the policy. The request carries the search text and nothing else: the point a person is near orders their own places on the server and is never sent.)
 3. **"Add a new place"**: a name and a point picked on the map, or the person's position. Always offered, so place search is never required.
 
 **Reverse lookup** (what is at this point) is the same provider's, used to name a GPS check-in and offered when picking on the map. With the provider

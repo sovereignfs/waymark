@@ -45,8 +45,11 @@ const BLANK = Object.fromEntries(
     'WAYMARK_ENCRYPTION_KEY',
     'WAYMARK_DATA_DIR',
     'WAYMARK_MEDIA_MAX_ACCOUNT_MB',
+    'WAYMARK_PLACES_URL',
   ].map((name) => [name, '']),
 );
+// A browser test never reaches a place search on the internet: with none named, there is none. The task that searches in the browser (7.2) starts the fake of `src/places/fake.ts`.
+BLANK.WAYMARK_PLACES_PROVIDER = 'off';
 
 // A directory of its own for another instance: the auth database is `waymark_auth.db` beside the app's, so two instances in one directory would share their
 // accounts, and a session cookie (which a port does not separate) would sign a person in on both.

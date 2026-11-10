@@ -40,7 +40,7 @@ took; the stored row has no name, point or address in a column or readable in th
 database, sqld and PostgreSQL (517 tests each). Each safeguard was taken out in turn and seen to fail its test (the owner in a read, the check for what points at a place, the owner on a merge's moves, both places being the person's). **Left out:**
 `seq` is 0 until the one write path of sync assigns it (6.1), and there is no route or operation yet (the screens, 7.x, and sync, 6.x, call these); the export and import of places join the task that makes them (§22).
 
-#### 📋 4.2 — Finding a place
+#### ✅ 4.2 — Finding a place
 
 **Goal:** `/api/places` search and reverse lookup through the operator's provider. **Design:** §7.2. **Depends on:** 4.1, 1.7.
 
@@ -52,6 +52,20 @@ queries of three characters or more after a pause; through 1.7's outbound helper
 
 **Accepts when:** against the fake, search and reverse return candidates in order; two processes searching at once keep to one request a second to the
 public instance; with `off`, the manual way works and says why search does not.
+
+**Done as:** the settings `WAYMARK_PLACES_PROVIDER` (`nominatim`, `photon`, `off`) and `WAYMARK_PLACES_URL`, in `src/places/config.ts` and `Config.places`: no address means the public instance of the provider (Nominatim's, or Photon's at
+`photon.komoot.io`), **known by its host name**, so that writing its address with another scheme does not lift its policy, and http is refused for it; an address of the operator's own may be http and on a private network (the outbound helper's `allowHttp`
+and `allowPrivate`, for that one host only), and lifts the policy. `src/places/providers.ts`, pure: the two adapters read each provider's answer into one **candidate** (name, point, address parts, category, `osm` and `node/123`-style id, **the same from either provider**,
+so a place found by one is the same place as one found by the other), refusing an entry with no point, id or name, never more than eight, and an answer that is not one (a page of HTML from a proxy) is "unavailable" and not "nothing found". `src/places/finder.ts`:
+`PlaceFinder.search` and `.reverse` through `outbound()`, to the configured host only; for the public instance **one request a second from the whole server** (a lease in `job_claim`, `claimJob`, so several processes share one clock, and a request that cannot
+have its turn in eight seconds says the search is busy), **a day's cache** in memory under the asked text, **the same thing asked at once is one request**, a failure is never kept, and a User-Agent `Waymark (<WAYMARK_URL>)`, never a person. A search under three characters is not
+sent (the pause before asking is the screen's, 7.2). `src/places/http.ts` and `app/api/places/route.ts`: `GET /api/places?q=` answers `{provider, status, mine, found}`, the person's own places first (searched in memory, nearest first if `lat` and `lng` are given, which are **not sent to the
+provider**) and then the provider's without the ones the person has by the "same place" rule; `GET /api/places?lat=&lng=` answers what is at a point and the person's place that is the same; `status` is `ok`, `off`, `unavailable` or `too_short`, and `mine` is answered
+whatever the provider did. For an account only (`accountRoute`, listed in `routes.ts`), sixty a minute each, `Cache-Control: no-store`. **The fake:** `src/places/fake.ts` answers as Nominatim and as Photon from six real places and reaches nothing; the tests start one,
+and `pnpm places:fake` runs it on port 3990 for `pnpm dev` (`WAYMARK_PLACES_URL=http://127.0.0.1:3990`, in `.env.example`). The browser tests are given `off`, so none reaches a search on the internet. **Seen:** against the fake, search and reverse return candidates in the provider's order for
+Nominatim and Photon; four searches from two finders sharing one database are at least 0.95 s apart and take at least 2.9 s; a second ask for the same thing sends nothing until a day has passed; a refused, failed or non-answer is "unavailable" and the next ask
+goes out; `off` sends nothing and still answers the person's own places; a host that is not the configured one, and a private address that the operator did not name, are refused; a second person gets none of the first's places in `mine` or in what is found. Each safeguard was taken out in turn
+and seen to fail its test (the turn, the cache, removing what the person has, the public host known by its name). **Left out:** the provider's own `Accept-Language`, and a bias of search toward the person's position (it would send a point to a third party, §7.2); the screen that searches is 7.2.
 
 #### 📋 4.3 — The tile service
 

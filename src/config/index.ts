@@ -1,5 +1,6 @@
 import { resolveAuth, type AuthSettings } from '../auth/config';
 import { resolveMail } from '../mail/config';
+import { type PlacesSettings, resolvePlaces } from '../places/config';
 import type { MailSettings } from '../mail/mailer';
 import { type KeyRing, parseKey, ringOf } from '../crypto/keys';
 import { DatabaseConfigError, resolveDatabaseSettings, type DatabaseSettings } from '../db/config';
@@ -19,6 +20,8 @@ export interface Config {
   readonly encryption: KeyRing;
   /** Where files are kept and how much one account may keep (DESIGN.md §18.3). */
   readonly media: MediaSettings;
+  /** Place search: which provider and where, or `off` (DESIGN.md §7.2). */
+  readonly places: PlacesSettings;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either (DESIGN.md §19.1). */
   readonly mail: MailSettings | undefined;
 }
@@ -175,6 +178,9 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
   // Mail is optional, but a host with no sender would send nothing anyone could answer, so it stops here rather than at the first message.
   const mail = resolveMail(read, problems);
 
+  // Place search: the provider and where it is, with the public instance's usage policy unless the operator names their own.
+  const places = resolvePlaces(read, problems);
+
   // The database: which of the three forms, and the address it needs. A secret address may arrive as a file.
   let database: DatabaseSettings | undefined;
   try {
@@ -201,6 +207,7 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
       encryption,
       media: { dataDir, maxAccountBytes: limitMb * 1024 * 1024 },
       mail,
+      places,
     },
   };
 }
