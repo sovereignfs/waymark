@@ -1,5 +1,5 @@
 import { type ApplyDeps, applyMutation } from './apply';
-import { PROTOCOL_VERSION } from './format';
+import { LIMITS, PROTOCOL_VERSION } from './format';
 import { DEFAULT_PAGE, MAX_PAGE, type Page, pullAccount } from './pull';
 
 /**
@@ -46,7 +46,7 @@ export type SyncAnswer =
     };
 
 /** The most mutations a request carries: a device with more sends them in turns. */
-export const MAX_OUTBOX = 50;
+export const MAX_OUTBOX = LIMITS.outbox;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

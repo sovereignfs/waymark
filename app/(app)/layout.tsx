@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     Date.now(),
   );
   return (
-    <SignedInArea name={profile.name} email={profile.email}>
+    <SignedInArea accountId={session.user.id} name={profile.name} email={profile.email}>
       {children}
     </SignedInArea>
   );

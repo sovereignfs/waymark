@@ -104,6 +104,8 @@ export const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 export const LIMITS = {
   /** The most changes one mutation holds: a check-in at a new place is two. */
   changesPerMutation: 50,
+  /** The most mutations one sync request carries: a device with more sends them in turns. */
+  outbox: 50,
   noteChars: 2000,
   companions: 20,
   companionChars: 60,
