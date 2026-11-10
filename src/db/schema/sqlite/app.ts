@@ -69,3 +69,31 @@ export const media = sqliteTable(
     index('media_trip_idx').on(table.tripId),
   ],
 );
+
+/**
+ * A place (DESIGN.md §7.1, §24.3): a person's, or a trip's, **exactly one of `account_id` and `trip_id`** (`src/places/places.ts` writes it so, and a trip's arrive with 9.2). **What says
+ * where or what is sealed** (`SEALED.place`): the name, the point, the address in parts, the category and the source's id. What is plain is what the database must read: the owner,
+ * the `source` (`manual`, `osm` or `import`), the time zone and the country code (found from the point, §7.3, and a default a person can correct), a `version` that counts changes,
+ * and the stream's `seq` (assigned by the one write path of sync, 6.1; 0 until a change goes through it). No sealed field is a column, in a `WHERE`, an `ORDER BY` or an index: a
+ * search, a distance and a figure are worked out in memory on opened rows.
+ */
+export const place = sqliteTable(
+  'place',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    tripId: ref('trip_id'),
+    source: text('source').notNull().default('manual'),
+    tz: text('tz'),
+    countryCode: text('country_code'),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('place_account_idx').on(table.accountId, table.seq),
+    index('place_trip_idx').on(table.tripId, table.seq),
+  ],
+);

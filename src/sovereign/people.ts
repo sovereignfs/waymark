@@ -4,6 +4,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
+import { deletePlacesOf } from '../places/places';
 
 /**
  * **Everything of an account is deleted by this, and only this** (DESIGN.md §23). One routine, in a fixed order, **safe to run again**: the two stores (the app's and the
@@ -48,6 +49,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       tx,
       sql`DELETE FROM ${app.profile} WHERE account_id = ${accountId} RETURNING account_id`,
     );
+    // Their places (a trip's are the trip's, and go with it, §23).
+    await deletePlacesOf(tx, accountId);
     // Counters are keyed `kind:account`.
     await dbAll(
       tx,

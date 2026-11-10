@@ -52,3 +52,25 @@ export const media = app.table(
     index('media_trip_idx').on(table.tripId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const place = app.table(
+  'place',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    tripId: ref('trip_id'),
+    source: text('source').notNull().default('manual'),
+    tz: text('tz'),
+    countryCode: text('country_code'),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('place_account_idx').on(table.accountId, table.seq),
+    index('place_trip_idx').on(table.tripId, table.seq),
+  ],
+);

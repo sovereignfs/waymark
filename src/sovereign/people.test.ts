@@ -15,6 +15,7 @@ import * as sqliteSchema from '../db/schema/sqlite';
 import { openAppBesideAuth, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
+import { listPlaces, makePlace } from '../places/places';
 import { createProfile, getProfile } from '../profile/profile';
 import { deletePerson } from './people';
 
@@ -31,6 +32,7 @@ const sealer = new Sealer(ring);
 /** Tables whose rows are the person's, and go with them. */
 const GOES = [
   'profile',
+  'place',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -143,6 +145,8 @@ describe(`deleting a person (${leg})`, () => {
       if (!result.ok) throw new Error('could not seed a photo');
       made[who]?.push(result.id);
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
+      for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
+        await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
     }
     // The sign-in store: a pending verification named by the address, a second factor and a passkey.
     await dbAll(
@@ -171,6 +175,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(await getProfile(database, sealer, ada)).toBeUndefined();
     expect(await count('profile', `account_id = '${ada}'`)).toBe(0);
     expect(await count('media', `account_id = '${ada}'`)).toBe(0);
+    expect(await count('place', `account_id = '${ada}'`)).toBe(0);
+    expect(await listPlaces({ database, sealer }, ada)).toEqual([]);
     expect(await count('rate_bucket', `"key" LIKE '%:${ada}'`)).toBe(0);
     expect(await usageOf(database, ada)).toBe(0);
     for (const fileId of made[ada] ?? [])
@@ -191,6 +197,7 @@ describe(`deleting a person (${leg})`, () => {
     // Grace, whole.
     expect(await getProfile(database, sealer, grace)).toMatchObject({ name: 'Grace Hopper' });
     expect(await count('media', `account_id = '${grace}'`)).toBe(2);
+    expect(await count('place', `account_id = '${grace}'`)).toBe(2);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

@@ -15,7 +15,7 @@ tile service that lets the browser draw an OpenStreetMap map with nothing loaded
 
 ## Tasks
 
-#### 📋 4.1 — Places
+#### ✅ 4.1 — Places
 
 **Goal:** a person's places, sealed, findable in memory. **Design:** §7.1, §18.1. **Depends on:** 3.1, 4.4.
 
@@ -26,6 +26,19 @@ journal (11.5) and import (8.2); search over a person's places by name and dista
 
 **Accepts when:** a second person gets not found for a place; merge moves every check-in; the match rule's fixtures hold, including two cafés of one name
 60 metres apart.
+
+**Done as:** `place` in both dialects (migration `0004_places`): `id`, `account_id`, `trip_id` (exactly one is set; only `account_id` is written from here, a trip's places come with 9.2), `source` (`manual`, `osm`, `import`), `tz`, `country_code`, `version`,
+`seq`, `sealed` (name, point, address parts, category, source id: `SEALED.place`, as declared in 3.1), `created_at`, `updated_at`, indexed by owner and `seq`. `src/places/places.ts`, the one file that writes or reads `place.sealed`:
+`makePlace` (finds the zone from the point, 4.4, and the country from the address; the device's own id makes a replay a no-op, and an id that is another account's is `id_taken`), `getPlace`, `listPlaces`, `findPlaceLike`, `updatePlace` with
+`renamePlace`, `recategorizePlace` and `movePlace` (a move finds the zone again unless one is given; a zone a person corrected survives a rename; written against the `version` it read, so two changes at once lose neither),
+`mergePlace` (every row of the person that names the first place names the second, and the first is deleted, in one transaction; both must be the person's), `deletePlace` (one statement with a `NOT EXISTS` for every table that names a place, so a
+place with check-ins is `in_use`), `deletePlacesOf`. Every statement names `account_id`, so another person's place is `not_found`. `src/places/match.ts` is the one "same place" rule (`isSamePlace`, `findSamePlace`, `distanceMetres`,
+`normalizeName`: no accents, case or punctuation); `src/places/search.ts` is the search by name, category and address, nearest first, in memory. `People.deletePerson` removes a person's places, and its test seeds two for each person and keeps a
+table that is decided nowhere from passing. **What names a place** is `PLACE_REFERENCES` (empty until 5.2 makes `checkin`), and a test reads the schema and fails for a table with a `place_id` that is in neither it nor `TRIP_REFERENCES`: merging
+and deleting are tested with a scratch table standing in for check-ins, and the real one joins the list in its own change. **Seen:** the second person gets `not_found` from get, update, merge (either side) and delete, and a replay of an id they
+took; the stored row has no name, point or address in a column or readable in the envelope, and an envelope moved to another row does not open; the 50 m rule's fixtures, two cafés of one name 60 m apart among them; the whole suite on a `file:`
+database, sqld and PostgreSQL (517 tests each). Each safeguard was taken out in turn and seen to fail its test (the owner in a read, the check for what points at a place, the owner on a merge's moves, both places being the person's). **Left out:**
+`seq` is 0 until the one write path of sync assigns it (6.1), and there is no route or operation yet (the screens, 7.x, and sync, 6.x, call these); the export and import of places join the task that makes them (§22).
 
 #### 📋 4.2 — Finding a place
 
