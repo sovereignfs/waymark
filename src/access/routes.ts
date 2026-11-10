@@ -35,6 +35,8 @@ export const ROUTES: RouteRule[] = [
   { route: '/shell', page: { kind: 'public' } },
   // The app, for someone signed in: the layout around it (`app/(app)/layout.tsx`) finds who, and each page asks for itself as well.
   { route: '/checkins', page: { kind: 'account' } },
+  // One check-in (DESIGN.md §20.6): the timeline with it open, which is the same page as `/checkins`.
+  { route: '/c/[id]', page: { kind: 'account' } },
   { route: '/map', page: { kind: 'account' } },
   { route: '/places', page: { kind: 'account' } },
   // Settings (DESIGN.md §21): the profile, sign-in and data, for the signed-in account only.

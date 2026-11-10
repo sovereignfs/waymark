@@ -17,6 +17,8 @@ const RENDERING_ONLY: Record<string, string> = {
     'what the header button does to what is drawn: hides the sidebar, or opens the drawer',
   'src/screens/CheckInSurface.tsx':
     'whether the check-in is a sheet or a drawer: the same content, opened and closed the same way by CheckInSheet',
+  'src/screens/CheckinsLayout.tsx':
+    'whether a selected check-in is beside the list or a page of its own: the address is /c/<id> either way',
   'src/theme/script.ts': 'the colour scheme the device prefers, not a width',
 };
 /** Files that draw by width and also write, because that is what they are for. None yet. */

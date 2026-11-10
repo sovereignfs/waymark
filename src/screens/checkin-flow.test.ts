@@ -7,6 +7,7 @@ import {
   buildOptions,
   momentFromInput,
   planCheckIn,
+  planEdit,
   selectionOf,
   zoneOfSelection,
 } from './checkin-flow';
@@ -368,6 +369,145 @@ describe('the action a choice makes', () => {
     expect(
       fail(planCheckIn({ kind: 'place', place: FLORE }, PLACES, { note: 'x'.repeat(2001) }, ctx()))
         ?.reason,
+    ).toBe('note');
+  });
+});
+
+describe('changing a check-in', () => {
+  const CURRENT = {
+    id: 'c1',
+    placeId: 'flore',
+    at: Date.UTC(2026, 5, 1, 8, 30),
+    tz: 'Europe/Paris',
+    offsetMin: 120,
+    note: 'first',
+    companions: ['Ada'],
+    tripId: null,
+    linkSource: null,
+    share: 'trip' as const,
+    source: 'live' as const,
+    version: 3,
+  };
+  const SAME = {
+    local: { date: '2026-06-01', time: '10:30' },
+    note: 'first',
+    companions: ['Ada'],
+    photos: [] as string[],
+  };
+  const row = (result: ReturnType<typeof planEdit>) => {
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    if (!result.ok) throw new Error(result.sentence);
+    expect(parseMutation(JSON.parse(JSON.stringify(result.mutation)), NOW).ok).toBe(true);
+    const change = result.mutation.changes[0];
+    return change?.table === 'checkin' && change.op === 'put'
+      ? { ...change.row, baseVersion: change.baseVersion }
+      : undefined;
+  };
+
+  it('changes only what differs: the note, with the version it was made from, and the moment is not worked out again', () => {
+    expect(row(planEdit(CURRENT, undefined, { ...SAME, note: 'second' }, ctx()))).toMatchObject({
+      note: 'second',
+      at: CURRENT.at,
+      source: 'live',
+      baseVersion: 3,
+    });
+  });
+
+  it('takes a note away when it is cleared, changes companions, and reorders and takes away photos', () => {
+    expect(
+      row(
+        planEdit(
+          { ...CURRENT, photos: ['11111111-1111-4111-8111-111111111111'] },
+          undefined,
+          { ...SAME, note: '  ', companions: [] },
+          ctx(),
+        ),
+      ),
+    ).not.toHaveProperty('note');
+    const a = '11111111-1111-4111-8111-111111111111';
+    const b = '22222222-2222-4222-8222-222222222222';
+    expect(
+      row(planEdit({ ...CURRENT, photos: [a, b] }, undefined, { ...SAME, photos: [b] }, ctx())),
+    ).toMatchObject({ photos: [b] });
+    expect(
+      row(planEdit({ ...CURRENT, photos: [a, b] }, undefined, { ...SAME, photos: [b, a] }, ctx())),
+    ).toMatchObject({ photos: [b, a] });
+    expect(
+      row(
+        planEdit(
+          { ...CURRENT, photos: [a] },
+          undefined,
+          { ...SAME, note: 'x', photos: [a, b] },
+          ctx(),
+        ),
+      ),
+    ).toMatchObject({ photos: [a, b] });
+  });
+
+  it('reads a changed moment on the clock where the check-in is, and on the new place’s clock when the place changes', () => {
+    expect(
+      row(
+        planEdit(
+          CURRENT,
+          undefined,
+          { ...SAME, local: { date: '2026-06-02', time: '23:59' } },
+          ctx(),
+        ),
+      ),
+    ).toMatchObject({
+      at: Date.UTC(2026, 5, 2, 21, 59),
+      tz: 'Europe/Paris',
+      offsetMin: 120,
+      source: 'live',
+    });
+    const moved = row(
+      planEdit(
+        CURRENT,
+        { kind: 'place', place: LISBON },
+        { ...SAME, local: { date: '2026-06-01', time: '09:00' } },
+        ctx(),
+      ),
+    );
+    expect(moved).toMatchObject({
+      placeId: 'lisbon',
+      tz: 'Europe/Lisbon',
+      at: Date.UTC(2026, 5, 1, 8, 0),
+      offsetMin: 60,
+    });
+  });
+
+  it('is refused, with the sentence, when nothing changed, when the moment is not one, or is in the future', () => {
+    const fail = (r: ReturnType<typeof planEdit>) => (r.ok ? undefined : r);
+    expect(fail(planEdit(CURRENT, undefined, SAME, ctx()))).toMatchObject({
+      reason: 'nothing',
+      sentence: 'Nothing was changed.',
+    });
+    expect(
+      fail(planEdit(CURRENT, { kind: 'place', place: { ...FLORE, id: 'flore' } }, SAME, ctx()))
+        ?.reason,
+    ).toBe('nothing');
+    expect(
+      fail(
+        planEdit(
+          CURRENT,
+          undefined,
+          { ...SAME, local: { date: '2026-02-30', time: '10:00' } },
+          ctx(),
+        ),
+      )?.reason,
+    ).toBe('moment');
+    expect(
+      fail(
+        planEdit(
+          CURRENT,
+          undefined,
+          { ...SAME, local: { date: '2026-07-05', time: '10:00' } },
+          ctx(),
+        ),
+      ),
+    ).toMatchObject({ reason: 'future' });
+    expect(
+      fail(planEdit(CURRENT, undefined, { ...SAME, note: 'x'.repeat(2001) }, ctx()))?.reason,
     ).toBe('note');
   });
 });

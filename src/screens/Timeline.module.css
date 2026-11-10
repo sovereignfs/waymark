@@ -1,0 +1,211 @@
+/* The timeline and a check-in (DESIGN.md §20.6). */
+/* A height of its own: the page area is the viewport less the header (and the phone's footer), whatever panes it sits in, and a list that is not given one grows to its whole content, which is every row of a decade. */
+.root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--sv-shell-header-height, 56px) - var(--sv-shell-footer-height, 0px));
+  min-height: 0;
+  min-width: 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-4);
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.search {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.count {
+  margin: 0;
+  padding: var(--sv-space-2) var(--sv-space-4);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.list {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.spacer {
+  position: relative;
+  width: 100%;
+}
+
+.item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
+.day {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-3) var(--sv-space-4) var(--sv-space-1);
+  background: var(--sv-color-surface);
+}
+
+.day h3 {
+  margin: 0;
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.day span {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  height: 100%;
+  padding: 0 var(--sv-space-4);
+  color: inherit;
+  text-decoration: none;
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.row:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.row[aria-current='page'] {
+  background: var(--sv-color-accent-subtle);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.time {
+  flex: 0 0 3rem;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--sv-font-weight-medium);
+}
+
+.line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.thumb {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: var(--sv-radius-md);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--sv-radius-md);
+}
+
+.placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  border-radius: var(--sv-radius-md);
+  background: var(--sv-color-surface-sunken);
+}
+
+.empty {
+  padding: var(--sv-space-6);
+}
+
+/* A check-in's page. */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  height: calc(100dvh - var(--sv-shell-header-height, 56px) - var(--sv-shell-footer-height, 0px));
+  padding: var(--sv-space-5);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.detail h1 {
+  margin: 0;
+  font-size: var(--sv-font-size-xl);
+  font-weight: var(--sv-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.when {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+}
+
+.note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photos li {
+  aspect-ratio: 4 / 3;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sv-space-3);
+}
+
+.back {
+  align-self: flex-start;
+}

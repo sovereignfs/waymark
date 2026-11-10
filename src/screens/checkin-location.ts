@@ -1,4 +1,4 @@
-import { checkInHref, closedHref } from './checkin';
+import { type CheckInMode, checkInHref, closedHref } from './checkin';
 
 /**
  * The address the check-in sheet lives in, read and changed **directly** (DESIGN.md §20.3, §15): `window.location` and the history API, with the sheet told at once when either changes. Opening and closing do not go
@@ -22,10 +22,26 @@ export function subscribeLocation(listener: () => void): () => void {
 export const currentSearch = (): string => window.location.search.slice(1);
 export const currentPath = (): string => window.location.pathname;
 
-/** Opens the sheet over the page this is: a step in the history, so that the back button closes it. */
-export function openCheckIn(): void {
-  window.history.pushState(null, '', checkInHref(window.location.pathname, window.location.search));
+/** Opens the sheet over the page this is, to check in or to change a check-in: a step in the history, so that the back button closes it. */
+export function openCheckIn(mode: CheckInMode = { mode: 'new' }): void {
+  window.history.pushState(
+    null,
+    '',
+    checkInHref(window.location.pathname, window.location.search, mode),
+  );
   notify();
+}
+
+/**
+ * Goes to an address **inside the app without the router**, which would ask the server for the page (and, with no network, fail): the page that is mounted reads the address and draws what it says, as the timeline
+ * does for `/c/<id>`. A step in the history, or a replacement of the current one. Only a path of this app is taken: a whole address, another host's, or one that is not a path is refused and does nothing.
+ */
+export function goTo(url: string, how: 'push' | 'replace' = 'push'): boolean {
+  if (!url.startsWith('/') || url.startsWith('//')) return false;
+  if (how === 'push') window.history.pushState(null, '', url);
+  else window.history.replaceState(null, '', url);
+  notify();
+  return true;
 }
 
 /** Closes the sheet: the address is put back as it was, without a step in the history. */

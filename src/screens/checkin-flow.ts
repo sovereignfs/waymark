@@ -2,14 +2,16 @@ import {
   checkInAtNewPlace,
   checkInAtPlace,
   checkInAtPoint,
+  editCheckin,
   type CheckInOptions,
 } from '../actions/checkins';
-import type { ActionResult, Context, PlaceView } from '../actions/types';
+import type { ActionResult, CheckinView, Context, PlaceView } from '../actions/types';
 import { SENTENCES, refuse } from '../checkins/validate';
 import { distanceMetres, findSamePlace } from '../places/match';
 import type { Candidate } from '../places/providers';
 import { searchPlaces } from '../places/search';
 import { momentOf, zoneOf } from '../places/tz';
+import { localDateOf, localTimeOf } from './timeline';
 
 /**
  * What the check-in sheet decides (DESIGN.md §9.2, §20.5), apart from how it looks: **which places are offered** and in what order, **which moment** a person meant, and **which action** their choice is. Pure, so
@@ -233,3 +235,53 @@ export const POSITION_SENTENCES = {
 } as const;
 
 export { SENTENCES };
+
+export interface EditExtras {
+  /** The date and time as the form shows them, on the clock where the check-in is: the same as it was means the moment is not changed. */
+  readonly local: { readonly date: string; readonly time: string };
+  readonly note: string;
+  readonly companions: readonly string[];
+  /** The photos the check-in has now, in order: the ones it had that were kept, and the new ones. */
+  readonly photos: readonly string[];
+}
+
+/**
+ * The action that changes a check-in from what the form says (DESIGN.md §9.4): **only what differs is a change**, and the rest is sent as it was (the row goes whole, so the later edit stands, §15.4). A different
+ * place brings its zone for the moment; a moment that is the same on the form is not worked out again, which would turn a check-in made live into one made by hand for no reason; a note that is cleared is taken away.
+ * Nothing changed is refused with the sentence that says so.
+ */
+export function planEdit(
+  current: CheckinView,
+  selection: Selection | undefined,
+  extras: EditExtras,
+  ctx: Context,
+): ActionResult {
+  const place =
+    selection?.kind === 'place' && selection.place.id !== current.placeId
+      ? selection.place
+      : undefined;
+  const sameMoment =
+    extras.local.date === localDateOf(current) && extras.local.time === localTimeOf(current);
+  let at: number | undefined;
+  if (!sameMoment) {
+    const zone = place ? (place.tz ?? zoneOf(place.lat, place.lng) ?? current.tz) : current.tz;
+    at = momentFromInput(extras.local, zone);
+    if (at === undefined) return refuse('moment');
+  }
+  const note = extras.note.trim();
+  const photos = [...extras.photos];
+  const samePhotos =
+    photos.length === (current.photos?.length ?? 0) &&
+    photos.every((id, i) => id === current.photos?.[i]);
+  return editCheckin(
+    current,
+    {
+      ...(place ? { place } : {}),
+      ...(at !== undefined ? { at } : {}),
+      note: note === '' ? null : note,
+      companions: extras.companions,
+      ...(samePhotos ? {} : { photos }),
+    },
+    ctx,
+  );
+}

@@ -234,7 +234,21 @@ export function editCheckin(
 
 /** The row of a check-in as validation shapes it, for comparing with what an edit would make. */
 function normalised(view: CheckinView): CheckinRow | undefined {
-  const { id: _id, version: _version, ...row } = view;
+  // Only what a check-in is: a row from the device's store also carries the server's number for it (`seq`) and whatever else a later version adds, which is not part of what an edit says.
+  const row = {
+    placeId: view.placeId,
+    at: view.at,
+    tz: view.tz,
+    offsetMin: view.offsetMin,
+    note: view.note,
+    companions: view.companions,
+    tripId: view.tripId,
+    linkSource: view.linkSource,
+    share: view.share,
+    source: view.source,
+    photos: view.photos,
+    externalId: view.externalId,
+  };
   const checked = validateCheckinRow(row, Number.MAX_SAFE_INTEGER);
   return checked.ok ? checked.value : undefined;
 }

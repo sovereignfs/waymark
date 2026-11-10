@@ -5,10 +5,25 @@
 export const CHECKIN_PARAM = 'checkin';
 export const CHECKIN_VALUE = 'new';
 
-/** Whether a query asks for the sheet: exactly `checkin=new`, and nothing else opens it. */
-export function isCheckInOpen(search: string | URLSearchParams): boolean {
+export const EDIT_VALUE = 'edit';
+export const OF_PARAM = 'of';
+const ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * What a query asks the sheet for: `checkin=new` to check in, or `checkin=edit&of=<id>` to change that check-in (9.4). **Exactly these**: anything else, an id that is not an id included, asks for nothing.
+ */
+export type CheckInMode = { readonly mode: 'new' } | { readonly mode: 'edit'; readonly id: string };
+export function checkInMode(search: string | URLSearchParams): CheckInMode | undefined {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
-  return params.get(CHECKIN_PARAM) === CHECKIN_VALUE;
+  const asked = params.get(CHECKIN_PARAM);
+  if (asked === CHECKIN_VALUE) return { mode: 'new' };
+  const id = params.get(OF_PARAM) ?? '';
+  return asked === EDIT_VALUE && ID.test(id) ? { mode: 'edit', id } : undefined;
+}
+
+/** Whether a query asks for the sheet at all. */
+export function isCheckInOpen(search: string | URLSearchParams): boolean {
+  return checkInMode(search) !== undefined;
 }
 
 const withQuery = (pathname: string, params: URLSearchParams): string => {
@@ -16,10 +31,18 @@ const withQuery = (pathname: string, params: URLSearchParams): string => {
   return query === '' ? pathname : `${pathname}?${query}`;
 };
 
-/** The address that opens the sheet over this page: the same path and query, with `checkin=new` added (or put right). */
-export function checkInHref(pathname: string, search: string | URLSearchParams = ''): string {
+/** The address that opens the sheet over this page: the same path and query, with `checkin=new` (or `checkin=edit&of=<id>`) added or put right. */
+export function checkInHref(
+  pathname: string,
+  search: string | URLSearchParams = '',
+  mode: CheckInMode = { mode: 'new' },
+): string {
   const params = new URLSearchParams(typeof search === 'string' ? search : search.toString());
-  params.set(CHECKIN_PARAM, CHECKIN_VALUE);
+  params.delete(OF_PARAM);
+  if (mode.mode === 'edit') {
+    params.set(CHECKIN_PARAM, EDIT_VALUE);
+    params.set(OF_PARAM, mode.id);
+  } else params.set(CHECKIN_PARAM, CHECKIN_VALUE);
   return withQuery(pathname, params);
 }
 
@@ -27,6 +50,7 @@ export function checkInHref(pathname: string, search: string | URLSearchParams =
 export function closedHref(pathname: string, search: string | URLSearchParams = ''): string {
   const params = new URLSearchParams(typeof search === 'string' ? search : search.toString());
   params.delete(CHECKIN_PARAM);
+  params.delete(OF_PARAM);
   return withQuery(pathname, params);
 }
 

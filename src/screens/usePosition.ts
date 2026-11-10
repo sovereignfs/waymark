@@ -13,7 +13,8 @@ export type PositionState =
   | { status: 'granted'; position: Position }
   | { status: 'denied' | 'unavailable' };
 
-export function usePosition(): { state: PositionState; ask: () => void } {
+/** `enabled` is false for a form that has no use for the position (changing a check-in): nothing is read, and nothing is asked. */
+export function usePosition(enabled = true): { state: PositionState; ask: () => void } {
   const [state, setState] = useState<PositionState>({ status: 'idle' });
   const asked = useRef(false);
 
@@ -37,6 +38,7 @@ export function usePosition(): { state: PositionState; ask: () => void } {
 
   // Told yes already: read it without asking. Told no: say so. Otherwise wait to be asked.
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     const permissions = typeof navigator !== 'undefined' ? navigator.permissions : undefined;
     if (!permissions?.query) return;
@@ -51,7 +53,7 @@ export function usePosition(): { state: PositionState; ask: () => void } {
     return () => {
       alive = false;
     };
-  }, [ask]);
+  }, [ask, enabled]);
 
   return { state, ask };
 }

@@ -4,7 +4,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useSyncExternalStore } from 'react';
 import { CheckInContent } from './CheckInContent';
 import { CheckInSurface } from './CheckInSurface';
-import { isCheckInKey, isCheckInOpen } from './checkin';
+import { checkInMode, isCheckInKey } from './checkin';
+import { useLocal } from '../local/LocalProvider';
 import { closeCheckIn, currentSearch, openCheckIn, subscribeLocation } from './checkin-location';
 
 /**
@@ -17,7 +18,11 @@ export function CheckInSheet() {
   usePathname();
   useSearchParams();
   const search = useSyncExternalStore(subscribeLocation, currentSearch, () => '');
-  const open = isCheckInOpen(search);
+  const mode = checkInMode(search);
+  const open = mode !== undefined;
+  const local = useLocal();
+  const editing =
+    mode?.mode === 'edit' ? local?.checkins.find((each) => each.id === mode.id) : undefined;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -30,8 +35,23 @@ export function CheckInSheet() {
   }, [open]);
 
   return (
-    <CheckInSurface open={open} onClose={closeCheckIn}>
-      <CheckInContent onDone={closeCheckIn} />
+    <CheckInSurface
+      open={open}
+      onClose={closeCheckIn}
+      title={mode?.mode === 'edit' ? 'Change check-in' : 'Check in'}
+    >
+      {mode?.mode === 'edit' ? (
+        // The form is filled in from the check-in, so it is made once the check-in is there (the store is read a moment after the page opens), and again for another.
+        editing ? (
+          <CheckInContent key={editing.id} editing={editing} onDone={closeCheckIn} />
+        ) : (
+          <p role="status">
+            {local?.ready ? 'That check-in is not on this device any more.' : 'Loading…'}
+          </p>
+        )
+      ) : (
+        <CheckInContent onDone={closeCheckIn} />
+      )}
     </CheckInSurface>
   );
 }

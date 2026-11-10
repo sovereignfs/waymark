@@ -347,6 +347,14 @@ describe('changing a check-in', () => {
     expect(row).toMatchObject({ share: 'off' });
   });
 
+  it('knows a check-in from the device’s store, which carries the server’s number for it, is unchanged when nothing is', () => {
+    const fromStore = { ...CHECKIN, seq: 42 } as typeof CHECKIN;
+    expect(
+      failure(editCheckin(fromStore, { note: undefined, companions: ['Ada'] }, ctx())).reason,
+    ).toBe('nothing');
+    expect(accepted(editCheckin(fromStore, { note: 'now it has one' }, ctx())).ok).toBe(true);
+  });
+
   it('refuses a change that changes nothing, a check-in that is gone, and a moment in the future', () => {
     expect(failure(editCheckin(CHECKIN, {}, ctx())).reason).toBe('nothing');
     expect(

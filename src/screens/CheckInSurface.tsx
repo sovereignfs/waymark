@@ -10,21 +10,23 @@ import { Drawer, Sheet, useIsMobile } from '@sovereignfs/ui';
 export function CheckInSurface({
   open,
   onClose,
+  title = 'Check in',
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  title?: string;
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
   if (mobile)
     return (
-      <Drawer open={open} onClose={onClose} title="Check in" aria-label="Check in">
+      <Drawer open={open} onClose={onClose} title={title} aria-label={title}>
         {children}
       </Drawer>
     );
   return (
-    <Sheet open={open} onClose={onClose} title="Check in" aria-label="Check in">
+    <Sheet open={open} onClose={onClose} title={title} aria-label={title}>
       {children}
     </Sheet>
   );

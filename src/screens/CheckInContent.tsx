@@ -11,16 +11,20 @@ import {
   Textarea,
   useToast,
 } from '@sovereignfs/ui';
+import type { CheckinView } from '../actions/types';
 import { useLocal } from '../local/LocalProvider';
 import {
   type Option,
   buildOptions,
   planCheckIn,
+  planEdit,
   selectionOf,
   zoneOfSelection,
 } from './checkin-flow';
 import { POSITION_SENTENCES } from './checkin-flow';
 import styles from './CheckIn.module.css';
+import { PhotoImage } from './PhotoImage';
+import { localDateOf, localTimeOf } from './timeline';
 import { usePlaceSearch } from './usePlaceSearch';
 import { usePosition } from './usePosition';
 
@@ -51,21 +55,35 @@ const nowTime = () => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export function CheckInContent({ onDone }: { onDone: () => void }) {
+/**
+ * `editing` is a check-in being changed (DESIGN.md §9.4): the same form, filled in, with the person's own places to move it to, its moment on the clock where it was made, its note, who was with them and its photos,
+ * and **Save**. Here, the place search and a new place are for checking in, and are not offered.
+ */
+export function CheckInContent({
+  onDone,
+  editing,
+}: {
+  onDone: () => void;
+  editing?: CheckinView | undefined;
+}) {
   const local = useLocal();
   const toast = useToast();
-  const { state: position, ask } = usePosition();
+  const { state: position, ask } = usePosition(!editing);
   const [way, setWay] = useState<Way>('search');
   const [query, setQuery] = useState('');
-  const here = position.status === 'granted' ? position.position : undefined;
-  const search = usePlaceSearch(way === 'search' ? query : '', here);
-  const [chosen, setChosen] = useState<string | undefined>();
+  const here = !editing && position.status === 'granted' ? position.position : undefined;
+  const search = usePlaceSearch(way === 'search' && !editing ? query : '', here);
+  const [chosen, setChosen] = useState<string | undefined>(
+    editing ? `mine:${editing.placeId}` : undefined,
+  );
   const [newName, setNewName] = useState('');
   const [another, setAnother] = useState(false);
-  const [date, setDate] = useState(today());
-  const [time, setTime] = useState(nowTime());
-  const [note, setNote] = useState('');
-  const [companions, setCompanions] = useState<string[]>([]);
+  const [date, setDate] = useState(editing ? localDateOf(editing) : today());
+  const [time, setTime] = useState(editing ? localTimeOf(editing) : nowTime());
+  const [note, setNote] = useState(editing?.note ?? '');
+  const [companions, setCompanions] = useState<string[]>(editing ? [...editing.companions] : []);
+  // The photos the check-in has, which can be taken away; the new ones are `files`.
+  const [kept, setKept] = useState<string[]>(editing?.photos ? [...editing.photos] : []);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -96,17 +114,25 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
   }, [canHere]);
 
   const places = local?.places ?? [];
-  const options = useMemo(
-    () =>
-      buildOptions({
-        places,
-        query: way === 'here' ? '' : query,
-        position: here,
-        found: search.found,
-        reverse: way === 'here' ? search.reverse : undefined,
-      }),
-    [places, query, way, here, search.found, search.reverse],
-  );
+  const options = useMemo(() => {
+    const built = buildOptions({
+      places,
+      query: way === 'here' ? '' : query,
+      position: here,
+      found: search.found,
+      reverse: way === 'here' ? search.reverse : undefined,
+    });
+    if (!editing) return built;
+    // Changing a check-in moves it among the person's own places, with the one it is at first.
+    const mine = built.filter((option) => option.kind === 'mine');
+    const current = places.find((place) => place.id === editing.placeId);
+    return current && !mine.some((option) => option.key === `mine:${current.id}`)
+      ? [
+          { key: `mine:${current.id}`, kind: 'mine' as const, place: current, distance: undefined },
+          ...mine,
+        ]
+      : mine;
+  }, [places, query, way, here, search.found, search.reverse, editing]);
   const selected: Option | undefined = options.find((option) => option.key === chosen);
   const selection = selectionOf(selected, newName);
   const zone = selection ? zoneOfSelection(selection) : undefined;
@@ -127,16 +153,24 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
     const sel = selectionOf(picked, newName);
     setError(undefined);
     const photoIds = files.map(() => crypto.randomUUID());
-    const plan = planCheckIn(
-      sel,
-      places,
-      { local: another ? { date, time } : undefined, note, companions, photos: photoIds },
-      {
-        ids: { newId: () => crypto.randomUUID() },
-        now: Date.now(),
-        deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      },
-    );
+    const ctx = {
+      ids: { newId: () => crypto.randomUUID() },
+      now: Date.now(),
+      deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const plan = editing
+      ? planEdit(
+          editing,
+          selectionOf(selected ?? options.find((o) => o.key === `mine:${editing.placeId}`), ''),
+          { local: { date, time }, note, companions, photos: [...kept, ...photoIds] },
+          ctx,
+        )
+      : planCheckIn(
+          sel,
+          places,
+          { local: another ? { date, time } : undefined, note, companions, photos: photoIds },
+          ctx,
+        );
     if (!plan.ok) {
       setError(plan.sentence);
       return;
@@ -151,7 +185,7 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
         }
       }
       await local.record(plan.mutation);
-      toast.show({ title: 'Checked in', category: 'success', duration: 3000 });
+      toast.show({ title: editing ? 'Saved' : 'Checked in', category: 'success', duration: 3000 });
       onDone();
     } catch {
       setError('This browser could not keep the check-in. Try again.');
@@ -190,20 +224,22 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
       className={styles.form}
       noValidate
       onSubmit={(event) => void submit(event)}
-      aria-label="Check in"
+      aria-label={editing ? 'Change check-in' : 'Check in'}
     >
-      <SegmentedControl
-        aria-label="How to find the place"
-        value={way}
-        onChange={(next) => {
-          setWay(next);
-          if (next === 'here' && position.status === 'idle') ask();
-        }}
-        options={[
-          ...(canHere ? [{ value: 'here' as const, label: 'Here' }] : []),
-          { value: 'search' as const, label: 'Search' },
-        ]}
-      />
+      {editing ? null : (
+        <SegmentedControl
+          aria-label="How to find the place"
+          value={way}
+          onChange={(next) => {
+            setWay(next);
+            if (next === 'here' && position.status === 'idle') ask();
+          }}
+          options={[
+            ...(canHere ? [{ value: 'here' as const, label: 'Here' }] : []),
+            { value: 'search' as const, label: 'Search' },
+          ]}
+        />
+      )}
       {hereNote ? <p className={styles.hint}>{hereNote}</p> : null}
 
       {way === 'search' ? (
@@ -292,50 +328,79 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
         )}
       </fieldset>
 
-      <div className={styles.moment}>
-        <Button
-          type="button"
-          variant="secondary"
-          aria-pressed={another}
-          onClick={() => setAnother((on) => !on)}
-        >
-          {another ? 'Now' : 'Another time'}
-        </Button>
-        {another ? (
-          <>
-            <FormField label="Date">
-              {(field) => (
-                <Input
-                  {...field}
-                  type="date"
-                  name="date"
-                  max={today()}
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                />
-              )}
-            </FormField>
-            <FormField label="Time">
-              {(field) => (
-                <Input
-                  {...field}
-                  type="time"
-                  name="time"
-                  value={time}
-                  onChange={(event) => setTime(event.target.value)}
-                />
-              )}
-            </FormField>
-            <p className={styles.hint}>
-              {zone
-                ? `On the clock where the place is (${zone}).`
-                : 'On the clock where the place is.'}
-            </p>
-          </>
-        ) : (
-          <p className={styles.hint}>Now</p>
-        )}
-      </div>
+      {editing ? (
+        <div className={styles.moment}>
+          <FormField label="Date">
+            {(field) => (
+              <Input
+                {...field}
+                type="date"
+                name="date"
+                max={today()}
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+              />
+            )}
+          </FormField>
+          <FormField label="Time">
+            {(field) => (
+              <Input
+                {...field}
+                type="time"
+                name="time"
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+              />
+            )}
+          </FormField>
+          <p className={styles.hint}>On the clock where it was made ({editing.tz}).</p>
+        </div>
+      ) : (
+        <div className={styles.moment}>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-pressed={another}
+            onClick={() => setAnother((on) => !on)}
+          >
+            {another ? 'Now' : 'Another time'}
+          </Button>
+          {another ? (
+            <>
+              <FormField label="Date">
+                {(field) => (
+                  <Input
+                    {...field}
+                    type="date"
+                    name="date"
+                    max={today()}
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                  />
+                )}
+              </FormField>
+              <FormField label="Time">
+                {(field) => (
+                  <Input
+                    {...field}
+                    type="time"
+                    name="time"
+                    value={time}
+                    onChange={(event) => setTime(event.target.value)}
+                  />
+                )}
+              </FormField>
+              <p className={styles.hint}>
+                {zone
+                  ? `On the clock where the place is (${zone}).`
+                  : 'On the clock where the place is.'}
+              </p>
+            </>
+          ) : (
+            <p className={styles.hint}>Now</p>
+          )}
+        </div>
+      )}
 
       <FormField label="Note">
         {(field) => (
@@ -361,6 +426,24 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
         )}
       </FormField>
 
+      {kept.length > 0 ? (
+        <ul className={styles.photos} aria-label="Photos it has">
+          {kept.map((photo, index) => (
+            <li key={photo} className={styles.photo}>
+              <PhotoImage id={photo} thumb alt={`Photo ${index + 1}`} />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-label={`Take away photo ${index + 1}`}
+                onClick={() => setKept((current) => current.filter((id) => id !== photo))}
+              >
+                ×
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div>
         <label className={styles.hint} htmlFor="checkin-photos">
           Photos
@@ -374,7 +457,7 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
           multiple
           onChange={(event) => {
             const added = [...(event.target.files ?? [])];
-            setFiles((current) => [...current, ...added].slice(0, 10));
+            setFiles((current) => [...current, ...added].slice(0, Math.max(0, 10 - kept.length)));
             event.target.value = '';
           }}
         />
@@ -410,7 +493,7 @@ export function CheckInContent({ onDone }: { onDone: () => void }) {
             (needsName && newName.trim() === '')
           }
         >
-          Check in
+          {editing ? 'Save' : 'Check in'}
         </Button>
       </div>
     </form>

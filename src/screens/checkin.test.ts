@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkInHref, closedHref, isCheckInKey, isCheckInOpen } from './checkin';
+import { checkInHref, checkInMode, closedHref, isCheckInKey, isCheckInOpen } from './checkin';
 
 const press = (over: Partial<Parameters<typeof isCheckInKey>[0]> = {}) =>
   isCheckInKey({
@@ -58,6 +58,34 @@ describe('the check-in sheet’s address', () => {
     expect(checkInHref('/checkins', 'q=a%26b&x=%2F..%2F')).toBe(
       '/checkins?q=a%26b&x=%2F..%2F&checkin=new',
     );
+  });
+});
+
+describe('the sheet to change a check-in', () => {
+  it('is checkin=edit with the id of the check-in, and nothing else asks for it', () => {
+    expect(checkInMode('checkin=edit&of=abc-123')).toEqual({ mode: 'edit', id: 'abc-123' });
+    expect(checkInMode('checkin=new')).toEqual({ mode: 'new' });
+    expect(isCheckInOpen('checkin=edit&of=abc')).toBe(true);
+    for (const query of [
+      'checkin=edit',
+      'checkin=edit&of=',
+      'checkin=edit&of=../x',
+      'checkin=edit&of=a%20b',
+      'of=abc',
+      'checkin=EDIT&of=abc',
+      `checkin=edit&of=${'a'.repeat(65)}`,
+    ])
+      expect(checkInMode(query), query).toBeUndefined();
+  });
+
+  it('opens over the page and closes back, the rest of the query kept, and one mode does not leave the other’s id behind', () => {
+    expect(checkInHref('/c/abc', 'year=2026', { mode: 'edit', id: 'abc' })).toBe(
+      '/c/abc?year=2026&checkin=edit&of=abc',
+    );
+    expect(checkInHref('/c/abc', 'checkin=edit&of=old', { mode: 'new' })).toBe(
+      '/c/abc?checkin=new',
+    );
+    expect(closedHref('/c/abc', 'year=2026&checkin=edit&of=abc')).toBe('/c/abc?year=2026');
   });
 });
 
