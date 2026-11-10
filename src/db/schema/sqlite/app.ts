@@ -1,4 +1,4 @@
-import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { counter, epochMs, id, ref, sealed } from './columns';
 
 /**
@@ -88,6 +88,8 @@ export const place = sqliteTable(
     countryCode: text('country_code'),
     version: counter('version').notNull().default(1),
     seq: counter('seq').notNull().default(0),
+    // 0 for a place with a name; 1 or more for one made from a point alone that is waiting to be named by reverse lookup (the number of tries made, plus one).
+    unnamed: counter('unnamed').notNull().default(0),
     sealed: sealed('sealed').notNull(),
     createdAt: epochMs('created_at').notNull(),
     updatedAt: epochMs('updated_at').notNull(),
@@ -95,5 +97,83 @@ export const place = sqliteTable(
   (table) => [
     index('place_account_idx').on(table.accountId, table.seq),
     index('place_trip_idx').on(table.tripId, table.seq),
+  ],
+);
+
+/**
+ * A check-in (DESIGN.md §9.1, §24.3): **its author's, and nobody else's**. What is plain is what the database orders and finds by: the owner, the place it names (`place_id`), the moment `at`
+ * with its zone and the offset then, the trip link (`trip_id`, and `link_source`, `auto` or `manual`), who it is shared with, how it was made and the import's own id (unique for an account, so
+ * importing again adds nothing twice), a `version` that counts changes and the stream's `seq`. **What was written and who was with the person is sealed** (`SEALED.checkin`: the note and the
+ * companions). Written only by `src/sync/apply.ts`.
+ */
+export const checkin = sqliteTable(
+  'checkin',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    placeId: ref('place_id').notNull(),
+    at: epochMs('at').notNull(),
+    tz: text('tz').notNull(),
+    offsetMin: counter('offset_min').notNull(),
+    tripId: ref('trip_id'),
+    linkSource: text('link_source'),
+    share: text('share').notNull().default('trip'),
+    source: text('source').notNull().default('live'),
+    externalId: text('external_id'),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('checkin_account_at_idx').on(table.accountId, table.at),
+    index('checkin_account_seq_idx').on(table.accountId, table.seq),
+    index('checkin_trip_idx').on(table.tripId),
+    index('checkin_place_idx').on(table.placeId),
+    uniqueIndex('checkin_external_idx').on(table.accountId, table.externalId),
+  ],
+);
+
+/**
+ * The order of a person's own stream (DESIGN.md §15.3): one counter for each account, increased in the transaction that applies a mutation and stamped on each row it changes, so a device
+ * asks for what is past the last number it saw. A row is made with the account's first change.
+ */
+export const accountStream = sqliteTable('account_stream', {
+  accountId: ref('account_id').primaryKey(),
+  seq: counter('seq').notNull().default(0),
+});
+
+/**
+ * The mutations already applied (DESIGN.md §15.3): a mutation is applied once, and **a replay of one that is here writes nothing**. The key is the account and the id the device made; `seq` is
+ * the last number the mutation took. Kept for as long as a device may still send it (`6.7` prunes).
+ */
+export const appliedMutation = sqliteTable(
+  'applied_mutation',
+  {
+    accountId: ref('account_id').notNull(),
+    mutationId: ref('mutation_id').notNull(),
+    seq: counter('seq').notNull(),
+    appliedAt: epochMs('applied_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.mutationId] })],
+);
+
+/**
+ * What was deleted from a stream (DESIGN.md §15.3): a deleted row is gone, and a device that has not heard is told by this, **with no content**: the table, the id, and when in the stream. A
+ * row made again under the same id (an edit that restores it) takes its tombstone away.
+ */
+export const tombstone = sqliteTable(
+  'tombstone',
+  {
+    accountId: ref('account_id').notNull(),
+    tableName: text('table_name').notNull(),
+    rowId: ref('row_id').notNull(),
+    seq: counter('seq').notNull(),
+    deletedAt: epochMs('deleted_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.tableName, table.rowId] }),
+    index('tombstone_account_seq_idx').on(table.accountId, table.seq),
   ],
 );

@@ -49,7 +49,8 @@ export type Reason =
   | 'source'
   | 'in_use'
   | 'missing'
-  | 'nothing';
+  | 'nothing'
+  | 'duplicate';
 
 export const SENTENCES: Readonly<Record<Reason, string>> = {
   bad_mutation:
@@ -78,6 +79,7 @@ export const SENTENCES: Readonly<Record<Reason, string>> = {
   in_use: 'This place has check-ins. Merge it into another place, or delete them first.',
   missing: 'That is not there any more.',
   nothing: 'Nothing was changed.',
+  duplicate: 'That check-in is already here.',
 };
 
 export interface Refusal {

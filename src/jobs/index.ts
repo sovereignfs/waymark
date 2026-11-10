@@ -4,6 +4,8 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { serverMap } from '../map/server';
+import { nameWaitingPlaces } from '../places/naming';
+import { serverFind } from '../places/server';
 import { claimJob } from './claim';
 import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runner';
 
@@ -53,6 +55,22 @@ export const jobs: readonly JobDefinition[] = [
       const pruned = await map.diskCache.prune(map.limits.cacheMaxBytes, now.getTime());
       if (pruned.files > 0)
         console.info(`[waymark] map: pruned ${pruned.files} files from the cache`);
+    },
+  },
+  {
+    // Places made from a point alone are named by reverse lookup once they have reached the server (DESIGN.md §9.2), a few at a time, under a lease of their own.
+    name: 'name-places',
+    everyMs: 60 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const find = await serverFind();
+      const named = await nameWaitingPlaces({
+        database: find.database,
+        sealer: find.sealer,
+        finder: find.finder,
+        now: () => now.getTime(),
+      });
+      if (named > 0) console.info(`[waymark] places: named ${named} from where they are`);
     },
   },
 ];

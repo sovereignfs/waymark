@@ -71,10 +71,12 @@ export interface PlaceReference {
 }
 
 /**
- * Every table that names a place of a person. Check-ins (5.2) join here, and so do a trip's stops and items when a trip's place is copied to a person's (13.2) only through check-ins, so these
- * two name a trip's place and are not a person's. `places.test.ts` reads the schema and fails for a table with a `place_id` that is in neither this list nor `TRIP_REFERENCES`.
+ * Every table that names a place of a person: check-ins (5.2). A trip's stops and items name a trip's place and not a person's (a person's check-in at a trip's place names the copy that was
+ * made for them, §7.1), so they are listed apart in `TRIP_REFERENCES`. `places.test.ts` reads the schema and fails for a table with a `place_id` that is in neither list.
  */
-export const PLACE_REFERENCES: readonly PlaceReference[] = [];
+export const PLACE_REFERENCES: readonly PlaceReference[] = [
+  { table: 'checkin', column: 'place_id', ownerColumn: 'account_id' },
+];
 
 /** Tables that name a trip's place, which a person's place is never. Listed so that the test above can tell the two apart. */
 export const TRIP_REFERENCES: readonly string[] = [];
@@ -127,7 +129,7 @@ function placeOf(sealer: Sealer, row: Row): Place {
   };
 }
 
-const sealedFields = (place: {
+export const sealedFields = (place: {
   name: string;
   lat: number;
   lng: number;

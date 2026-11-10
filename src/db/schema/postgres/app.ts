@@ -1,4 +1,4 @@
-import { index, pgSchema, text } from 'drizzle-orm/pg-core';
+import { index, pgSchema, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { APP_STORE } from '../../config';
 import { counter, epochMs, id, ref, sealed } from './columns';
 
@@ -65,6 +65,8 @@ export const place = app.table(
     countryCode: text('country_code'),
     version: counter('version').notNull().default(1),
     seq: counter('seq').notNull().default(0),
+    // 0 for a place with a name; 1 or more for one made from a point alone that is waiting to be named by reverse lookup (the number of tries made, plus one).
+    unnamed: counter('unnamed').notNull().default(0),
     sealed: sealed('sealed').notNull(),
     createdAt: epochMs('created_at').notNull(),
     updatedAt: epochMs('updated_at').notNull(),
@@ -72,5 +74,69 @@ export const place = app.table(
   (table) => [
     index('place_account_idx').on(table.accountId, table.seq),
     index('place_trip_idx').on(table.tripId, table.seq),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const checkin = app.table(
+  'checkin',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    placeId: ref('place_id').notNull(),
+    at: epochMs('at').notNull(),
+    tz: text('tz').notNull(),
+    offsetMin: counter('offset_min').notNull(),
+    tripId: ref('trip_id'),
+    linkSource: text('link_source'),
+    share: text('share').notNull().default('trip'),
+    source: text('source').notNull().default('live'),
+    externalId: text('external_id'),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('checkin_account_at_idx').on(table.accountId, table.at),
+    index('checkin_account_seq_idx').on(table.accountId, table.seq),
+    index('checkin_trip_idx').on(table.tripId),
+    index('checkin_place_idx').on(table.placeId),
+    uniqueIndex('checkin_external_idx').on(table.accountId, table.externalId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const accountStream = app.table('account_stream', {
+  accountId: ref('account_id').primaryKey(),
+  seq: counter('seq').notNull().default(0),
+});
+
+/** See `schema/sqlite/app.ts`. */
+export const appliedMutation = app.table(
+  'applied_mutation',
+  {
+    accountId: ref('account_id').notNull(),
+    mutationId: ref('mutation_id').notNull(),
+    seq: counter('seq').notNull(),
+    appliedAt: epochMs('applied_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.mutationId] })],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const tombstone = app.table(
+  'tombstone',
+  {
+    accountId: ref('account_id').notNull(),
+    tableName: text('table_name').notNull(),
+    rowId: ref('row_id').notNull(),
+    seq: counter('seq').notNull(),
+    deletedAt: epochMs('deleted_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.accountId, table.tableName, table.rowId] }),
+    index('tombstone_account_seq_idx').on(table.accountId, table.seq),
   ],
 );

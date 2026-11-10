@@ -12,8 +12,9 @@ import { deletePlacesOf } from '../places/places';
  * account findable (the account itself, and later the link to a Sovereign identity) goes **last**, so that a run that stopped can still find it.
  *
  *  1. Their files: every file under `/data/media`, and then its row (`deleteMediaOf`: the files first, so that rows that name a file still there are found again).
- *  2. What the app keeps of them in its store, in one transaction: their profile and their rate counters. (Places, check-ins, import jobs, notices, settings, mail queued to them and
- *     the rest join here with the tasks that make their tables; the trip rules, handing a trip on or deleting an empty one and clearing `created_by`, with 10.4.)
+ *  2. What the app keeps of them in its store, in one transaction: their profile, their check-ins and places, what orders them (the stream's counter, the mutations applied and the
+ *     tombstones), and their rate counters. (Import jobs, notices, settings, mail queued to them and the rest join here with the tasks that make their tables; the trip rules, handing a trip
+ *     on or deleting an empty one and clearing `created_by`, with 10.4.)
  *  3. The sign-in store: sessions, sign-ins (password, passkeys, second factors and later a Sovereign identity), pending verifications, and then the account.
  *
  * `people.test.ts` seeds a row in every table for the person and for a second person, finds nothing of the first after, and the second's intact, and **fails for a table that is in
@@ -49,8 +50,21 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       tx,
       sql`DELETE FROM ${app.profile} WHERE account_id = ${accountId} RETURNING account_id`,
     );
-    // Their places (a trip's are the trip's, and go with it, §23).
+    // Their check-ins and places (a trip's places are the trip's, and go with it, §23), and what orders them: the stream, the mutations applied and the tombstones.
+    await dbAll(tx, sql`DELETE FROM ${app.checkin} WHERE account_id = ${accountId} RETURNING id`);
     await deletePlacesOf(tx, accountId);
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${app.accountStream} WHERE account_id = ${accountId} RETURNING account_id`,
+    );
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${app.appliedMutation} WHERE account_id = ${accountId} RETURNING mutation_id`,
+    );
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${app.tombstone} WHERE account_id = ${accountId} RETURNING row_id`,
+    );
     // Counters are keyed `kind:account`.
     await dbAll(
       tx,

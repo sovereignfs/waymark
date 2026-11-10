@@ -16,6 +16,7 @@ import { openAppBesideAuth, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
 import { listPlaces, makePlace } from '../places/places';
+import { applyMutation } from '../sync/apply';
 import { createProfile, getProfile } from '../profile/profile';
 import { deletePerson } from './people';
 
@@ -33,6 +34,10 @@ const sealer = new Sealer(ring);
 const GOES = [
   'profile',
   'place',
+  'checkin',
+  'account_stream',
+  'applied_mutation',
+  'tombstone',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -147,6 +152,34 @@ describe(`deleting a person (${leg})`, () => {
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
+      // A check-in, through the one path, which leaves a counter, a record of the mutation and a tombstone for a delete.
+      const there = (await listPlaces({ database, sealer }, who))[0];
+      const row = (placeId: string) => ({
+        placeId,
+        at: NOW - 1000,
+        tz: 'Europe/Lisbon',
+        offsetMin: 0,
+        companions: ['Ada'],
+        tripId: null,
+        linkSource: null,
+        share: 'trip',
+        source: 'live',
+        note: 'hello',
+      });
+      for (const changes of [
+        [{ table: 'checkin', op: 'put', id: `kept-${who}`, row: row(there?.id ?? '') }],
+        [{ table: 'checkin', op: 'put', id: `gone-${who}`, row: row(there?.id ?? '') }],
+        [{ table: 'checkin', op: 'delete', id: `gone-${who}` }],
+      ])
+        expect(
+          (
+            await applyMutation({ database, sealer, now: () => NOW }, who, {
+              mutationId: id(),
+              stream: 'account',
+              changes,
+            })
+          ).status,
+        ).toBe('applied');
     }
     // The sign-in store: a pending verification named by the address, a second factor and a passkey.
     await dbAll(
@@ -176,6 +209,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('profile', `account_id = '${ada}'`)).toBe(0);
     expect(await count('media', `account_id = '${ada}'`)).toBe(0);
     expect(await count('place', `account_id = '${ada}'`)).toBe(0);
+    for (const table of ['checkin', 'account_stream', 'applied_mutation', 'tombstone'])
+      expect(await count(table, `account_id = '${ada}'`), table).toBe(0);
     expect(await listPlaces({ database, sealer }, ada)).toEqual([]);
     expect(await count('rate_bucket', `"key" LIKE '%:${ada}'`)).toBe(0);
     expect(await usageOf(database, ada)).toBe(0);
@@ -198,6 +233,10 @@ describe(`deleting a person (${leg})`, () => {
     expect(await getProfile(database, sealer, grace)).toMatchObject({ name: 'Grace Hopper' });
     expect(await count('media', `account_id = '${grace}'`)).toBe(2);
     expect(await count('place', `account_id = '${grace}'`)).toBe(2);
+    expect(await count('checkin', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('account_stream', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('applied_mutation', `account_id = '${grace}'`)).toBe(3);
+    expect(await count('tombstone', `account_id = '${grace}'`)).toBe(1);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

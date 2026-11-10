@@ -136,6 +136,7 @@ describe(`making a place (${leg})`, () => {
         'source',
         'trip_id',
         'tz',
+        'unnamed',
         'updated_at',
         'version',
       ].sort(),
