@@ -67,7 +67,7 @@ Nominatim and Photon; four searches from two finders sharing one database are at
 goes out; `off` sends nothing and still answers the person's own places; a host that is not the configured one, and a private address that the operator did not name, are refused; a second person gets none of the first's places in `mine` or in what is found. Each safeguard was taken out in turn
 and seen to fail its test (the turn, the cache, removing what the person has, the public host known by its name). **Left out:** the provider's own `Accept-Language`, and a bias of search toward the person's position (it would send a point to a third party, §7.2); the screen that searches is 7.2.
 
-#### 📋 4.3 — The tile service
+#### ✅ 4.3 — The tile service
 
 **Goal:** style, tiles, glyphs and sprites served by Waymark. **Design:** §8.1, §8.2. **Depends on:** 1.10, 1.6.
 
@@ -80,6 +80,18 @@ licence.
 
 **Accepts when:** a map renders from each source with no request off the app's origin; the cache stays under its limit; with `off`, every map route
 answers 404 and the app shows lists.
+
+**Done as:** the settings `WAYMARK_MAP_SOURCE` (`proxy`, `pmtiles`, `off`), `WAYMARK_MAP_UPSTREAM_URL`, `WAYMARK_MAP_PMTILES_PATH` and `WAYMARK_MAP_CACHE_MAX_MB` (`src/map/config.ts`, `Config.map`; the public host is known by its name, so its address written another way is not the operator's own and is refused over http). **First, as the task said:** OpenFreeMap's terms
+were read (openfreemap.org/tos): no stated request limit, no service level, bulk fetches must identify themselves, and **nothing about a server fetching and keeping tiles for its users**, so the default is chosen with that said plainly in the README's "The map" (use `pmtiles` or one's own server for
+anything that matters; ask OpenFreeMap before relying on it) and in `DESIGN.md` §8.1 and §28 item 2, which stays open until they answer. **Glyphs and sprites, by their size:** a Noto Sans Regular and Bold pair for Latin, Greek, Cyrillic and punctuation is 1.2 MB and ships in the image (`src/map/assets/fonts`, taken from
+OpenFreeMap's build, SIL OFL 1.1, whose `OFL.txt` is in the image); the rest of the scripts are tens of megabytes, so any other range is the default upstream's, proxied and cached like a tile, for `proxy` only, and a label in another script shows its Latin name, which the style prefers. **No sprites:** the style draws with shapes and
+text alone, so there is nothing to serve and no `/api/map/sprites` route (a marker is the `Map` component's, 17.1). `src/map/style.ts`: a light and a dark style for the OpenMapTiles schema, every colour a design-system token written as its value, and `style.test.ts` reads the design system's own CSS and fails if one drifts; it names Waymark's own tile and glyph addresses and no one
+else's, and carries the attribution (OpenStreetMap contributors, OpenMapTiles, and OpenFreeMap for the public tiles). `src/map/service.ts`: `proxy` reads the upstream's TileJSON (looked at again each hour, the last address that worked kept on disk so a restart while it is out of reach still serves what is kept; its tiles must be on the host the setting names), keys the cache by that address so a new planet is new
+tiles, fetches a tile once and keeps it, collapses the same tile asked for at once to one request, and names Waymark and the instance in its User-Agent; `pmtiles` (`src/map/pmtiles.ts`, over the `pmtiles` package, BSD-3) reads by range from a file in the OpenMapTiles schema and asks no one; `off` serves nothing. `src/map/cache.ts`: keys cannot leave the directory, files are written whole and renamed, a read marks a file as read now,
+and `prune` removes the files read longest ago down to 90 % of the limit; the `prune-map-cache` job runs it every ten minutes under a lease. Routes `/api/map/style/<theme>.json`, `/api/map/tiles/{z}/{x}/{y}` and `/api/map/glyphs/{fontstack}/{range}.pbf`: for an account only (`accountRoute`, in `routes.ts`), fifteen hundred a minute each, an empty tile is `204`, an upstream out of
+reach is `503` with `Retry-After`, and with the map off every one is `404`. The standalone build carries the bundled glyphs (`outputFileTracingIncludes`). **Seen:** against a fake upstream, a tile is fetched once and then read from disk, a new version is kept apart, a failure or a missing tile is never kept, a TileJSON naming another host is refused, three asks at once are one request; a PMTiles file
+made for the test (uncompressed, gzip inside, missing, not PMTiles, raster) is read with no request to anyone, and a file put there later starts to work; the cache stays under its limit and keeps what is read; **in a browser, on the built standalone server (`e2e/map.spec.ts`)**, a signed-in person gets both styles, a tile, an empty gap and the glyphs, a visitor gets 401, and nothing in any of it names another host. Each safeguard was taken out in turn and seen to fail its test (the host of a
+TileJSON, the font list, the order of pruning, the path of a cache key, a colour that is not its token). **In the image:** built, with the fonts at `/app/src/map/assets/fonts` and `OFL.txt` under `/usr/share/licenses/noto-sans`, and `scripts/deploy-check.sh` ended `all setups ok` (amd64 only; the `image` job on GitHub is not run). **Left out:** the `Map` component that draws it is 17.1 in `sovereign`; the trip's tiles kept for offline are 13.5; the service worker keeps no tile yet.
 
 #### ✅ 4.4 — Time zones from points
 

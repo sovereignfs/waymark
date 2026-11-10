@@ -30,6 +30,23 @@ pnpm dev     # http://localhost:3005
 
 The conventions, for people and for agents, are in [`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+## The map
+
+The map is drawn in the browser from vector tiles that **Waymark serves itself** (`/api/map/*`, for signed-in people): the browser asks no one else for a style, a tile or a letter. `WAYMARK_MAP_SOURCE` says where the tiles come from:
+
+- **`proxy`** (the default): the server fetches each tile once from `WAYMARK_MAP_UPSTREAM_URL` and keeps it under `/data/map/cache`, which `WAYMARK_MAP_CACHE_MAX_MB` (2048) bounds, the tiles read longest ago going first. The default upstream is
+  **[OpenFreeMap](https://openfreemap.org)'s planet** (`https://tiles.openfreemap.org/planet`): free, no key, OpenStreetMap data in the OpenMapTiles schema, which is the schema Waymark's style is written for. Its [terms](https://openfreemap.org/tos/) state no
+  request limit and no service level, ask that anything fetched in bulk says who it is (Waymark's User-Agent names itself and the instance's address), and **do not say whether a server may fetch tiles for the people using it and keep them**. A tile is
+  fetched only when someone looks at that part of the map, and only once, but that is not permission, and the service may change or end without notice: **an operator who relies on the map should use `pmtiles` or a tile server of their own**, and
+  anyone running more than a handful of people should ask OpenFreeMap first.
+- **`pmtiles`**: tiles are read from the file at `WAYMARK_MAP_PMTILES_PATH`, by range, with no request to anyone, ever. The file holds vector tiles in the **OpenMapTiles schema**, uncompressed or gzip inside: `planetiler --area=portugal --output=portugal.pmtiles`
+  makes one for a region, and the planet is the same command for all of it. (A Protomaps basemap build is another schema, which the style does not draw.)
+- **`off`**: no map. Every map view shows its list, and every map address answers 404.
+
+An upstream of your own is a TileJSON address or a tile address with `{z}`, `{x}` and `{y}`; it may be http on a private network, which the default never may. The style (a light and a dark one, in the design system's colours) is Waymark's own and
+draws with shapes and text, so there are no icons to serve. **Letters** (Noto Sans Regular and Bold, SIL Open Font License 1.1, from OpenFreeMap's build, `src/map/assets/fonts`): Latin, Greek, Cyrillic and punctuation are in the image, 1.2 MB; any other script is
+fetched from the default upstream and kept, with `proxy`, and with `pmtiles` its labels show their Latin name. Every map shows its attribution: © OpenStreetMap contributors (the data is ODbL), © OpenMapTiles, and OpenFreeMap for its tiles.
+
 ## Licence
 
 [AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`.

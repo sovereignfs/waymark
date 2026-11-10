@@ -1,5 +1,6 @@
 import { resolveAuth, type AuthSettings } from '../auth/config';
 import { resolveMail } from '../mail/config';
+import { type MapSettings, resolveMap } from '../map/config';
 import { type PlacesSettings, resolvePlaces } from '../places/config';
 import type { MailSettings } from '../mail/mailer';
 import { type KeyRing, parseKey, ringOf } from '../crypto/keys';
@@ -22,6 +23,8 @@ export interface Config {
   readonly media: MediaSettings;
   /** Place search: which provider and where, or `off` (DESIGN.md §7.2). */
   readonly places: PlacesSettings;
+  /** The map: where its tiles come from, or `off` (DESIGN.md §8.1). */
+  readonly map: MapSettings;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either (DESIGN.md §19.1). */
   readonly mail: MailSettings | undefined;
 }
@@ -181,6 +184,9 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
   // Place search: the provider and where it is, with the public instance's usage policy unless the operator names their own.
   const places = resolvePlaces(read, problems);
 
+  // The map: where its tiles come from, and the cache and the PMTiles file under the data directory.
+  const map = resolveMap(read, dataDir, problems);
+
   // The database: which of the three forms, and the address it needs. A secret address may arrive as a file.
   let database: DatabaseSettings | undefined;
   try {
@@ -208,6 +214,7 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
       media: { dataDir, maxAccountBytes: limitMb * 1024 * 1024 },
       mail,
       places,
+      map,
     },
   };
 }

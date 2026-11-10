@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { PORTS } from './e2e/ports.ts';
+import { makePmtiles } from './src/map/pmtiles-fixture.ts';
 
 /**
  * Browser tests (`pnpm build && pnpm e2e`): the real app, built, in a real browser. They are where the things a unit test cannot show are shown:
@@ -46,10 +47,26 @@ const BLANK = Object.fromEntries(
     'WAYMARK_DATA_DIR',
     'WAYMARK_MEDIA_MAX_ACCOUNT_MB',
     'WAYMARK_PLACES_URL',
+    'WAYMARK_MAP_UPSTREAM_URL',
+    'WAYMARK_MAP_PMTILES_PATH',
+    'WAYMARK_MAP_CACHE_MAX_MB',
   ].map((name) => [name, '']),
 );
 // A browser test never reaches a place search on the internet: with none named, there is none. The task that searches in the browser (7.2) starts the fake of `src/places/fake.ts`.
 BLANK.WAYMARK_PLACES_PROVIDER = 'off';
+// Nor a map tile service: the browser tests have no map, and so no request to a tile upstream.
+BLANK.WAYMARK_MAP_SOURCE = 'off';
+
+// The map of the main instance is read from a PMTiles file made here (two tiles), so that the routes are tried for real, with nothing fetched from anyone.
+const MAP_FILE = join(directory, 'map', 'region.pmtiles');
+mkdirSync(join(directory, 'map'), { recursive: true });
+writeFileSync(
+  MAP_FILE,
+  makePmtiles([
+    { z: 0, x: 0, y: 0, data: Buffer.from('tile-zero') },
+    { z: 1, x: 0, y: 1, data: Buffer.from('tile-one') },
+  ]),
+);
 
 // A directory of its own for another instance: the auth database is `waymark_auth.db` beside the app's, so two instances in one directory would share their
 // accounts, and a session cookie (which a port does not separate) would sign a person in on both.
@@ -93,6 +110,8 @@ export default defineConfig({
         WAYMARK_AUTH_LOCAL: '1',
         WAYMARK_AUTH_SECRET: SECRET,
         WAYMARK_AUTH_SIGNUP: 'closed',
+        WAYMARK_MAP_SOURCE: 'pmtiles',
+        WAYMARK_MAP_PMTILES_PATH: MAP_FILE,
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       } as Record<string, string>,
     },

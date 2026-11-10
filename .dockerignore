@@ -9,6 +9,7 @@ Dockerfile
 README.md
 deploy
 data
+.data
 test-results
 playwright-report
 coverage

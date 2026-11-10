@@ -3,6 +3,7 @@ import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
+import { serverMap } from '../map/server';
 import { claimJob } from './claim';
 import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runner';
 
@@ -37,6 +38,21 @@ export const jobs: readonly JobDefinition[] = [
         console.info(
           `[waymark] media: swept ${swept.rows} rows and ${swept.files} files with no use`,
         );
+    },
+  },
+  {
+    // The map's cache is kept under its limit (DESIGN.md §8.1): what was read longest ago goes first. Under a lease, so that one process of several prunes each ten minutes.
+    name: 'prune-map-cache',
+    everyMs: 10 * 60 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const map = serverMap();
+      if (map.limits.source !== 'proxy') return;
+      const database = await getDatabase();
+      if (!(await claimJob(database, 'prune-map-cache', 9 * 60 * 1000, now.getTime()))) return;
+      const pruned = await map.diskCache.prune(map.limits.cacheMaxBytes, now.getTime());
+      if (pruned.files > 0)
+        console.info(`[waymark] map: pruned ${pruned.files} files from the cache`);
     },
   },
 ];

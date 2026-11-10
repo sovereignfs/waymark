@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-09: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone C in progress** (4.4, 4.1 and 4.2 done). **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-09: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone C in progress** (4.4, 4.1, 4.2 and 4.3 done; 17.1, the `Map` component, is work in `sovereign`). **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -79,7 +79,7 @@ map of it renders in light and dark from Waymark's own tiles, and the browser ma
 | 20  | [4.4](docs/epics/places.md)    | Time zones from points | P0       | 1.2        | ✅     |
 | 21  | [4.1](docs/epics/places.md)    | Places                 | P0       | 3.1, 4.4   | ✅     |
 | 22  | [4.2](docs/epics/places.md)    | Finding a place        | P0       | 4.1, 1.7   | ✅     |
-| 23  | [4.3](docs/epics/places.md)    | The tile service       | P0       | 1.10, 1.6  | 📋     |
+| 23  | [4.3](docs/epics/places.md)    | The tile service       | P0       | 1.10, 1.6  | ✅     |
 
 ### Milestone D — Check-ins and offline
 

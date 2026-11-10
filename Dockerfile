@@ -68,6 +68,7 @@ COPY --from=build /app/node_modules/@sovereignfs/ui/LICENSE /usr/share/licenses/
 COPY --from=build /app/node_modules/@sovereignfs/ui/NOTICE /usr/share/licenses/sovereignfs-ui/NOTICE
 COPY --from=build /licenses/sharp.LICENSE /usr/share/licenses/sharp/LICENSE
 COPY --from=build /licenses/libvips.NOTICE /usr/share/licenses/libvips/NOTICE
+COPY --from=build /app/src/map/assets/fonts/OFL.txt /usr/share/licenses/noto-sans/OFL.txt
 
 # Everything the app writes is under /data (the manifest's `data`): the database file when the instance keeps one (WAYMARK_SQLITE_URL=file:/data/waymark.db),
 # and the photos, files, imports and the map's cache that later tasks add. The directory is the app's user's, so that a volume made from it is too.

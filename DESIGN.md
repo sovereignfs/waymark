@@ -306,12 +306,15 @@ itself.** The browser loads nothing from elsewhere: style, tiles, fonts (glyphs)
 | `pmtiles`         | Tiles read from a Protomaps PMTiles file at `WAYMARK_MAP_PMTILES_PATH` (under `/data/map`): a region or the planet, with no request to anyone, ever    |
 | `off`             | No map: every map view shows its list instead, and picking a point is by the person's position only                                                    |
 
-- **The default upstream** is chosen in the task that builds the service (4.3), after reading its terms: OpenFreeMap is the candidate (free, no key, no
-  stated limit, OpenStreetMap data). The choice and its terms are written in the README.
+- **The default upstream** is **OpenFreeMap's planet**, chosen in 4.3 after reading its terms: free, no key, OpenStreetMap data in the OpenMapTiles schema, with no stated request limit and no service level, and **silent on whether a server may fetch
+  and keep tiles for its users**. The choice, the terms and the advice that follows (use `pmtiles` or one's own tile server for anything that matters) are in the README's "The map". `WAYMARK_MAP_UPSTREAM_URL` is a TileJSON (the default's tile address carries a
+  version that changes weekly, so the server reads the TileJSON, looks again each hour, and keeps the last address that worked) or a tile address with `{z}`, `{x}`, `{y}`; the tiles must be on the host the setting names.
+- **A PMTiles file is in the OpenMapTiles schema** (what `planetiler` makes by default), so one style draws every source; a Protomaps basemap is another schema and is not drawn.
 - **The cache** is `/data/map/cache`, bounded by `WAYMARK_MAP_CACHE_MAX_MB` (default 2048), oldest-read first out, pruned by a job. It holds tiles and
   nothing about who asked for them. It is not encrypted: it is public map data.
-- **The style** is Waymark's own, in the suite's tokens: a light and a dark one, chosen by the theme, so the map follows dark mode. Glyphs and sprites for
-  it ship in the image, or are proxied and cached like tiles, decided in 4.3 by their size.
+- **The style** is Waymark's own, in the suite's tokens: a light and a dark one, chosen by the theme, so the map follows dark mode. Its colours are the tokens' values, and a test reads the design system's CSS and fails if one drifts. **Glyphs:** Noto Sans
+  Regular and Bold for Latin, Greek, Cyrillic and punctuation ship in the image (1.2 MB: the full set for all scripts is tens of megabytes), and any other range is the default upstream's, proxied and cached like a tile, for `proxy` only; a label in a script
+  the image does not have shows its Latin name, which the style prefers. **Sprites:** none. The style draws with shapes and text alone (a marker is the `Map` component's, 17.1), so there is nothing to serve, and no route.
 - **Attribution** to OpenStreetMap contributors (and the tile service where its terms ask) is on every map, as the licence requires.
 - Serving tiles is a route like any other: signed in only, rate-limited per account.
 
@@ -1127,7 +1130,7 @@ outbound requests at its centre.
 ### Licence
 
 AGPL-3.0-or-later, since it bundles `@sovereignfs/ui`. MapLibre GL (BSD-3), `sharp` and libvips (Apache-2.0 and LGPL-3.0, as a dynamically linked
-library), the time-zone table, and the map's fonts are checked for compatibility in the tasks that add them, and their licences shipped in the image.
+library), the time-zone table, and the map's fonts are checked for compatibility in the tasks that add them, and their licences shipped in the image (the map's fonts are Noto Sans, SIL Open Font License 1.1: `OFL.txt` is in the image beside the libvips notice).
 OpenStreetMap data is ODbL: the attribution is shown on every map.
 
 ### Deployment
@@ -1210,7 +1213,7 @@ mistaken for decisions.
 The eleven choices the first draft made on its own were reviewed by the owner on 2026-11-09 and are in §29. What is left waits on an input, not a decision:
 
 1. **A real Swarm export** is needed before 8.2 fixes the mapping (§16); the owner provides one later.
-2. **The default tile upstream** is chosen in 4.3 after reading its terms (§8.1); OpenFreeMap is the candidate.
+2. **The default tile upstream** is OpenFreeMap (§8.1), chosen in 4.3, whose terms say nothing about a server fetching and keeping tiles for its users. Ask them, and write down what they answer; until then the README says what the default is and what to use instead.
 3. **HEIC** (§9.3): `sharp`'s prebuilt libvips reads AVIF and not HEIC (HEVC is patent-encumbered), so 3.2 recognises a HEIC file by its bytes and refuses it with a sentence that says to share it as a JPEG, which iOS does itself for a photo chosen in a file input. Reading HEIC needs a libvips built with a HEVC decoder, which is a choice about licence and the image's build, made when a person needs it.
 
 ## 29. Decision log

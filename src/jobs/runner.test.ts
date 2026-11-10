@@ -329,8 +329,14 @@ describe('starting the jobs', () => {
     await runner?.stop();
   });
 
-  it('has the jobs the app has: the sweeps of rate counts and of the media store, each hourly from the start', () => {
-    expect(jobs.map((job) => job.name)).toEqual(['sweep-rate-buckets', 'sweep-media']);
-    for (const job of jobs) expect(job).toMatchObject({ everyMs: 3_600_000, runAtStart: true });
+  it('has the jobs the app has: the sweeps of rate counts and of the media store, each hourly from the start, and the map cache kept under its limit every ten minutes', () => {
+    expect(jobs.map((job) => job.name)).toEqual([
+      'sweep-rate-buckets',
+      'sweep-media',
+      'prune-map-cache',
+    ]);
+    for (const job of jobs.filter((each) => each.name.startsWith('sweep')))
+      expect(job).toMatchObject({ everyMs: 3_600_000, runAtStart: true });
+    expect(jobs.find((job) => job.name === 'prune-map-cache')).toMatchObject({ everyMs: 600_000 });
   });
 });
