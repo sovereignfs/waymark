@@ -52,7 +52,7 @@ export interface PhotoEntry {
   readonly refused?: boolean;
 }
 
-export type Meta = { key: 'cursor' | 'head'; value: number };
+export type Meta = { key: 'cursor' | 'head' | 'floor'; value: number };
 
 export interface LocalSchema extends DBSchema {
   places: { key: string; value: PlaceView };

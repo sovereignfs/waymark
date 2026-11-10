@@ -18,6 +18,8 @@ export interface SyncRequest {
   readonly outbox?: unknown[];
   /** The number of the last change the device has seen in its stream; 0 for a device that has none. */
   readonly cursor?: number;
+  /** The floor of the stream the device last saw (`history.ts`); 0 for a device that has none. A device behind it is given a fresh snapshot. */
+  readonly floor?: number;
   readonly limit?: number;
 }
 
@@ -65,6 +67,9 @@ export async function handleSync(
   const cursor = body.cursor ?? 0;
   if (typeof cursor !== 'number' || !Number.isInteger(cursor) || cursor < 0)
     return { status: 400, body: { code: 'BAD_REQUEST' } };
+  const floor = body.floor ?? 0;
+  if (typeof floor !== 'number' || !Number.isInteger(floor) || floor < 0)
+    return { status: 400, body: { code: 'BAD_REQUEST' } };
   const limit = body.limit ?? DEFAULT_PAGE;
   if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE)
     return { status: 400, body: { code: 'BAD_REQUEST' } };
@@ -88,6 +93,6 @@ export async function handleSync(
         sentence: applied.sentence,
       });
   }
-  const account = await pullAccount(deps, accountId, cursor, limit);
+  const account = await pullAccount(deps, accountId, cursor, limit, floor);
   return { status: 200, body: { protocol: PROTOCOL_VERSION, results, account } };
 }

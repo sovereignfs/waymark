@@ -50,6 +50,13 @@
       "when": 1794305038174,
       "tag": "0006_checkin_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794309855359,
+      "tag": "0007_stream_floor",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "waymark"."account_stream" ADD COLUMN "floor" bigint DEFAULT 0 NOT NULL;

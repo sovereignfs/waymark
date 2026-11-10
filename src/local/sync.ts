@@ -47,6 +47,8 @@ function isResponse(value: unknown): value is SyncResponse {
     Array.isArray(v.account.checkins) &&
     Array.isArray(v.account.deleted) &&
     typeof v.account.cursor === 'number' &&
+    typeof v.account.floor === 'number' &&
+    typeof v.account.reset === 'boolean' &&
     typeof v.account.more === 'boolean'
   );
 }
@@ -63,12 +65,14 @@ export async function syncOnce(
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const sent = await store.pending(LIMITS.outbox);
     const cursor = await store.cursor();
+    const floor = await store.floor();
     let reply: { status: number; json: unknown };
     try {
       reply = await transport({
         protocol: PROTOCOL_VERSION,
         outbox: sent.map((entry) => entry.mutation),
         cursor,
+        floor,
         ...(options.limit ? { limit: options.limit } : {}),
       });
     } catch {

@@ -142,6 +142,8 @@ export const checkin = sqliteTable(
 export const accountStream = sqliteTable('account_stream', {
   accountId: ref('account_id').primaryKey(),
   seq: counter('seq').notNull().default(0),
+  // The highest number of a tombstone that was pruned (`src/sync/history.ts`): a device that has not heard of the stream since before it is given a fresh snapshot, since it may have missed a delete.
+  floor: counter('floor').notNull().default(0),
 });
 
 /**

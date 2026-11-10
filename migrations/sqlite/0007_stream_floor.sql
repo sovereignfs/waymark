@@ -1,0 +1,1 @@
+ALTER TABLE `account_stream` ADD `floor` integer DEFAULT 0 NOT NULL;

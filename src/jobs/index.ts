@@ -4,6 +4,7 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
+import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
 import { nameWaitingPlaces } from '../places/naming';
 import { serverFind } from '../places/server';
@@ -75,6 +76,22 @@ export const jobs: readonly JobDefinition[] = [
         now: () => now.getTime(),
       });
       if (named > 0) console.info(`[waymark] places: named ${named} from where they are`);
+    },
+  },
+  {
+    // Tombstones and the record of applied mutations are kept for ninety days (DESIGN.md §15.8); a device behind the floor that pruning raises is given a fresh snapshot. Under a lease, so that one
+    // process of several prunes each six hours.
+    name: 'prune-history',
+    everyMs: 6 * 60 * 60 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const database = await getDatabase();
+      if (!(await claimJob(database, 'prune-history', 5 * 60 * 60 * 1000, now.getTime()))) return;
+      const pruned = await pruneHistory(database, now.getTime());
+      if (pruned.tombstones + pruned.mutations > 0)
+        console.info(
+          `[waymark] sync: pruned ${pruned.tombstones} tombstones and ${pruned.mutations} mutation records`,
+        );
     },
   },
 ];

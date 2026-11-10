@@ -41,6 +41,13 @@ export interface Page {
   readonly more: boolean;
   /** The stream's own number now, so that a device can tell it has caught up. */
   readonly head: number;
+  /** The stream's floor now (`history.ts`): what a device sends back as the floor it has seen. */
+  readonly floor: number;
+  /**
+   * True when this page begins **a fresh snapshot**: the device had not heard of the stream since before tombstones were pruned, so it may have missed a delete, and is given everything again from the
+   * start. It **clears its rows before it applies the page**, and goes on from the cursor as usual (§15.8).
+   */
+  readonly reset: boolean;
 }
 
 export interface PullDeps {
@@ -64,11 +71,21 @@ type Item =
 export async function pullAccount(
   deps: PullDeps,
   accountId: string,
-  cursor: number,
+  askedCursor: number,
   limit: number = DEFAULT_PAGE,
+  /** The floor the device has seen (0 for one that has not): lower than the stream's means a snapshot from the start. */
+  seenFloor = 0,
 ): Promise<Page> {
   const s = schemaOf(deps.database);
   const take = Math.min(Math.max(1, Math.floor(limit)), MAX_PAGE);
+  const stream = await dbGet<{ seq: number | string; floor: number | string }>(
+    deps.database,
+    sql`SELECT seq, floor FROM ${s.accountStream} WHERE account_id = ${accountId}`,
+  );
+  const floor = Number(stream?.floor ?? 0);
+  // A device that is behind the floor is given the stream from its start, whatever its cursor said.
+  const reset = seenFloor < floor;
+  const cursor = reset ? 0 : askedCursor;
   const items: Item[] = [];
 
   const places = await dbAll<{
@@ -179,10 +196,6 @@ export async function pullAccount(
 
   items.sort((a, b) => a.seq - b.seq);
   const page = items.slice(0, take);
-  const stream = await dbGet<{ seq: number | string }>(
-    deps.database,
-    sql`SELECT seq FROM ${s.accountStream} WHERE account_id = ${accountId}`,
-  );
   const last = page.at(-1)?.seq ?? cursor;
   return {
     places: page.flatMap((item) => (item.kind === 'place' ? [item.record] : [])),
@@ -191,5 +204,7 @@ export async function pullAccount(
     cursor: last,
     more: items.length > take,
     head: Number(stream?.seq ?? 0),
+    floor,
+    reset,
   };
 }

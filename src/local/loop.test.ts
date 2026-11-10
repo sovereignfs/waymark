@@ -12,7 +12,16 @@ import type { SyncState, Transport } from './sync';
 const emptyAnswer = {
   protocol: 1,
   results: [],
-  account: { places: [], checkins: [], deleted: [], cursor: 0, more: false, head: 0 },
+  account: {
+    places: [],
+    checkins: [],
+    deleted: [],
+    cursor: 0,
+    more: false,
+    head: 0,
+    floor: 0,
+    reset: false,
+  },
 };
 
 /** A browser that is a few functions: a lock that another tab may hold, a channel shared with other tabs, a clock of its own, and events it fires. */

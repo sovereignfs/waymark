@@ -42,6 +42,11 @@ export class LocalStore {
     return (await this.db.get('meta', 'cursor'))?.value ?? 0;
   }
 
+  /** The floor of the stream the device last saw: the server gives a fresh snapshot to a device behind it (`sync/history.ts`). */
+  async floor(): Promise<number> {
+    return (await this.db.get('meta', 'floor'))?.value ?? 0;
+  }
+
   /** The rows as the server last said, with nothing laid over them: for the sync's own use and for tests. */
   async rows(): Promise<{ places: Map<string, PlaceView>; checkins: Map<string, CheckinView> }> {
     const [places, checkins] = await Promise.all([
@@ -199,12 +204,19 @@ export class LocalStore {
       await tx.objectStore('outbox').delete(entry.n);
     }
     const page = response.account;
+    // A fresh snapshot (§15.8): the device had not heard of the stream since before deletes were pruned, so what it holds may include rows that no longer exist. They go first; the page, and those after
+    // it, bring back every row there is, and what is waiting in the outbox is laid over them as always.
+    if (page.reset) {
+      await tx.objectStore('places').clear();
+      await tx.objectStore('checkins').clear();
+    }
     for (const place of page.places) await tx.objectStore('places').put(place);
     for (const checkin of page.checkins) await tx.objectStore('checkins').put(checkin);
     for (const gone of page.deleted)
       await tx.objectStore(gone.table === 'place' ? 'places' : 'checkins').delete(gone.id);
     await tx.objectStore('meta').put({ key: 'cursor', value: page.cursor });
     await tx.objectStore('meta').put({ key: 'head', value: page.head });
+    await tx.objectStore('meta').put({ key: 'floor', value: page.floor });
     await tx.done;
   }
 

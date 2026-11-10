@@ -106,7 +106,7 @@ replaced author told (`edit_replaced`, raised once 12.1 is in); an offline item 
 **Accepts when:** two Travelers editing one item end with the later edit and a notice to the other; a Traveler lowered to Follower between syncs gets their
 item edit in Couldn't sync; a Follower's device never holds an attachment row.
 
-#### 📋 6.7 — Keeping the history small
+#### ✅ 6.7 — Keeping the history small
 
 **Goal:** tombstones and applied mutations do not grow for ever. **Design:** §15.8. **Depends on:** 6.1, 1.6.
 
@@ -114,3 +114,9 @@ item edit in Couldn't sync; a Follower's device never holds an attachment row.
 fresh snapshot of that stream.
 
 **Accepts when:** after pruning, a device with an old cursor ends with the right rows and nothing lost from its outbox.
+
+**Done as:** migration `0007_stream_floor`: `account_stream.floor`, **the highest number of a tombstone that was pruned**. **`src/sync/history.ts`, `pruneHistory(database, now, keepMs = 90 days)`**, in one transaction: for each account it raises the floor to the highest number among the tombstones about to go (never lowering it), then removes tombstones and applied-mutation records older than the keep; the job `prune-history` runs it every six hours under a lease, so that one process of several does. **A device behind the floor is given a fresh snapshot:**
+the request carries **`floor`**, the floor of the stream the device last saw (0 if it has none), and when the stream's is higher the server **ignores the cursor, begins from the stream's start, and marks the first page `reset`**; the answer carries `floor` and `reset`. Applying the outbox comes first in a request, so **the device's outbox is sent, and then it receives the snapshot**. On a `reset` page the device **clears its places and check-ins in the same transaction as it applies the page** (what it held may include rows that
+were deleted and whose tombstones are gone), keeps the new floor, and goes on from the cursor as usual; **the floor is stored with the first page, so the pages after it are not a reset again** (a snapshot of any length is begun once, and a device stopped part way goes on from its cursor). What was waiting in the outbox is laid over the rows, as always. A floor that is not a whole number is a `400`; the protocol number does not change, since the fields are additions that a device without them does not send (and gets a snapshot from, which is right).
+**Seen:** against each leg's database, tombstones and mutation records older than ninety days go and the newer stay, the floor rises to the highest number removed and never falls, another account's is untouched, a second run does nothing, and the clock is the one given; two devices, one away, with the other deleting a check-in and adding one and ninety days passing: the device that was away, which still held the deleted check-in and had recorded one offline, **sends its outbox and ends with exactly the server's rows, the deleted one gone, its own recorded check-in kept
+and applied, nothing lost from the outbox**, and the other device ends the same; a snapshot of nine check-ins in pages of three is begun once and not again; a device at the floor, or on a stream never pruned, is never reset. Each safeguard was taken out in turn and seen to fail (the floor not raised, no reset, the old rows kept through a reset, a reset on every page). **Left out:** a trip's tombstones, with trips (6.6); and a mutation older than ninety days that is sent again after its record is pruned is applied as new, which for a put of a whole row is the same row again.
