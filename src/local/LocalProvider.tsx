@@ -10,8 +10,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { editCheckin } from '../actions/checkins';
 import type { CheckinView, PlaceView } from '../actions/types';
-import type { Mutation } from '../sync/format';
+import { LIMITS, type Mutation } from '../sync/format';
 import { type Refused, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
 import { LocalStore } from './store';
@@ -34,6 +35,13 @@ export interface LocalContext {
   retry(mutationId: string): Promise<void>;
   /** Throws a refused mutation away. */
   discard(mutationId: string): Promise<void>;
+  /**
+   * Keeps a photo taken on this device under a new id the device makes, and returns the id, to name in the check-in (`photos`): it is uploaded when there is a network, before or after the check-in,
+   * and shown from here meanwhile (`photoSrc`). Refuses, with a sentence, a file that is more than 15 MB: the server would, and the person need not wait to be told.
+   */
+  addPhoto(blob: Blob): Promise<{ ok: true; id: string } | { ok: false; sentence: string }>;
+  /** Where to show a photo from: the file on this device while it is only here, and the server's otherwise. */
+  photoSrc(id: string): Promise<string>;
   /** Records what a person did: it shows at once and is sent when there is a network. */
   record(mutation: Mutation): Promise<void>;
   /** Sends what can be sent now, for sign-out. Says how it ended, or `undefined` when another tab is syncing. */
@@ -57,6 +65,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
   const [refused, setRefused] = useState<Refused[]>([]);
   const store = useRef<LocalStore | undefined>(undefined);
   const loop = useRef<Loop | undefined>(undefined);
+  /** The `blob:` addresses made for photos shown from this device, to give back when the store closes. */
+  const urls = useRef(new Map<string, string>());
 
   const read = useCallback(async () => {
     const current = store.current;
@@ -98,6 +108,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       loop.current = undefined;
       store.current?.close();
       store.current = undefined;
+      for (const url of urls.current.values()) URL.revokeObjectURL(url);
+      urls.current.clear();
     };
   }, [accountId, read]);
 
@@ -115,8 +127,49 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         loop.current?.nudge();
       },
       async discard(mutationId) {
+        const entry = (await store.current?.refused())?.find(
+          (each) => each.mutationId === mutationId,
+        );
         await store.current?.discardRefused(mutationId);
+        // A photo that is thrown away is taken out of its check-in too, so that the check-in does not wait for ever for a file that will not come.
+        if (entry?.photoId && store.current) {
+          const checkin = (await store.current.view()).checkins.find((c) =>
+            c.photos?.includes(entry.photoId as string),
+          );
+          if (checkin) {
+            const edit = editCheckin(
+              checkin,
+              { photos: (checkin.photos ?? []).filter((id) => id !== entry.photoId) },
+              {
+                ids: { newId: () => crypto.randomUUID() },
+                now: Date.now(),
+                deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+            );
+            if (edit.ok) await store.current.record(edit.mutation);
+          }
+        }
         await read();
+        loop.current?.nudge();
+      },
+      async addPhoto(blob) {
+        const current = store.current;
+        if (!current) return { ok: false, sentence: 'This browser cannot keep photos.' };
+        if (blob.size > LIMITS.fileBytes)
+          return { ok: false, sentence: 'That file is larger than 15 MB.' };
+        const id = crypto.randomUUID();
+        await current.addPhoto(id, blob);
+        loop.current?.nudge();
+        return { ok: true, id };
+      },
+      async photoSrc(id) {
+        const blob = await store.current?.photoBlob(id);
+        if (!blob) return `/api/media/${encodeURIComponent(id)}`;
+        const known = urls.current.get(id);
+        if (known) return known;
+        const url = URL.createObjectURL(blob);
+        urls.current.set(id, url);
+        return url;
       },
       async record(mutation) {
         const current = store.current;
@@ -128,9 +181,15 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       syncNow: async () => (await loop.current?.syncNow()) ?? undefined,
       unsent: async () => {
         const current = store.current;
-        return current ? (await current.pendingCount()) + (await current.refused()).length : 0;
+        return current
+          ? (await current.pendingCount()) +
+              (await current.refused()).length +
+              (await current.photoCount())
+          : 0;
       },
       async destroy() {
+        for (const url of urls.current.values()) URL.revokeObjectURL(url);
+        urls.current.clear();
         loop.current?.stop();
         loop.current = undefined;
         store.current?.close();

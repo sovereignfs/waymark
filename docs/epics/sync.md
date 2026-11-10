@@ -78,7 +78,7 @@ the store; every other address gets the offline page; `navigator.storage.persist
 
 **Accepts when:** with the network off after one visit, each of those addresses opens with the person's data, and none of it is in the worker's cache.
 
-#### 📋 6.5 — Photos waiting
+#### ✅ 6.5 — Photos waiting
 
 **Goal:** photos taken offline upload later. **Design:** §15.6. **Depends on:** 6.2, 5.3.
 
@@ -86,6 +86,14 @@ the store; every other address gets the offline page; `navigator.storage.persist
 retried with backoff; shown from the store meanwhile (`blob:` URLs); a photo refused goes to Couldn't sync with its check-in; blobs deleted once uploaded.
 
 **Accepts when:** a check-in with a photo made offline shows the photo at once, and on reconnecting the photo reaches the server and another device.
+
+**Done as:** the device's database is **version 2** (a device on version 1 gets only the store it lacks): `photos`, one entry for each photo on the device: its id, the file, its type and size, the tries made, when to try next, and whether the server refused it. **The file is kept as bytes and not as a `Blob`**: a browser may refuse to store a `Blob` in IndexedDB (the WebKit the tests run fails with a null error, and older Safari had its own faults), bytes are
+stored everywhere, and a `Blob` is made from them to show or send. `store.addPhoto` keeps one under the id the device made (`LocalContext.addPhoto` makes the id, refuses a file over 15 MB with a sentence at once, and returns the id for the check-in's `photos`); `photoSrc(id)` shows a photo **from the device** while it is only here (a `blob:` address, given back when the store closes) and from `/api/media/<id>` otherwise. **`src/local/photos.ts`, `uploadPhotos`:** each photo that is due is
+sent with a PUT of its bytes under its id, **after the changes in each run of the loop, either order being accepted by the server**; a 200 or 201 deletes the file from the device; **a failure that may pass** (no network, a 5xx, a 429) is retried **with a backoff that doubles from five seconds to ten minutes**, and a loss of network stops the run rather than asking for each; **when the network comes back the backoff is cleared** (found by the browser test: a photo that had failed offline waited
+out its five seconds); a 401 stops the run and keeps every photo; **a photo the server would not take** (too large, not an image, over the person's room: 400, 413, 415, 422) **goes to Couldn't sync with the server's own sentence, and its file stays** and is not tried again by itself; a 404, which is another person's id, is refused too, and says no more. In Couldn't sync _Send again_ puts the photo back to be uploaded at once, and _Discard_ deletes its file **and takes it out of its check-in** (an edit through the one
+path), so that the check-in does not wait for ever for a file that will not come. Signing out counts the photos that are only on the device with what it asks about. **Seen:** against the real media store and server code of each leg, a check-in made with no network, with its photo, shows the photo from the device; after the network is back the check-in goes and then the photo, the file leaves the device, the server serves it as WebP, and **another device has the check-in naming the photo**; the same when the photo goes before its check-in;
+a failure is retried with the doubling backoff to ten minutes; a 401, a 429 and a 503 keep every photo; an HTML page named `.jpg` is refused with the sentence, stays, and is not sent again by itself; it is sent again and discarded only by the person; another person's id is refused and not taken from them. **In Chromium and WebKit:** a check-in with a photo made offline keeps the file on the device and nothing reaches the server; on reconnecting the check-in and the photo reach the server and another browser of the account (served as WebP),
+and the file leaves the device. **Left out:** showing the photo in lists and the viewer (7.x); the thumbnail's address on the device (its id is derived with a hash that is server code; the screens ask for the full image until 7.x decides how the device knows the thumbnail).
 
 #### 📋 6.6 — Trips on the device
 

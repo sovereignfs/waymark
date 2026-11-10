@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest';
  * imports into the page: it once took the whole applier in, and a script the page's policy refuses with it.
  */
 const root = path.join(process.cwd(), 'src');
-const PACKAGES = new Set(['react', 'idb']);
+// `tz-lookup` is the device's too: a point's zone is found with no network (DESIGN.md §7.3), by the actions that make a check-in.
+const PACKAGES = new Set(['react', 'idb', 'tz-lookup']);
 
 /** The value imports of a file: `import x from`, `import { a, type B } from` (when something is not a type), `export … from`, and side-effect imports; not `import type`. */
 export function valueImports(source: string): string[] {
@@ -79,7 +80,7 @@ describe('what the device’s store brings into the browser', () => {
         'sync/format.ts',
       ]),
     );
-    expect(names.length).toBeLessThan(12);
+    expect(names.length).toBeLessThan(24);
   });
 
   it('sees a value import of a server module, and not a type import of one', () => {

@@ -31,9 +31,11 @@ function when(at: number, tz: string): string {
 }
 
 export function describeMutation(
-  mutation: Mutation,
+  mutation: Mutation | undefined,
   places: readonly Pick<PlaceView, 'id' | 'name'>[] = [],
 ): string {
+  // A photo that could not be uploaded has no mutation of its own: it belongs to a check-in that names it.
+  if (!mutation) return 'A photo of a check-in';
   const parts: string[] = [];
   const nameOf = (id: string): string =>
     mutation.changes.flatMap((c: Change) =>

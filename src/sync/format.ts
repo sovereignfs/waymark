@@ -110,6 +110,8 @@ export const LIMITS = {
   companions: 20,
   companionChars: 60,
   photos: 10,
+  /** The largest file a person may add, in bytes (DESIGN.md §9.3, §18.3): the server judges it again. */
+  fileBytes: 15 * 1024 * 1024,
   externalIdChars: 200,
   /** How far ahead of the server's clock a check-in's moment may be, for the clocks of devices. */
   clockSkewMs: 5 * 60 * 1000,

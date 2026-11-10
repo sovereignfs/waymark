@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import sharp from 'sharp';
 import { PORTS } from './ports';
 import { goOffline, goOnline, secondContext, signOut, signedIn } from './helpers';
 
@@ -48,6 +49,26 @@ const readStore = (page: Page, id: string) =>
       }),
     `waymark-${id}`,
   );
+
+/** The photos still on the device: kept until the server has them. */
+const photosOnDevice = (page: Page, id: string) =>
+  page.evaluate(
+    (name) =>
+      new Promise<string[]>((resolve, reject) => {
+        const open = indexedDB.open(name);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const request = db.transaction('photos', 'readonly').objectStore('photos').getAllKeys();
+          request.onsuccess = () => {
+            db.close();
+            resolve(request.result as string[]);
+          };
+        };
+      }),
+    `waymark-${id}`,
+  );
+const context = (page: Page) => page.context();
 
 /** Puts a mutation in the outbox of the app's database, and tells the page it has the focus, which is one of the things that makes the app's loop send it. */
 async function record(
@@ -244,5 +265,88 @@ test('what the server refused is in Couldn’t sync, from the avatar menu, with 
   await page.getByRole('button', { name: 'User menu' }).click();
   await expect(page.getByRole('menuitem', { name: /Couldn.t sync/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
+  await signOut(page);
+});
+
+test('a check-in with a photo made offline keeps the photo on the device, and on reconnecting the photo reaches the server and another device', async ({
+  page,
+  browser,
+}) => {
+  await signedIn(page);
+  const other = await secondContext(browser);
+  const pageB = await other.newPage();
+  await signedIn(pageB);
+  const id = await accountId(page);
+  await expect.poll(() => databases(page)).toEqual([`waymark-${id}`]);
+  await expect.poll(() => databases(pageB)).toEqual([`waymark-${id}`]);
+
+  // A real picture, made here.
+  const png = (
+    await sharp({
+      create: { width: 16, height: 12, channels: 3, background: { r: 200, g: 80, b: 40 } },
+    })
+      .png()
+      .toBuffer()
+  ).toString('base64');
+  const photo = randomUUID();
+  const place = randomUUID();
+  const checkin = randomUUID();
+
+  // Offline: the file is kept in the app's database, the check-in names it, and nothing has reached the server.
+  await goOffline(context(page));
+  await page.evaluate(
+    ({ name, photo, png }) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open(name);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const bytes = Uint8Array.from(atob(png), (c) => c.charCodeAt(0));
+          const tx = db.transaction('photos', 'readwrite');
+          tx.objectStore('photos').put({
+            id: photo,
+            data: bytes.buffer,
+            type: 'image/png',
+            size: bytes.length,
+            queuedAt: Date.now(),
+            tries: 0,
+            nextAttempt: 0,
+          });
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error);
+        };
+      }),
+    { name: `waymark-${id}`, photo, png },
+  );
+  const mutation = withPlace(place, checkin, 'with a photo');
+  (mutation.changes[1] as { row: Record<string, unknown> }).row.photos = [photo];
+  await record(page, id, mutation);
+  await page.waitForTimeout(1500);
+  expect((await readStore(page, id)).outbox).toBe(1);
+  expect(await photosOnDevice(page, id)).toEqual([photo]);
+  expect((await pageB.request.get(`/api/media/${photo}`)).status()).toBe(404);
+  expect(await serverCheckins(pageB)).not.toContain(checkin);
+
+  // Back online: the check-in goes, and the photo with it, and the file leaves the device.
+  await goOnline(context(page));
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect.poll(() => serverCheckins(pageB)).toContain(checkin);
+  await expect
+    .poll(async () => (await pageB.request.get(`/api/media/${photo}`)).status())
+    .toBe(200);
+  const served = await pageB.request.get(`/api/media/${photo}`);
+  expect(served.headers()['content-type']).toBe('image/webp');
+  expect((await served.body()).subarray(0, 4).toString('latin1')).toBe('RIFF');
+  await expect.poll(() => photosOnDevice(page, id)).toEqual([]);
+
+  // Another device of the account has the check-in, which names the photo, and the photo.
+  await pageB.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => (await readStore(pageB, id)).checkins).toContain(checkin);
+  await signOut(pageB);
+  await other.close();
   await signOut(page);
 });

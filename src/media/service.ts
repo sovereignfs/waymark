@@ -5,6 +5,7 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet, dbRun } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
+import { LIMITS } from '../sync/format';
 import { allowed, detect, MIME, type MediaKind } from './detect';
 import {
   isFileId,
@@ -33,7 +34,7 @@ export interface MediaDeps {
 }
 
 /** The largest file that is accepted at all (DESIGN.md §18.3). */
-export const MAX_FILE_BYTES = 15 * 1024 * 1024;
+export const MAX_FILE_BYTES = LIMITS.fileBytes;
 
 export type Refusal =
   | 'bad_id'

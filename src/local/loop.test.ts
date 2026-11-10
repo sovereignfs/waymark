@@ -233,6 +233,30 @@ describe('the sync loop', () => {
     loop.stop();
   });
 
+  it('uploads the photos after the changes, and tries a photo again at once when the network comes back, whatever was left of its backoff', async () => {
+    const { store, sent, transport } = await setup();
+    const uploads: string[] = [];
+    const put = async (id: string) => {
+      uploads.push(id);
+      return { status: 201, json: {} };
+    };
+    const b = browser({ held: false, messages: new Map() });
+    await store.addPhoto(
+      '11111111-1111-4111-8111-111111111111',
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
+    );
+    await store.photoFailed('11111111-1111-4111-8111-111111111111', Date.now()); // five seconds of backoff
+    const loop = startLoop({ accountId: 'a', store, transport, put, env: b.env });
+    await settle();
+    expect(sent).toHaveLength(1);
+    expect(uploads).toEqual([]); // the backoff is not over
+    b.fire('online');
+    await settle();
+    expect(uploads).toEqual(['11111111-1111-4111-8111-111111111111']);
+    expect(await store.photoCount()).toBe(0);
+    loop.stop();
+  });
+
   it('does nothing in a tab when another tab holds the lock, and says so', async () => {
     const { store, sent, transport } = await setup();
     const shared = { held: true, messages: new Map() };

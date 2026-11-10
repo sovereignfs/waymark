@@ -1,7 +1,7 @@
 import type { CheckinView, PlaceView } from '../actions/types';
 import type { Mutation } from '../sync/format';
 import type { SyncResponse } from '../sync/endpoint';
-import { type LocalDb, type OutboxEntry, type Refused } from './db';
+import { type LocalDb, type OutboxEntry, type PhotoEntry, type Refused } from './db';
 import { overlay } from './overlay';
 
 /**
@@ -79,25 +79,100 @@ export class LocalStore {
    * back with everything else, so the id was not spent. Returns whether there was one.
    */
   async retryRefused(mutationId: string): Promise<boolean> {
-    const tx = this.db.transaction(['refused', 'outbox'], 'readwrite');
+    const tx = this.db.transaction(['refused', 'outbox', 'photos'], 'readwrite');
     const refused = await tx.objectStore('refused').get(mutationId);
     if (!refused) {
       await tx.done;
       return false;
     }
-    await tx
-      .objectStore('outbox')
-      .add({ mutationId, mutation: refused.mutation, queuedAt: this.now() });
+    if (refused.photoId !== undefined) {
+      // A photo goes back to be uploaded, at once: its file is still here.
+      const photo = await tx.objectStore('photos').get(refused.photoId);
+      if (photo)
+        await tx.objectStore('photos').put({ ...photo, refused: false, tries: 0, nextAttempt: 0 });
+    } else if (refused.mutation) {
+      await tx
+        .objectStore('outbox')
+        .add({ mutationId, mutation: refused.mutation, queuedAt: this.now() });
+    }
     await tx.objectStore('refused').delete(mutationId);
     await tx.done;
     return true;
   }
 
-  /** Throws a refused mutation away, which only the person decides (§15.5). Returns whether there was one. */
+  /** Throws a refused change away, which only the person decides (§15.5); a photo's file goes with it. Returns whether there was one. */
   async discardRefused(mutationId: string): Promise<boolean> {
-    const had = (await this.db.get('refused', mutationId)) !== undefined;
-    await this.db.delete('refused', mutationId);
-    return had;
+    const tx = this.db.transaction(['refused', 'photos'], 'readwrite');
+    const refused = await tx.objectStore('refused').get(mutationId);
+    if (refused?.photoId !== undefined) await tx.objectStore('photos').delete(refused.photoId);
+    await tx.objectStore('refused').delete(mutationId);
+    await tx.done;
+    return refused !== undefined;
+  }
+
+  /** Keeps a photo taken on this device, under the id the device made for it, until the server has it. */
+  async addPhoto(id: string, blob: Blob): Promise<void> {
+    await this.db.put('photos', {
+      id,
+      data: await blob.arrayBuffer(),
+      type: blob.type,
+      size: blob.size,
+      queuedAt: this.now(),
+      tries: 0,
+      nextAttempt: 0,
+    });
+  }
+
+  /** A photo's file if it is still on this device (not uploaded yet, or refused), to show it from here. */
+  async photoBlob(id: string): Promise<Blob | undefined> {
+    const photo = await this.db.get('photos', id);
+    return photo ? new Blob([photo.data], { type: photo.type }) : undefined;
+  }
+
+  /** The photos that are due to be uploaded: not refused, and past their backoff. Oldest first. */
+  async photosDue(now: number): Promise<PhotoEntry[]> {
+    const all = await this.db.getAll('photos');
+    return all
+      .filter((photo) => !photo.refused && photo.nextAttempt <= now)
+      .sort((a, b) => a.queuedAt - b.queuedAt || a.id.localeCompare(b.id));
+  }
+
+  /** How many photos are on this device only: waiting to be uploaded, or refused. */
+  async photoCount(): Promise<number> {
+    return this.db.count('photos');
+  }
+
+  /** The server has the photo: the file goes from here. */
+  async photoUploaded(id: string): Promise<void> {
+    await this.db.delete('photos', id);
+  }
+
+  /** The upload failed for a reason that may pass (no network, a busy or broken server): try again after a backoff that grows with the tries, and stops growing at ten minutes. */
+  async photoFailed(id: string, now: number): Promise<void> {
+    const photo = await this.db.get('photos', id);
+    if (!photo) return;
+    const wait = Math.min(5_000 * 2 ** photo.tries, 10 * 60_000);
+    await this.db.put('photos', { ...photo, tries: photo.tries + 1, nextAttempt: now + wait });
+  }
+
+  /** The network is back (or the person asked): every photo waiting for its backoff to end is tried at once, and the backoff starts again from the beginning. A refused photo is left alone. */
+  async resetPhotoBackoff(): Promise<void> {
+    const tx = this.db.transaction('photos', 'readwrite');
+    for (const photo of await tx.store.getAll())
+      if (!photo.refused && (photo.tries > 0 || photo.nextAttempt > 0))
+        await tx.store.put({ ...photo, tries: 0, nextAttempt: 0 });
+    await tx.done;
+  }
+
+  /** The server would not take the photo (too large, not an image, over the person's room): it goes to Couldn't sync with the reason, and its file stays until the person decides. */
+  async photoRefused(id: string, reason: string, sentence: string): Promise<void> {
+    const tx = this.db.transaction(['photos', 'refused'], 'readwrite');
+    const photo = await tx.objectStore('photos').get(id);
+    if (photo) await tx.objectStore('photos').put({ ...photo, refused: true });
+    await tx
+      .objectStore('refused')
+      .put({ mutationId: `photo:${id}`, photoId: id, reason, sentence, at: this.now() });
+    await tx.done;
   }
 
   /**

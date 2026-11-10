@@ -1,3 +1,4 @@
+import { type Put, fetchPut, uploadPhotos } from './photos';
 import { type SyncState, type Transport, syncOnce } from './sync';
 import type { LocalStore } from './store';
 
@@ -40,6 +41,8 @@ export function startLoop(options: {
   accountId: string;
   store: LocalStore;
   transport: Transport;
+  /** How a photo's file is uploaded (6.5); the browser's by default. */
+  put?: Put;
   env: LoopEnv;
   /** Told after each run, and when another tab says it changed something: the screens read the store again. */
   onChange?: () => void;
@@ -57,6 +60,9 @@ export function startLoop(options: {
     let state: SyncState | undefined;
     const had = await env.withLock(lock, async () => {
       state = await syncOnce(store, transport);
+      // The photos go after the changes: either order is accepted by the server, and a check-in that is there is what a placeholder waits for.
+      const uploaded = await uploadPhotos(store, options.put ?? fetchPut);
+      if (state === 'ok' && uploaded !== 'ok') state = uploaded;
     });
     if (had && state !== undefined) {
       options.onState?.(state);
@@ -91,7 +97,8 @@ export function startLoop(options: {
   });
   const unsubscribe = [
     env.on('focus', () => void run()),
-    env.on('online', () => void run()),
+    // The network is back: a photo that was waiting out a backoff is not made to wait the rest of it.
+    env.on('online', () => void store.resetPhotoBackoff().then(run, run)),
     env.on('visibilitychange', () => {
       if (env.visible()) void run();
     }),
