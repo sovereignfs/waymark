@@ -54,6 +54,8 @@ export const ROUTES: RouteRule[] = [
   },
   // Finding a place (DESIGN.md §7.2): the account's own places, opened for it alone, and then the operator's place search, which only the server reaches.
   { route: '/api/places', methods: { GET: { kind: 'account' } } },
+  // The device's sync (DESIGN.md §15.3): its outbox in, what was applied, refused and changed out, for the session's account alone; `Origin` is checked.
+  { route: '/api/sync', methods: { POST: { kind: 'account' } } },
   // The map (DESIGN.md §8.1): style, tiles and glyphs, served by Waymark and no one else, for an account only and limited for each; with the map off, all of it is not found.
   { route: '/api/map/style/[theme]', methods: { GET: { kind: 'account' } } },
   { route: '/api/map/tiles/[z]/[x]/[y]', methods: { GET: { kind: 'account' } } },

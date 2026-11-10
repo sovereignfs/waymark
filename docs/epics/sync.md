@@ -16,7 +16,7 @@ and said so in each task.
 
 ## Tasks
 
-#### 📋 6.1 — The sync endpoint
+#### ✅ 6.1 — The sync endpoint
 
 **Goal:** `POST /api/sync`, for the person's stream. **Design:** §15.3. **Depends on:** 5.2.
 
@@ -25,6 +25,13 @@ reasons), and changes since each cursor, paged at `seq` boundaries and unsealed 
 join with 6.6.
 
 **Accepts when:** a lost answer retried applies nothing twice; a stale cursor returns what changed since, in order; a second person's rows never appear.
+
+**Done as:** `POST /api/sync` (`app/api/sync/route.ts`, for an account only, `Origin` checked, a megabyte at most, **a hundred and twenty a minute** for each account, `Cache-Control: no-store`, in `routes.ts`), over `handleSync` in `src/sync/endpoint.ts` and `pullAccount` in `src/sync/pull.ts`. A request is `{ protocol, outbox, cursor, limit }`: the outbox is **applied in order** by 5.2's `applyMutation` (at most fifty mutations, `TOO_MANY` beyond; **a refusal does not stop the ones after it**, and one that depended on it
+is refused for that), then the stream is **pulled past the cursor**, so a device gets its own changes back at once with the server's numbers. The answer is `{ protocol, results, account }`: a result for each mutation sent (`applied` with its number, `replay`, or `refused` with the reason and the sentence, for Couldn't sync, 6.3), and a page with the **places, check-ins (with their photo ids, in order) and tombstones past the cursor, in the order of the stream and unsealed
+for this account only**, the cursor now, **`more`** (ask again at once) and **`head`** (the stream's own number). A page is cut at the last number it holds, and since every change took a number of its own, nothing past it is left behind; a device with cursor 0 gets a snapshot, a page at a time (200 by default, 500 at most). **A protocol it does not speak is told to update (`426`) before anything is applied**, and its outbox stays with it; a body that is not a request is `400`.
+`src/sync/server.ts` gives it this process's database, key and media store (so the files of photos that leave a check-in are removed), and the rate limit. **Seen:** an empty request gets everything as a snapshot, with the photos; the outbox is applied in order and each mutation is told what became of it, and a refused one lets the next through; **a lost answer retried applies nothing twice** and is still answered; a stale cursor returns what changed since, in order, a deleted row as a tombstone with no
+content, and nothing once the cursor has caught up; nine changes paged three at a time come back once each, in order, with none left behind; **a second person's rows never appear** as a snapshot, past a cursor or among what was refused, and her attempt at his ids is refused; a request from another origin, or with no session, is refused, and two people syncing the same ids each have their own. Each safeguard was taken out in turn and seen to fail (the account in pull, the cursor, the protocol, a page cut with rows left behind).
+**Left out:** a trip's streams (6.6, phase 2); the device's side is 6.2; and `Retry-After` on a `429`, which the device's loop reads as "later".
 
 #### 📋 6.2 — The device's store, outbox and loop
 
