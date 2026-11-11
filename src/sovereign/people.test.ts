@@ -15,6 +15,7 @@ import * as sqliteSchema from '../db/schema/sqlite';
 import { openAppBesideAuth, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
+import { enqueueMail } from '../mail/outbox';
 import { raiseNotice } from '../notices/notices';
 import { listPlaces, makePlace } from '../places/places';
 import { applyMutation } from '../sync/apply';
@@ -41,6 +42,7 @@ const GOES = [
   'applied_mutation',
   'tombstone',
   'notice',
+  'mail_outbox',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -159,6 +161,11 @@ describe(`deleting a person (${leg})`, () => {
         kind: 'import_finished',
         content: { title: 'Your import finished' },
       });
+      await enqueueMail(database, sealer, NOW, {
+        accountId: who,
+        kind: 'notice',
+        message: { to: 'x@example.com', subject: 's', text: 't' },
+      });
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
@@ -219,7 +226,14 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('profile', `account_id = '${ada}'`)).toBe(0);
     expect(await count('media', `account_id = '${ada}'`)).toBe(0);
     expect(await count('place', `account_id = '${ada}'`)).toBe(0);
-    for (const table of ['checkin', 'account_stream', 'applied_mutation', 'tombstone', 'notice'])
+    for (const table of [
+      'checkin',
+      'account_stream',
+      'applied_mutation',
+      'tombstone',
+      'notice',
+      'mail_outbox',
+    ])
       expect(await count(table, `account_id = '${ada}'`), table).toBe(0);
     expect(await listPlaces({ database, sealer }, ada)).toEqual([]);
     expect(await count('rate_bucket', `"key" LIKE '%:${ada}'`)).toBe(0);
@@ -248,6 +262,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('applied_mutation', `account_id = '${grace}'`)).toBe(3);
     expect(await count('tombstone', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

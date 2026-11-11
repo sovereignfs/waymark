@@ -22,6 +22,7 @@ export function smtpMailer(settings: MailSettings): Mailer {
         to: message.to,
         subject: message.subject,
         text: message.text,
+        ...(message.html ? { html: message.html } : {}),
       });
     },
   };

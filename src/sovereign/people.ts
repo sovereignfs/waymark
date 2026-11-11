@@ -4,6 +4,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
+import { deleteMailOf } from '../mail/outbox';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePlacesOf } from '../places/places';
 
@@ -60,6 +61,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     await deletePlacesOf(tx, accountId);
     // What they were told.
     await deleteNoticesOf(tx, accountId);
+    // And the mail queued to them.
+    await deleteMailOf(tx, accountId);
     await dbAll(
       tx,
       sql`DELETE FROM ${app.accountStream} WHERE account_id = ${accountId} RETURNING account_id`,

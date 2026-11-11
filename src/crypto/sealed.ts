@@ -73,6 +73,7 @@ export const SEALED = {
   mail_outbox: {
     design: 'addresses and content',
     phase: 1,
+    // `content` is `{ subject, text, html? }`: Waymark's own words, with the link or the title a notice carries (`src/mail/outbox.ts`).
     fields: { address: required('string'), content: required('json') },
   },
   trip: {

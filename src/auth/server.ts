@@ -2,7 +2,7 @@ import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getAuthDatabase, getDatabase } from '../db/boot';
 import { createProfile } from '../profile/profile';
-import { smtpMailer } from '../mail/smtp';
+import { outboxMailer } from '../mail/outbox';
 import { site } from '../site';
 import { type Auth, createAuth } from './auth';
 import type { AuthSettings } from './config';
@@ -26,14 +26,17 @@ export function getAuth(): Promise<Auth | null> {
   if (!settings) return Promise.resolve(null);
   // On `globalThis`, because the development server reloads modules and a second instance must not be made.
   const holder = globalThis as Holder;
-  holder[KEY] ??= getAuthDatabase()
-    .then((database) => {
+  holder[KEY] ??= Promise.all([getAuthDatabase(), getDatabase()])
+    .then(([database, appDatabase]) => {
       const mail = getConfig().mail;
       return createAuth({
         settings,
         name: site.name,
         database,
-        mailer: mail ? smtpMailer(mail) : undefined,
+        // Verification and reset mail is queued and sent by a job (DESIGN.md §17.2), so a slow mail server holds no request and a failure is tried again.
+        mailer: mail
+          ? outboxMailer({ database: appDatabase, sealer: serverSealer(), now: Date.now })
+          : undefined,
         // Waymark's own copy of the person's name and address, made with the account (2.7).
         onAccountCreated: async (account) => {
           await createProfile(

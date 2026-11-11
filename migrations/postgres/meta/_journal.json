@@ -64,6 +64,13 @@
       "when": 1794430790610,
       "tag": "0008_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794432404781,
+      "tag": "0009_mail_outbox",
+      "breakpoints": true
     }
   ]
 }

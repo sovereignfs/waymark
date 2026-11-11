@@ -173,3 +173,22 @@ export const notice = app.table(
   },
   (table) => [index('notice_account_idx').on(table.accountId, table.createdAt)],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const mailOutbox = app.table(
+  'mail_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    kind: text('kind').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('mail_outbox_due_idx').on(table.nextAttemptAt),
+    index('mail_outbox_account_idx').on(table.accountId),
+  ],
+);

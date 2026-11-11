@@ -4,6 +4,8 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
+import { dropStale, sendDue } from '../mail/outbox';
+import { serverMailer, serverOutbox } from '../mail/server';
 import { pruneNotices } from '../notices/notices';
 import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
@@ -106,6 +108,24 @@ export const jobs: readonly JobDefinition[] = [
       const pruned = await pruneNotices({ database, now: () => now.getTime() });
       if (pruned.old + pruned.over > 0)
         console.info(`[waymark] notices: pruned ${pruned.old + pruned.over}`);
+    },
+  },
+  {
+    // Mail waits in the outbox and is sent here (DESIGN.md §17.2): each message is claimed by a lease in the database, so several processes never send one twice, and one that fails is tried again later.
+    // It logs how many, and never an address or a word of a message. With no `WAYMARK_SMTP_HOST` there is nothing to send with and nothing is queued.
+    name: 'send-mail',
+    everyMs: 30 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const mailer = serverMailer();
+      if (!mailer) return;
+      const deps = await serverOutbox(() => now.getTime());
+      const pass = await sendDue(deps, mailer);
+      const stale = await dropStale(deps);
+      if (pass.retry + pass.gaveUp + stale > 0)
+        console.info(
+          `[waymark] mail: ${pass.sent} sent, ${pass.retry} to try again, ${pass.gaveUp + stale} given up on`,
+        );
     },
   },
 ];

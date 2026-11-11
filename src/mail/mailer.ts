@@ -7,6 +7,10 @@ export interface Message {
   readonly to: string;
   readonly subject: string;
   readonly text: string;
+  /** The same message as simple HTML, from the app's own words; a message without it is plain text. */
+  readonly html?: string | undefined;
+  /** What the message is, for the outbox (`outbox.ts`); a notice if it is not said. */
+  readonly kind?: 'verification' | 'reset' | 'notice' | undefined;
 }
 
 export interface Mailer {

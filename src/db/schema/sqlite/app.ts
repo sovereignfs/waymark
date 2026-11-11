@@ -219,3 +219,27 @@ export const notice = sqliteTable(
   },
   (table) => [index('notice_account_idx').on(table.accountId, table.createdAt)],
 );
+
+/**
+ * Mail waiting to be sent (DESIGN.md §17.2, §24.3), written in the transaction of the change that causes it and sent in the background by a job (`src/mail/outbox.ts`), so a slow or
+ * absent mail server never holds a request. **The address and the message are sealed** (`SEALED.mail_outbox`); what is plain is what the job claims by: when to try next
+ * (`next_attempt_at`), a lease (`claimed_until`, so two workers never send one message), how many tries have been made, and the person it is for (`account_id`, null for mail to someone who has no
+ * account yet: a verification link). A row is deleted when it is sent, and when it is given up on.
+ */
+export const mailOutbox = sqliteTable(
+  'mail_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    kind: text('kind').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('mail_outbox_due_idx').on(table.nextAttemptAt),
+    index('mail_outbox_account_idx').on(table.accountId),
+  ],
+);
