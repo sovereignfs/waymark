@@ -10,6 +10,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import { makeStore, testTarget } from '../db/test-support';
 import { listNotices } from '../notices/notices';
 import { endMembershipsOf } from './people';
+import { addItem, addStop } from './plan';
 import { createTrip, getTrip } from './trips';
 
 /**
@@ -70,7 +71,17 @@ beforeAll(async () => {
 });
 afterAll(async () => close());
 beforeEach(async () => {
-  for (const table of ['trip_member', 'trip', 'checkin', 'account_stream', 'notice'])
+  for (const table of [
+    'item',
+    'day',
+    'stop',
+    'place',
+    'trip_member',
+    'trip',
+    'checkin',
+    'account_stream',
+    'notice',
+  ])
     await dbAll(database, sql`DELETE FROM ${tableOf(database, table)} RETURNING 1 AS gone`);
 });
 
@@ -162,5 +173,25 @@ describe(`a deleted account's trips (${leg})`, () => {
     await farewell(ADA, false);
     expect(await roleOf(trip.id, SAM)).toBe('organizer');
     expect(await count('notice')).toBe(0);
+  });
+  it('keeps what they planned, as the trip’s, and clears only the names on it', async () => {
+    const trip = await createTrip(deps(), GRACE, { name: 'Planned together' });
+    await join(trip.id, ADA, 'traveler', NOW - 100, GRACE);
+    const plan = await addStop(deps(), GRACE, trip.id, {
+      place: { name: 'Lisbon', lat: 38.7, lng: -9.1 },
+      arrive: '2026-05-01',
+      depart: '2026-05-02',
+    });
+    const day = plan?.stops[0]?.days[0]?.id ?? '';
+    await addItem(deps(), ADA, trip.id, { dayId: day, title: 'Ada’s item' });
+    await addItem(deps(), GRACE, trip.id, { dayId: day, title: 'Grace’s item' });
+    await farewell(ADA);
+    const items =
+      (await getTrip(deps(), GRACE, trip.id)) &&
+      (await import('./plan')).readPlan(deps(), GRACE, trip.id);
+    const planned = (await items)?.stops[0]?.days[0]?.items ?? [];
+    expect(planned.map((item) => item.title)).toEqual(['Ada’s item', 'Grace’s item']);
+    expect(planned[0]).toMatchObject({ createdBy: null, updatedBy: null });
+    expect(planned[1]).toMatchObject({ createdBy: GRACE, updatedBy: GRACE });
   });
 });

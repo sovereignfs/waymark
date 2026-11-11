@@ -2,10 +2,16 @@ import { TRIP_ID, TripError } from './format';
 import {
   type Plan,
   PlanRefused,
+  addItem,
   addStop,
+  clearDayItems,
+  deleteItem,
+  moveDayItems,
+  moveItem,
   moveStop,
   readPlan,
   removeStop,
+  updateItem,
   updateStop,
 } from './plan';
 import {
@@ -21,7 +27,7 @@ import {
   previewDeletion,
   updateTrip,
 } from './trips';
-import type { NewStop } from './plan';
+import type { ItemPatch, NewItem, NewStop } from './plan';
 
 /**
  * The operations on trips (DESIGN.md §15.7: **trips, stops, ready, members, roles, invitations, attachments and links are online operations**, decided by the server at once and not queued on a device). One request is one
@@ -60,6 +66,12 @@ export type Op =
     }
   | { op: 'stop.move'; tripId: string; stopId: string; before: string | null }
   | { op: 'stop.remove'; tripId: string; stopId: string }
+  | ({ op: 'item.add'; tripId: string } & NewItem)
+  | ({ op: 'item.update'; tripId: string; itemId: string } & ItemPatch)
+  | { op: 'item.move'; tripId: string; itemId: string; dayId: string; before: string | null }
+  | { op: 'item.delete'; tripId: string; itemId: string }
+  | { op: 'day.moveItems'; tripId: string; fromDayId: string; toDayId: string }
+  | { op: 'day.clearItems'; tripId: string; dayId: string }
   | { op: 'trip.delete.preview'; tripId: string }
   | { op: 'trip.delete'; tripId: string; confirm: true };
 
@@ -79,10 +91,18 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'stop.update': 'editor',
   'stop.move': 'editor',
   'stop.remove': 'editor',
+  // Items are the plan too: Organizers and Travelers (DESIGN.md §10.5, §11.1).
+  'item.add': 'editor',
+  'item.update': 'editor',
+  'item.move': 'editor',
+  'item.delete': 'editor',
+  'day.moveItems': 'editor',
+  'day.clearItems': 'editor',
   'trip.delete.preview': 'organizer',
   'trip.delete': 'organizer',
 };
 
+const isId = (value: unknown): value is string => typeof value === 'string' && TRIP_ID.test(value);
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -96,8 +116,49 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'stop.update': ['op', 'tripId', 'stopId', 'arrive', 'depart', 'note'],
   'stop.move': ['op', 'tripId', 'stopId', 'before'],
   'stop.remove': ['op', 'tripId', 'stopId'],
+  'item.add': [
+    'op',
+    'tripId',
+    'dayId',
+    'title',
+    'notes',
+    'kind',
+    'start',
+    'end',
+    'fixed',
+    'place',
+    'placeId',
+    'before',
+  ],
+  'item.update': [
+    'op',
+    'tripId',
+    'itemId',
+    'title',
+    'notes',
+    'kind',
+    'start',
+    'end',
+    'fixed',
+    'place',
+    'placeId',
+  ],
+  'item.move': ['op', 'tripId', 'itemId', 'dayId', 'before'],
+  'item.delete': ['op', 'tripId', 'itemId'],
+  'day.moveItems': ['op', 'tripId', 'fromDayId', 'toDayId'],
+  'day.clearItems': ['op', 'tripId', 'dayId'],
   'trip.delete.preview': ['op', 'tripId'],
   'trip.delete': ['op', 'tripId', 'confirm'],
+};
+
+/** The ids, besides the trip's, each operation must name. */
+const NAMES: Partial<Record<OpName, readonly string[]>> = {
+  'item.add': ['dayId'],
+  'item.update': ['itemId'],
+  'item.move': ['itemId', 'dayId'],
+  'item.delete': ['itemId'],
+  'day.moveItems': ['fromDayId', 'toDayId'],
+  'day.clearItems': ['dayId'],
 };
 
 /** Whether a request is an operation: a known name, the keys that name takes and no others, and a trip id where one is needed. What is inside a value is checked when the operation is done. */
@@ -120,6 +181,23 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
     name === 'stop.move' &&
     request.before !== null &&
     !(typeof request.before === 'string' && TRIP_ID.test(request.before))
+  )
+    return { ok: false };
+  // The ids an operation names, each one a trip-style id: what is inside a value is checked when the operation is done.
+  for (const key of NAMES[name] ?? []) if (!isId(request[key])) return { ok: false };
+  if (
+    (name === 'item.move' || name === 'item.add') &&
+    'before' in request &&
+    request.before !== null &&
+    !isId(request.before)
+  )
+    return { ok: false };
+  if (name === 'item.move' && !('before' in request)) return { ok: false };
+  if (
+    name === 'item.update' &&
+    !['title', 'notes', 'kind', 'start', 'end', 'fixed', 'place', 'placeId'].some(
+      (key) => key in request,
+    )
   )
     return { ok: false };
   if (name === 'stop.add' && !isObject(request.place)) return { ok: false };
@@ -176,6 +254,20 @@ export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promis
         return planResult(await moveStop(deps, accountId, op.tripId, op.stopId, op.before));
       case 'stop.remove':
         return planResult(await removeStop(deps, accountId, op.tripId, op.stopId));
+      case 'item.add':
+        return planResult(await addItem(deps, accountId, op.tripId, op));
+      case 'item.update':
+        return planResult(await updateItem(deps, accountId, op.tripId, op.itemId, op));
+      case 'item.move':
+        return planResult(
+          await moveItem(deps, accountId, op.tripId, op.itemId, op.dayId, op.before),
+        );
+      case 'item.delete':
+        return planResult(await deleteItem(deps, accountId, op.tripId, op.itemId));
+      case 'day.moveItems':
+        return planResult(await moveDayItems(deps, accountId, op.tripId, op.fromDayId, op.toDayId));
+      case 'day.clearItems':
+        return planResult(await clearDayItems(deps, accountId, op.tripId, op.dayId));
       case 'trip.delete.preview': {
         const deletion = await previewDeletion(deps, accountId, op.tripId);
         return deletion ? { ok: true, deletion } : NOT_FOUND;

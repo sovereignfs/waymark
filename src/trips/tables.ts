@@ -16,6 +16,8 @@ export const TRIP_TABLES: readonly {
   // The plan (9.2): a trip's stops, and the days of each.
   { table: 'stop', action: 'delete' },
   { table: 'day', action: 'delete' },
+  // Things planned on a day (9.3).
+  { table: 'item', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
   { table: 'checkin', action: 'unlink' },
@@ -24,12 +26,15 @@ export const TRIP_TABLES: readonly {
   { table: 'media', action: 'later', task: '9.5' },
 ];
 
-/** A table that names a **day**: its rows are removed with the day (a stop removed, or a day's date taken away), and **a day that has any is never removed silently**: shrinking a stop over it is refused, naming the day (DESIGN.md §10.4). Items join with 9.3. */
+/** A table that names a **day**: its rows are removed with the day (a stop removed, or a day's date taken away), and **a day that has any is never removed silently**: shrinking a stop over it is refused, naming the day (DESIGN.md §10.4). Items are the first (9.3). */
 export interface DayReference {
   readonly table: string;
   readonly column: string;
 }
-export const DAY_REFERENCES: readonly DayReference[] = [];
+export const DAY_REFERENCES: readonly DayReference[] = [{ table: 'item', column: 'day_id' }];
 
-/** A table of a trip's that names one of the trip's places: a place is removed with its stop **unless one of these still names it** (items, 9.3, name a place too). */
-export const PLACE_USERS: readonly DayReference[] = [{ table: 'stop', column: 'place_id' }];
+/** A table of a trip's that names one of the trip's places: a place is removed with its stop **unless one of these still names it** (and items, 9.3, name a place too). */
+export const PLACE_USERS: readonly DayReference[] = [
+  { table: 'stop', column: 'place_id' },
+  { table: 'item', column: 'place_id' },
+];

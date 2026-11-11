@@ -1,5 +1,5 @@
 import { index, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { bool, counter, epochMs, id, isoDate, position, ref, sealed } from './columns';
+import { bool, counter, epochMs, hhmm, id, isoDate, position, ref, sealed } from './columns';
 
 /**
  * What the server holds that is not better-auth's (DESIGN.md §24.3). The account itself is better-auth's, in the other store, so an `account_id` is a
@@ -464,5 +464,38 @@ export const day = sqliteTable(
   (table) => [
     index('day_trip_idx').on(table.tripId, table.seq),
     uniqueIndex('day_stop_date_idx').on(table.stopId, table.date),
+  ],
+);
+
+/**
+ * An item (DESIGN.md §10.5, §24.3): something planned on a day, **a place of the trip's (`place_id`) or a title, or both**. The kind (`sight`, `food`, `stay`, `transport`, `activity`, `other`), the start and end times (`HH:mm`, in the
+ * stop's zone, which is why they are plain: no zone is in them) and whether it is **fixed** (a commitment, which needs a start) are plain; **the title and the notes are sealed** (`SEALED.item`). `position` is the day's order as dragged (a
+ * fractional position, independent of times). `created_by` and `updated_by` are the accounts that made and last changed it, cleared when an account is deleted so that nothing points at them; `version` and `seq` as everywhere. Written
+ * only by `src/trips/plan.ts`. (The design's `start` and `end` are `start_time` and `end_time` here: both are reserved words in SQL.)
+ */
+export const item = sqliteTable(
+  'item',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    dayId: ref('day_id').notNull(),
+    placeId: ref('place_id'),
+    kind: text('kind').notNull().default('other'),
+    startTime: hhmm('start_time'),
+    endTime: hhmm('end_time'),
+    fixed: bool('fixed').notNull().default(false),
+    position: position('position').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    updatedBy: ref('updated_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('item_trip_idx').on(table.tripId, table.seq),
+    index('item_day_idx').on(table.dayId, table.position),
+    index('item_place_idx').on(table.placeId),
   ],
 );

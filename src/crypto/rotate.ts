@@ -46,6 +46,7 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   // A stop's note, and a day's title and notes: each change to a row advances its `version`.
   { table: 'stop', key: 'id', guard: 'version' },
   { table: 'day', key: 'id', guard: 'version' },
+  { table: 'item', key: 'id', guard: 'version' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },

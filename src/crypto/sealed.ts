@@ -100,7 +100,8 @@ export const SEALED = {
   item: {
     design: 'title, notes',
     phase: 2,
-    fields: { title: required('string'), notes: optional('string') },
+    // An item has a place or a title, or both (DESIGN.md §10.5): the title is sealed when there is one.
+    fields: { title: optional('string'), notes: optional('string') },
   },
   attachment: {
     design: 'title',

@@ -1,6 +1,6 @@
 import { index, pgSchema, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { APP_STORE } from '../../config';
-import { bool, counter, epochMs, id, isoDate, position, ref, sealed } from './columns';
+import { bool, counter, epochMs, hhmm, id, isoDate, position, ref, sealed } from './columns';
 
 /** The app's schema; better-auth's is `waymark_auth` (DESIGN.md §24.1). */
 export const app = pgSchema(APP_STORE);
@@ -372,5 +372,33 @@ export const day = app.table(
   (table) => [
     index('day_trip_idx').on(table.tripId, table.seq),
     uniqueIndex('day_stop_date_idx').on(table.stopId, table.date),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const item = app.table(
+  'item',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    dayId: ref('day_id').notNull(),
+    placeId: ref('place_id'),
+    kind: text('kind').notNull().default('other'),
+    startTime: hhmm('start_time'),
+    endTime: hhmm('end_time'),
+    fixed: bool('fixed').notNull().default(false),
+    position: position('position').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    updatedBy: ref('updated_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('item_trip_idx').on(table.tripId, table.seq),
+    index('item_day_idx').on(table.dayId, table.position),
+    index('item_place_idx').on(table.placeId),
   ],
 );

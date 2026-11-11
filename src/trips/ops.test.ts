@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tableOf } from '../access/trip';
 import { DEFAULT_LIMITS } from '../config';
+import { addDays } from './dates';
 import { ringOf } from '../crypto/keys';
 import { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -11,7 +12,7 @@ import { makeStore, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { OPS_BODY_BYTES, type OpsDeps, handleOp, opsResponse } from './endpoint';
 import { OPERATIONS, type Op, type OpName, applyOp, parseOp } from './ops';
-import { addStop } from './plan';
+import { addItem, addStop } from './plan';
 import { createTrip } from './trips';
 
 /**
@@ -41,7 +42,8 @@ beforeAll(async () => {
     database,
     sealer,
     now: () => ++NOW,
-    limits: DEFAULT_LIMITS,
+    // Each test makes a stop or two of its own to try an operation against.
+    limits: { ...DEFAULT_LIMITS, tripStops: 1000 },
     limiter: new RateLimiter(database),
   };
   tripId = (await createTrip(deps, ADA, { name: 'Shared' })).id;
@@ -58,7 +60,17 @@ beforeAll(async () => {
 afterAll(async () => close());
 
 /** One request for each operation, against the trip above: written for every name, so that a new operation fails to compile here until it is. */
-const REQUESTS: Record<OpName, (id: string, stopId: string) => Op> = {
+/** What an operation is tried against: a stop with two days and an item on the first. Each test makes its own, since some remove or move what they are tried on. */
+interface Fixture {
+  stopId: string;
+  /** A stop with no dates, which is the only kind that moves. */
+  undatedId: string;
+  dayId: string;
+  otherDayId: string;
+  itemId: string;
+}
+
+const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   'trip.list': () => ({ op: 'trip.list' }),
   'trip.get': (id) => ({ op: 'trip.get', tripId: id }),
   'trip.create': () => ({ op: 'trip.create', name: 'A new one' }),
@@ -69,19 +81,56 @@ const REQUESTS: Record<OpName, (id: string, stopId: string) => Op> = {
     tripId: id,
     place: { name: 'Lisbon', lat: 38.72, lng: -9.14 },
   }),
-  'stop.update': (id, stopId) => ({ op: 'stop.update', tripId: id, stopId, note: 'A note' }),
-  'stop.move': (id, stopId) => ({ op: 'stop.move', tripId: id, stopId, before: null }),
-  'stop.remove': (id, stopId) => ({ op: 'stop.remove', tripId: id, stopId }),
+  'stop.update': (id, f) => ({ op: 'stop.update', tripId: id, stopId: f.stopId, note: 'A note' }),
+  'stop.move': (id, f) => ({ op: 'stop.move', tripId: id, stopId: f.undatedId, before: null }),
+  'stop.remove': (id, f) => ({ op: 'stop.remove', tripId: id, stopId: f.stopId }),
+  'item.add': (id, f) => ({ op: 'item.add', tripId: id, dayId: f.dayId, title: 'Dinner' }),
+  'item.update': (id, f) => ({ op: 'item.update', tripId: id, itemId: f.itemId, title: 'Lunch' }),
+  'item.move': (id, f) => ({
+    op: 'item.move',
+    tripId: id,
+    itemId: f.itemId,
+    dayId: f.otherDayId,
+    before: null,
+  }),
+  'item.delete': (id, f) => ({ op: 'item.delete', tripId: id, itemId: f.itemId }),
+  'day.moveItems': (id, f) => ({
+    op: 'day.moveItems',
+    tripId: id,
+    fromDayId: f.dayId,
+    toDayId: f.otherDayId,
+  }),
+  'day.clearItems': (id, f) => ({ op: 'day.clearItems', tripId: id, dayId: f.dayId }),
   'trip.delete.preview': (id) => ({ op: 'trip.delete.preview', tripId: id }),
   'trip.delete': (id) => ({ op: 'trip.delete', tripId: id, confirm: true }),
 };
 
-/** A stop of the trip made by its Organizer, for an operation on a stop to be tried against: each test gets its own, since some remove it. */
-const freshStop = async (): Promise<string> => {
-  const plan = await addStop(deps, ADA, tripId, { place: { name: 'Somewhere', lat: 1, lng: 2 } });
-  const stop = plan?.stops.at(-1);
-  if (!stop) throw new Error('no stop was made');
-  return stop.id;
+let nextWeek = 0;
+const fresh = async (): Promise<Fixture> => {
+  // Its own dates each time, so that the stops of the other tests never overlap it.
+  const arrive = addDays('2027-01-01', (nextWeek += 4));
+  const planned = await addStop(deps, ADA, tripId, {
+    place: { name: 'Somewhere', lat: 1, lng: 2 },
+    arrive,
+    depart: addDays(arrive, 1),
+  });
+  const stop = planned?.stops.find((each) => each.arrive === arrive);
+  const [day, other] = stop?.days ?? [];
+  if (!stop || !day || !other) throw new Error('no stop was made');
+  const withItem = await addItem(deps, ADA, tripId, { dayId: day.id, title: 'Existing' });
+  const item = withItem?.stops.find((each) => each.id === stop.id)?.days[0]?.items[0];
+  if (!item) throw new Error('no item was made');
+  const loose = (
+    await addStop(deps, ADA, tripId, { place: { name: 'Undated', lat: 1, lng: 2 } })
+  )?.stops.at(-1);
+  if (!loose) throw new Error('no undated stop was made');
+  return {
+    stopId: stop.id,
+    undatedId: loose.id,
+    dayId: day.id,
+    otherDayId: other.id,
+    itemId: item.id,
+  };
 };
 
 describe(`every operation, as a stranger and as each role (${leg})`, () => {
@@ -93,11 +142,21 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
     const who = OPERATIONS[name];
     if (who === 'account') continue;
     it(`${name}: a stranger is told it is not there`, async () => {
-      const result = await applyOp(deps, STRANGER, REQUESTS[name](tripId, await freshStop()));
+      const result = await applyOp(deps, STRANGER, REQUESTS[name](tripId, await fresh()));
       expect(result).toEqual({ ok: false, reason: 'not_found' });
     });
     it(`${name}: a trip that is not an id's is told it is not there, as a stranger is`, async () => {
-      const result = await applyOp(deps, ADA, REQUESTS[name](randomUUID(), randomUUID()));
+      const result = await applyOp(
+        deps,
+        ADA,
+        REQUESTS[name](randomUUID(), {
+          stopId: randomUUID(),
+          undatedId: randomUUID(),
+          dayId: randomUUID(),
+          otherDayId: randomUUID(),
+          itemId: randomUUID(),
+        }),
+      );
       expect(result).toEqual({ ok: false, reason: 'not_found' });
     });
     // Who may: Followers are refused what edits, Travelers what only an Organizer does.
@@ -121,14 +180,14 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
             ];
     for (const [role, id] of refused)
       it(`${name}: a ${role} is told it is not there`, async () => {
-        expect(await applyOp(deps, id, REQUESTS[name](tripId, await freshStop()))).toEqual({
+        expect(await applyOp(deps, id, REQUESTS[name](tripId, await fresh()))).toEqual({
           ok: false,
           reason: 'not_found',
         });
       });
     for (const [role, id] of allowed)
       it(`${name}: a ${role} may`, async () => {
-        expect((await applyOp(deps, id, REQUESTS[name](tripId, await freshStop()))).ok).toBe(true);
+        expect((await applyOp(deps, id, REQUESTS[name](tripId, await fresh()))).ok).toBe(true);
       });
   }
 
@@ -144,14 +203,14 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
       'stop.move',
       'stop.remove',
     ] as OpName[])
-      expect((await applyOp(deps, ADA, REQUESTS[name](tripId, await freshStop()))).ok, name).toBe(
-        true,
-      );
-    expect((await applyOp(deps, ADA, REQUESTS['trip.create'](tripId, ''))).ok).toBe(true);
+      expect((await applyOp(deps, ADA, REQUESTS[name](tripId, await fresh()))).ok, name).toBe(true);
+    expect((await applyOp(deps, ADA, REQUESTS['trip.create'](tripId, await fresh()))).ok).toBe(
+      true,
+    );
     // The Organizer's changes were really made, and a stranger's were not.
     const got = await applyOp(deps, ADA, { op: 'trip.get', tripId });
     expect(got).toMatchObject({ ok: true, trip: { name: 'Changed' } });
-    expect(await applyOp(deps, ADA, REQUESTS['trip.delete'](tripId, ''))).toEqual({
+    expect(await applyOp(deps, ADA, REQUESTS['trip.delete'](tripId, await fresh()))).toEqual({
       ok: true,
       deleted: true,
     });
@@ -187,6 +246,23 @@ describe('a request is an operation', () => {
       { op: 'stop.move', tripId: id, stopId: id, before: id },
       { op: 'stop.remove', tripId: id, stopId: id },
       { op: 'trip.update', tripId: id, coverPlaceId: null },
+      {
+        op: 'item.add',
+        tripId: id,
+        dayId: id,
+        title: 'T',
+        start: '09:00',
+        fixed: true,
+        place: { name: 'P', lat: 1, lng: 2 },
+        before: null,
+      },
+      { op: 'item.add', tripId: id, dayId: id, placeId: id, before: id },
+      { op: 'item.update', tripId: id, itemId: id, placeId: null },
+      { op: 'item.move', tripId: id, itemId: id, dayId: id, before: null },
+      { op: 'item.move', tripId: id, itemId: id, dayId: id, before: id },
+      { op: 'item.delete', tripId: id, itemId: id },
+      { op: 'day.moveItems', tripId: id, fromDayId: id, toDayId: id },
+      { op: 'day.clearItems', tripId: id, dayId: id },
     ])
       expect(parseOp(op).ok, JSON.stringify(op)).toBe(true);
   });
@@ -214,6 +290,17 @@ describe('a request is an operation', () => {
       { op: 'stop.move', tripId: id, stopId: id, before: 'abc' },
       { op: 'stop.remove', tripId: id },
       { op: 'stop.remove', tripId: id, stopId: id, force: true },
+      { op: 'item.add', tripId: id },
+      { op: 'item.add', tripId: id, dayId: 'abc' },
+      { op: 'item.add', tripId: id, dayId: id, before: 'abc' },
+      { op: 'item.update', tripId: id, itemId: id },
+      { op: 'item.update', tripId: id, itemId: 'abc', title: 'x' },
+      { op: 'item.move', tripId: id, itemId: id, dayId: id },
+      { op: 'item.move', tripId: id, itemId: id },
+      { op: 'item.delete', tripId: id },
+      { op: 'item.delete', tripId: id, itemId: id, hard: true },
+      { op: 'day.moveItems', tripId: id, fromDayId: id },
+      { op: 'day.clearItems', tripId: id, dayId: 5 },
       { op: 'constructor' },
       { op: '__proto__' },
     ])

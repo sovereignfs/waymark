@@ -79,7 +79,7 @@ export const PLACE_REFERENCES: readonly PlaceReference[] = [
 ];
 
 /** Tables that name a trip's place, which a person's place is never. Listed so that the test above can tell the two apart. */
-export const TRIP_REFERENCES: readonly string[] = ['stop'];
+export const TRIP_REFERENCES: readonly string[] = ['stop', 'item'];
 
 const table = (database: Database) =>
   database.dialect === 'postgres' ? postgresSchema.place : sqliteSchema.place;

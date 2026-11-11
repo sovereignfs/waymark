@@ -20,6 +20,8 @@ import {
   tripDates,
 } from './dates';
 import { TRIP_ID } from './format';
+import { type ItemKind, checkItem } from './item-format';
+import { after, between, first, many } from '../position';
 import { DAY_REFERENCES, type DayReference, PLACE_USERS } from './tables';
 
 /**
@@ -51,9 +53,28 @@ export interface StopPlace {
   readonly countryCode: string | null;
 }
 
+/** An item as the plan shows it (DESIGN.md §10.5). Its place, when it has one, is the trip's own. */
+export interface ItemView {
+  readonly id: string;
+  readonly dayId: string;
+  readonly title: string | undefined;
+  readonly notes: string | undefined;
+  readonly kind: ItemKind;
+  readonly start: string | null;
+  readonly end: string | null;
+  readonly fixed: boolean;
+  readonly position: string;
+  readonly place: StopPlace | undefined;
+  readonly createdBy: string | null;
+  readonly updatedBy: string | null;
+  readonly version: number;
+}
+
 export interface DayView {
   readonly id: string;
   readonly date: string;
+  /** In the day's order, as dragged. */
+  readonly items: ItemView[];
 }
 
 export interface StopView {
@@ -156,6 +177,64 @@ async function loadPlan(
         WHERE d.trip_id = ${tripId} AND ${memberOf(database, sql`d.trip_id`, accountId, roles)}
         ORDER BY d.date, d.id`,
   );
+  const itemRows = await dbAll<{
+    id: string;
+    dayId: string;
+    placeId: string | null;
+    kind: string;
+    startTime: string | null;
+    endTime: string | null;
+    fixed: boolean | number;
+    position: string;
+    version: number | string;
+    createdBy: string | null;
+    updatedBy: string | null;
+    sealed: Uint8Array | ArrayBuffer;
+    pSealed: Uint8Array | ArrayBuffer | null;
+    pTz: string | null;
+    pCountry: string | null;
+  }>(
+    database,
+    sql`SELECT i.id, i.day_id AS "dayId", i.place_id AS "placeId", i.kind, i.start_time AS "startTime", i.end_time AS "endTime", i.fixed,
+               i.position, i.version, i.created_by AS "createdBy", i.updated_by AS "updatedBy", i.sealed,
+               p.sealed AS "pSealed", p.tz AS "pTz", p.country_code AS "pCountry"
+        FROM ${tableOf(database, 'item')} i
+        LEFT JOIN ${tableOf(database, 'place')} p ON p.id = i.place_id AND p.trip_id = i.trip_id
+        WHERE i.trip_id = ${tripId} AND ${memberOf(database, sql`i.trip_id`, accountId, roles)}
+        ORDER BY i.position, i.id`,
+  );
+  const items: ItemView[] = itemRows.map((row) => {
+    const fields = deps.sealer.unseal('item', row.id, bytes(row.sealed));
+    let place: StopPlace | undefined;
+    if (row.placeId && row.pSealed) {
+      const opened = deps.sealer.unseal('place', row.placeId, bytes(row.pSealed));
+      place = {
+        id: row.placeId,
+        name: opened.name,
+        lat: opened.lat,
+        lng: opened.lng,
+        address: opened.address as Address | undefined,
+        category: opened.category,
+        tz: row.pTz,
+        countryCode: row.pCountry,
+      };
+    }
+    return {
+      id: row.id,
+      dayId: row.dayId,
+      title: fields.title,
+      notes: fields.notes,
+      kind: row.kind as ItemKind,
+      start: row.startTime,
+      end: row.endTime,
+      fixed: Boolean(row.fixed),
+      position: row.position,
+      place,
+      createdBy: row.createdBy,
+      updatedBy: row.updatedBy,
+      version: Number(row.version),
+    };
+  });
   const stops: StopView[] = rows.map((row) => {
     const place = deps.sealer.unseal('place', row.placeId, bytes(row.pSealed));
     const fields = deps.sealer.unseal('stop', row.id, bytes(row.sealed));
@@ -176,7 +255,9 @@ async function loadPlan(
       position: row.position,
       note: fields.note,
       version: Number(row.version),
-      days: days.filter((day) => day.stopId === row.id).map(({ id, date }) => ({ id, date })),
+      days: days
+        .filter((day) => day.stopId === row.id)
+        .map(({ id, date }) => ({ id, date, items: items.filter((item) => item.dayId === id) })),
     };
   });
   return { stops: orderStops(stops) };
@@ -371,6 +452,7 @@ export async function updateStop(
       const going = current.filter((day) => remove.includes(day.date));
       await refuseDaysWithItems(deps, tx, tripId, going);
       for (const day of going) await dropDay(tx, tripId, day.id, deps.dayReferences);
+      if (going.length > 0) await sweepPlaces(tx, tripId);
       await addDays(tx, deps.sealer, tripId, stopId, add, seq);
     }
     const sealed = deps.sealer.seal(
@@ -449,24 +531,7 @@ export async function removeStop(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE id = ${stopId} AND trip_id = ${tripId} RETURNING id`,
     );
-    let used = false;
-    for (const user of PLACE_USERS) {
-      const found = await dbGet<{ n: number | string }>(
-        tx,
-        sql`SELECT COUNT(*) AS n FROM ${tableOf(tx, user.table)} WHERE ${sql.raw(user.column)} = ${stop.placeId} AND trip_id = ${tripId}`,
-      );
-      if (Number(found?.n ?? 0) > 0) used = true;
-    }
-    if (!used) {
-      await dbAll(
-        tx,
-        sql`UPDATE ${tableOf(tx, 'trip')} SET cover_place_id = NULL WHERE id = ${tripId} AND cover_place_id = ${stop.placeId} RETURNING id`,
-      );
-      await dbAll(
-        tx,
-        sql`DELETE FROM ${tableOf(tx, 'place')} WHERE id = ${stop.placeId} AND trip_id = ${tripId} RETURNING id`,
-      );
-    }
+    await sweepPlaces(tx, tripId);
   }).catch(notThisTrips);
 }
 
@@ -558,4 +623,338 @@ async function dropDay(
     tx,
     sql`DELETE FROM ${tableOf(tx, 'day')} WHERE id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
   );
+}
+
+/**
+ * Removes the trip's own places that nothing names any more (`PLACE_USERS`: a stop, an item) and clears a cover that was one of them. Run after anything that can leave a place unnamed: a stop removed, an item changed or deleted,
+ * a day's items cleared. The trip's own places are the trip's alone, so nothing of a person's is ever in reach of this.
+ */
+async function sweepPlaces(tx: Database, tripId: string): Promise<void> {
+  const unused = PLACE_USERS.map(
+    (user) =>
+      sql`NOT EXISTS (SELECT 1 FROM ${tableOf(tx, user.table)} u WHERE u.${sql.raw(user.column)} = ${tableOf(tx, 'place')}.id AND u.trip_id = ${tripId})`,
+  );
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'place')} WHERE trip_id = ${tripId} AND ${sql.join(unused, sql` AND `)} RETURNING id`,
+  );
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'trip')} SET cover_place_id = NULL
+        WHERE id = ${tripId} AND cover_place_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM ${tableOf(tx, 'place')} p WHERE p.id = ${tableOf(tx, 'trip')}.cover_place_id AND p.trip_id = ${tripId})
+        RETURNING id`,
+  );
+}
+
+interface ItemRow {
+  id: string;
+  dayId: string;
+  placeId: string | null;
+  kind: string;
+  startTime: string | null;
+  endTime: string | null;
+  fixed: boolean | number;
+  position: string;
+  version: number | string;
+  sealed: Uint8Array | ArrayBuffer;
+}
+
+const ITEM_COLUMNS = sql.raw(
+  `i.id, i.day_id AS "dayId", i.place_id AS "placeId", i.kind, i.start_time AS "startTime", i.end_time AS "endTime", i.fixed, i.position, i.version, i.sealed`,
+);
+
+/** A day of this trip, or the answer for none (the same as a trip that is not there). */
+async function dayOfTrip(tx: Database, tripId: string, dayId: string): Promise<void> {
+  const found = await dbGet<{ id: string }>(
+    tx,
+    sql`SELECT id FROM ${tableOf(tx, 'day')} WHERE id = ${dayId} AND trip_id = ${tripId}`,
+  );
+  if (!found) throw new NotThisTripsStop();
+}
+
+/** The positions of a day's items in order (without `except`, the one being moved), for putting another between two of them. */
+async function positionsOf(
+  tx: Database,
+  tripId: string,
+  dayId: string,
+  except?: string,
+): Promise<{ id: string; position: string }[]> {
+  const rows = await dbAll<{ id: string; position: string }>(
+    tx,
+    sql`SELECT id, position FROM ${tableOf(tx, 'item')} WHERE day_id = ${dayId} AND trip_id = ${tripId} ORDER BY position, id`,
+  );
+  return except ? rows.filter((row) => row.id !== except) : rows;
+}
+
+/** A position for an item put just before `beforeId` in the list (or at the end, with none). A `beforeId` that is not in the day is not the trip's to name. */
+function positionBefore(
+  list: readonly { id: string; position: string }[],
+  beforeId: string | null | undefined,
+): string {
+  if (beforeId === null || beforeId === undefined)
+    return list.length === 0 ? first() : after(list.at(-1)?.position ?? '');
+  const index = list.findIndex((row) => row.id === beforeId);
+  if (index < 0) throw new NotThisTripsStop();
+  return between(
+    index === 0 ? null : (list[index - 1]?.position ?? null),
+    list[index]?.position ?? null,
+  );
+}
+
+function tooMany(deps: PlanDeps): PlanRefused {
+  return new PlanRefused({
+    reason: 'limit',
+    sentence: `A day has at most ${deps.limits.dayItems} items on this server.`,
+  });
+}
+
+/** The place an item names: made from the fields given (a new place of the trip's own), or one of the trip's places by id. At most one of the two. */
+async function itemPlace(
+  deps: PlanDeps,
+  tx: Database,
+  tripId: string,
+  seq: number,
+  now: number,
+  input: { place?: unknown; placeId?: unknown },
+): Promise<string | null | undefined> {
+  if (
+    input.place !== undefined &&
+    input.place !== null &&
+    input.placeId !== undefined &&
+    input.placeId !== null
+  )
+    throw new PlanRefused({
+      reason: 'invalid',
+      sentence: 'An item names a place by its fields or by an id of the trip, not both.',
+    });
+  if (input.place !== undefined && input.place !== null) {
+    const place = placeRowOf(input.place as Parameters<typeof placeRowOf>[0]);
+    if (!place.ok) throw new PlanRefused({ reason: 'invalid', sentence: place.sentence });
+    const row = place.value;
+    const id = randomUUID();
+    await dbAll(
+      tx,
+      sql`INSERT INTO ${tableOf(tx, 'place')} (id, trip_id, source, tz, country_code, version, seq, unnamed, sealed, created_at, updated_at)
+          VALUES (${id}, ${tripId}, ${row.source}, ${row.tz ?? zoneOf(row.lat, row.lng) ?? null}, ${row.address?.countryCode ?? null}, 1, ${seq}, 0,
+                  ${deps.sealer.seal('place', id, sealedFields({ name: row.name, lat: row.lat, lng: row.lng, address: row.address, category: row.category, sourceId: row.sourceId }))}, ${now}, ${now})
+          RETURNING id`,
+    );
+    return id;
+  }
+  if ('placeId' in input) {
+    if (input.placeId === null || input.placeId === undefined) return null;
+    if (typeof input.placeId !== 'string') throw new NotThisTripsStop();
+    const found = await dbGet<{ id: string }>(
+      tx,
+      sql`SELECT id FROM ${tableOf(tx, 'place')} WHERE id = ${input.placeId} AND trip_id = ${tripId}`,
+    );
+    if (!found) throw new NotThisTripsStop();
+    return found.id;
+  }
+  return undefined;
+}
+
+export interface NewItem {
+  readonly dayId: string;
+  readonly title?: unknown;
+  readonly notes?: unknown;
+  readonly kind?: unknown;
+  readonly start?: unknown;
+  readonly end?: unknown;
+  readonly fixed?: unknown;
+  /** A new place of the trip's own, from its fields; or `placeId`, one the trip has. */
+  readonly place?: unknown;
+  readonly placeId?: unknown;
+  /** The item it is put before; at the end of the day with none. */
+  readonly before?: string | null;
+}
+
+/** Adds an item to a day (any stop's day of the trip), at the end or before another. Refused for a value that is not an item's, and past the day's limit. */
+export async function addItem(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  input: NewItem,
+): Promise<Plan | undefined> {
+  const hasPlace =
+    (input.place !== undefined && input.place !== null) ||
+    (input.placeId !== undefined && input.placeId !== null);
+  const checked = checkItem(input, hasPlace);
+  if (!checked.ok) throw new PlanRefused({ reason: 'invalid', sentence: checked.sentence });
+  const fields = checked.value;
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
+    await dayOfTrip(tx, tripId, input.dayId);
+    const placeId = (await itemPlace(deps, tx, tripId, seq, now, input)) ?? null;
+    const list = await positionsOf(tx, tripId, input.dayId);
+    if (list.length >= deps.limits.dayItems) throw tooMany(deps);
+    const id = randomUUID();
+    await dbAll(
+      tx,
+      sql`INSERT INTO ${tableOf(tx, 'item')} (id, trip_id, day_id, place_id, kind, start_time, end_time, fixed, position, version, seq, created_by, updated_by, sealed, created_at, updated_at)
+          VALUES (${id}, ${tripId}, ${input.dayId}, ${placeId}, ${fields.kind}, ${fields.start}, ${fields.end}, ${fields.fixed}, ${positionBefore(list, input.before)}, 1, ${seq},
+                  ${accountId}, ${accountId}, ${deps.sealer.seal('item', id, itemSealed(fields))}, ${now}, ${now})
+          RETURNING id`,
+    );
+  }).catch(notThisTrips);
+}
+
+const itemSealed = (fields: { title: string | undefined; notes: string | undefined }) => ({
+  ...(fields.title ? { title: fields.title } : {}),
+  ...(fields.notes ? { notes: fields.notes } : {}),
+});
+
+export interface ItemPatch {
+  readonly title?: unknown;
+  readonly notes?: unknown;
+  readonly kind?: unknown;
+  readonly start?: unknown;
+  readonly end?: unknown;
+  readonly fixed?: unknown;
+  readonly place?: unknown;
+  /** A place of the trip's, or `null` to take the place away. */
+  readonly placeId?: unknown;
+}
+
+const PATCH_KEYS = ['title', 'notes', 'kind', 'start', 'end', 'fixed', 'place', 'placeId'] as const;
+
+/**
+ * Changes an item: each field given is changed and the rest are kept; **the whole is checked as it will be** (an item still has a place or a title, a fixed one a start), so that no change can leave an item that could not
+ * have been made. A place that nothing names any more is removed with it.
+ */
+export async function updateItem(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  itemId: string,
+  patch: ItemPatch,
+): Promise<Plan | undefined> {
+  if (!PATCH_KEYS.some((key) => key in patch))
+    throw new PlanRefused({ reason: 'invalid', sentence: 'There is nothing to change.' });
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
+    const row = await dbGet<ItemRow>(
+      tx,
+      sql`SELECT ${ITEM_COLUMNS} FROM ${tableOf(tx, 'item')} i WHERE i.id = ${itemId} AND i.trip_id = ${tripId}`,
+    );
+    if (!row) throw new NotThisTripsStop();
+    const current = deps.sealer.unseal('item', itemId, bytes(row.sealed));
+    const newPlace = await itemPlace(deps, tx, tripId, seq, now, patch);
+    const placeId = newPlace === undefined ? row.placeId : newPlace;
+    const merged = checkItem(
+      {
+        title: 'title' in patch ? patch.title : current.title,
+        notes: 'notes' in patch ? patch.notes : current.notes,
+        kind: 'kind' in patch ? patch.kind : row.kind,
+        start: 'start' in patch ? patch.start : row.startTime,
+        end: 'end' in patch ? patch.end : row.endTime,
+        fixed: 'fixed' in patch ? patch.fixed : Boolean(row.fixed),
+      },
+      placeId !== null,
+    );
+    if (!merged.ok) throw new PlanRefused({ reason: 'invalid', sentence: merged.sentence });
+    const fields = merged.value;
+    await dbAll(
+      tx,
+      sql`UPDATE ${tableOf(tx, 'item')}
+          SET place_id = ${placeId}, kind = ${fields.kind}, start_time = ${fields.start}, end_time = ${fields.end}, fixed = ${fields.fixed},
+              sealed = ${deps.sealer.seal('item', itemId, itemSealed(fields))}, updated_by = ${accountId},
+              version = version + 1, seq = ${seq}, updated_at = ${now}
+          WHERE id = ${itemId} AND trip_id = ${tripId} RETURNING id`,
+    );
+    await sweepPlaces(tx, tripId);
+  }).catch(notThisTrips);
+}
+
+/**
+ * Moves an item within its day, or to another day (of any stop of the trip), **with all its fields**: just before another item, or at the end. Into another day it is refused past that day's limit. A `before` that is not an
+ * item of the day it is going to is not found.
+ */
+export async function moveItem(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  itemId: string,
+  dayId: string,
+  before: string | null,
+): Promise<Plan | undefined> {
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
+    const row = await dbGet<ItemRow>(
+      tx,
+      sql`SELECT ${ITEM_COLUMNS} FROM ${tableOf(tx, 'item')} i WHERE i.id = ${itemId} AND i.trip_id = ${tripId}`,
+    );
+    if (!row) throw new NotThisTripsStop();
+    await dayOfTrip(tx, tripId, dayId);
+    const list = await positionsOf(tx, tripId, dayId, itemId);
+    if (dayId !== row.dayId && list.length >= deps.limits.dayItems) throw tooMany(deps);
+    await dbAll(
+      tx,
+      sql`UPDATE ${tableOf(tx, 'item')} SET day_id = ${dayId}, position = ${positionBefore(list, before)}, updated_by = ${accountId},
+              version = version + 1, seq = ${seq}, updated_at = ${now}
+          WHERE id = ${itemId} AND trip_id = ${tripId} RETURNING id`,
+    );
+  }).catch(notThisTrips);
+}
+
+/** Deletes an item, and its place if nothing else names it. */
+export async function deleteItem(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  itemId: string,
+): Promise<Plan | undefined> {
+  return change(deps, accountId, tripId, async ({ tx }) => {
+    const gone = await dbAll<{ id: string }>(
+      tx,
+      sql`DELETE FROM ${tableOf(tx, 'item')} WHERE id = ${itemId} AND trip_id = ${tripId} RETURNING id`,
+    );
+    if (gone.length === 0) throw new NotThisTripsStop();
+    await sweepPlaces(tx, tripId);
+  }).catch(notThisTrips);
+}
+
+/** Moves every item of one day to the end of another (the way out of a refused shrink: the days that would go are emptied first), in their order, with all their fields. The two days are different days of this trip. */
+export async function moveDayItems(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  fromDayId: string,
+  toDayId: string,
+): Promise<Plan | undefined> {
+  if (fromDayId === toDayId)
+    throw new PlanRefused({
+      reason: 'invalid',
+      sentence: 'Choose another day to move the items to.',
+    });
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
+    await dayOfTrip(tx, tripId, fromDayId);
+    await dayOfTrip(tx, tripId, toDayId);
+    const moving = await positionsOf(tx, tripId, fromDayId);
+    const there = await positionsOf(tx, tripId, toDayId);
+    if (there.length + moving.length > deps.limits.dayItems) throw tooMany(deps);
+    const positions = many(there.at(-1)?.position ?? null, null, moving.length);
+    for (const [index, item] of moving.entries())
+      await dbAll(
+        tx,
+        sql`UPDATE ${tableOf(tx, 'item')} SET day_id = ${toDayId}, position = ${positions[index] ?? ''}, updated_by = ${accountId},
+                version = version + 1, seq = ${seq}, updated_at = ${now}
+            WHERE id = ${item.id} AND trip_id = ${tripId} RETURNING id`,
+      );
+  }).catch(notThisTrips);
+}
+
+/** Deletes every item of a day (the other way out of a refused shrink), and the places nothing names any more. */
+export async function clearDayItems(
+  deps: PlanDeps,
+  accountId: string,
+  tripId: string,
+  dayId: string,
+): Promise<Plan | undefined> {
+  return change(deps, accountId, tripId, async ({ tx }) => {
+    await dayOfTrip(tx, tripId, dayId);
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${tableOf(tx, 'item')} WHERE day_id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
+    );
+    await sweepPlaces(tx, tripId);
+  }).catch(notThisTrips);
 }

@@ -92,6 +92,15 @@ export async function endMembershipsOf(
     tx,
     sql`UPDATE ${memberTable} SET added_by = NULL WHERE added_by = ${accountId} RETURNING trip_id`,
   );
+  // What they planned stays, as the trip's: only the names go.
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'item')} SET created_by = NULL WHERE created_by = ${accountId} RETURNING id`,
+  );
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'item')} SET updated_by = NULL WHERE updated_by = ${accountId} RETURNING id`,
+  );
   await dbAll(
     tx,
     sql`UPDATE ${tableOf(tx, 'trip')} SET created_by = NULL WHERE created_by = ${accountId} RETURNING id`,

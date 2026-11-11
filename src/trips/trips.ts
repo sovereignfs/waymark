@@ -377,6 +377,7 @@ export async function deleteTrip(
  */
 export async function removeTripRows(tx: Database, tripId: string, now: number): Promise<void> {
   await unlinkCheckins(tx, tripId, now);
+  await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'item')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'day')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'place')} WHERE trip_id = ${tripId} RETURNING id`);
