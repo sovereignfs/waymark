@@ -480,7 +480,7 @@ export async function updateStop(
       );
       const going = current.filter((day) => remove.includes(day.date));
       await refuseDaysWithItems(deps, tx, tripId, going);
-      for (const day of going) await dropDay(tx, tripId, day.id, deps.dayReferences);
+      for (const day of going) await dropDay(tx, tripId, day.id, deps.dayReferences, seq);
       if (going.length > 0) await sweepPlaces(tx, tripId);
       await addDays(tx, deps.sealer, tripId, stopId, add, seq);
     }
@@ -548,14 +548,14 @@ export async function removeStop(
   tripId: string,
   stopId: string,
 ): Promise<Plan | undefined> {
-  return change(deps, accountId, tripId, async ({ tx, stops }) => {
+  return change(deps, accountId, tripId, async ({ tx, stops, seq }) => {
     const stop = stops.find((each) => each.id === stopId);
     if (!stop) throw new NotThisTripsStop();
     const days = await dbAll<{ id: string }>(
       tx,
       sql`SELECT id FROM ${tableOf(tx, 'day')} WHERE stop_id = ${stopId} AND trip_id = ${tripId}`,
     );
-    for (const day of days) await dropDay(tx, tripId, day.id, deps.dayReferences);
+    for (const day of days) await dropDay(tx, tripId, day.id, deps.dayReferences, seq);
     await dbAll(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE id = ${stopId} AND trip_id = ${tripId} RETURNING id`,
@@ -642,7 +642,13 @@ async function dropDay(
   tripId: string,
   dayId: string,
   references: readonly DayReference[] | undefined,
+  seq: number,
 ): Promise<void> {
+  // What was attached to the day is the trip's now: a file is never lost with a day.
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'attachment')} SET day_id = NULL, seq = ${seq} WHERE day_id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
+  );
   for (const reference of references ?? DAY_REFERENCES)
     await dbAll(
       tx,

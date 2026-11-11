@@ -3,6 +3,7 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
+import { removeFile } from '../media/files';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
 import { deleteImportsOf, importDirBeside } from '../import/service';
 import { deleteExportsOf, exportDirBeside } from '../portability/export';
@@ -69,13 +70,14 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   await deleteExportsOf({ database, dir: exportDirBeside(deps.media.dir) }, accountId);
 
   // 2. What the app keeps of them, in one transaction of the app's store.
+  let tripFiles: string[] = [];
   await transaction(database, async (tx) => {
     await dbAll(
       tx,
       sql`DELETE FROM ${app.profile} WHERE account_id = ${accountId} RETURNING account_id`,
     );
     // Their part in trips (DESIGN.md §11.4, §23): a trip with nobody else is deleted, one they alone organized passes on, and nothing keeps pointing at them. Before their own rows, so that what a deleted trip held is gone first.
-    await endMembershipsOf(tx, { now: deps.now, notices: deps.notices }, accountId);
+    tripFiles = await endMembershipsOf(tx, { now: deps.now, notices: deps.notices }, accountId);
     // Their check-ins and places (a trip's places are the trip's, and go with it, §23), and what orders them: the stream, the mutations applied and the tombstones.
     await dbAll(tx, sql`DELETE FROM ${app.checkin} WHERE account_id = ${accountId} RETURNING id`);
     await dbAll(
@@ -107,6 +109,9 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       sql`DELETE FROM ${app.rateBucket} WHERE "key" LIKE ${`%:${accountId}`} RETURNING "key"`,
     );
   });
+
+  // The files of a trip that went with them (attachments): after the rows, as a trip's deletion does.
+  for (const file of tripFiles) await removeFile(deps.media.dir, file);
 
   // 3. The sign-in store. The address is read first, for the verifications that are named by it; the account goes last.
   const auth = authDatabase.dialect === 'postgres' ? postgresSchema : sqliteSchema;

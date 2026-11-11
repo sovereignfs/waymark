@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accountRoute } from '../access/route';
 import { type TwoAccounts, twoAccounts } from '../access/two-accounts';
@@ -32,6 +34,13 @@ beforeAll(async () => {
     now: Date.now,
     limits: DEFAULT_LIMITS,
     limiter: new RateLimiter(database),
+    media: {
+      database,
+      ring,
+      dir: path.join(tmpdir(), 'waymark-route-media'),
+      maxAccountBytes: 1 << 30,
+      now: Date.now,
+    },
   };
   POST = accountRoute(({ request, accountId }) => opsResponse(request, accountId, deps), t.deps);
 });

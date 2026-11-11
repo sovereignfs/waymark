@@ -2,6 +2,7 @@ import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
+import { serverMedia } from '../media/server';
 import { noticeDelivery } from '../notices/server';
 import type { OpsDeps } from './endpoint';
 
@@ -16,5 +17,7 @@ export async function serverOps(): Promise<OpsDeps> {
     // Beyond the bell, as each person chose (DESIGN.md §17.2).
     delivery: noticeDelivery,
     limiter: new RateLimiter(database),
+    // Files of a trip's attachments, for a rename's and a deletion's own part.
+    media: await serverMedia(),
   };
 }

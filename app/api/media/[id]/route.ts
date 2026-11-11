@@ -1,7 +1,8 @@
 import { accountRoute } from '@/src/access/route';
 import { bodyOf, fileHeaders, refusal, stored, uploadKind } from '@/src/media/http';
 import { serverMedia, takeUpload } from '@/src/media/server';
-import { deleteMedia, putMedia, readMedia } from '@/src/media/service';
+import { deleteMedia, putMedia } from '@/src/media/service';
+import { readFileFor } from '@/src/trips/attachments';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,11 +10,12 @@ const idOf = (params: Readonly<Record<string, string | string[] | undefined>>): 
   typeof params.id === 'string' ? params.id : '';
 
 /**
- * A file, for the account it belongs to (DESIGN.md §18.3): the statement names the account, so another person's file, and one that is not there, are the same answer. It is
+ * A file, for the account it belongs to (DESIGN.md §18.3): the statement names the account, so another person's file, and one that is not there, are the same answer. **A trip's attachment** is served here too, to Organizers and Travelers of the trip (§10.6) and to nobody else. It is
  * served with the type it was stored as, `nosniff`, `Cache-Control: private`, and a policy that lets nothing in it run.
  */
 export const GET = accountRoute(async ({ accountId, params }) => {
-  const file = await readMedia(await serverMedia(), { accountId, id: idOf(params) });
+  // The person's own file, or a file of an attachment they may see (Organizers and Travelers, never Followers).
+  const file = await readFileFor(await serverMedia(), accountId, idOf(params));
   if (!file) return new Response(null, { status: 404 });
   return new Response(new Uint8Array(file.bytes), { headers: fileHeaders(file.type) });
 });

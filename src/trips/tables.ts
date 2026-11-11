@@ -18,12 +18,13 @@ export const TRIP_TABLES: readonly {
   { table: 'day', action: 'delete' },
   // Things planned on a day (9.3).
   { table: 'item', action: 'delete' },
+  // Files of the trip (9.5): the attachment rows and their `media` rows go with it, and **their files on disk after the transaction** (`removeTripRows` returns their ids).
+  { table: 'attachment', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
   { table: 'checkin', action: 'unlink' },
   { table: 'notice', action: 'keep' },
-  // A trip's files (attachments, 9.5): their files on disk go with them, which needs the media store's removal, added with the first writer.
-  { table: 'media', action: 'later', task: '9.5' },
+  { table: 'media', action: 'delete' },
 ];
 
 /** A table that names a **day**: its rows are removed with the day (a stop removed, or a day's date taken away), and **a day that has any is never removed silently**: shrinking a stop over it is refused, naming the day (DESIGN.md §10.4). Items are the first (9.3). */

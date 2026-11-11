@@ -26,8 +26,10 @@ export async function endMembershipsOf(
   tx: Database,
   deps: TripFarewellDeps,
   accountId: string,
-): Promise<void> {
+): Promise<string[]> {
   const now = deps.now();
+  /** The files of trips that went with their last member: removed by the caller after its transaction. */
+  const files: string[] = [];
   const memberTable = tableOf(tx, 'trip_member');
   const mine = await dbAll<{ tripId: string; role: string }>(
     tx,
@@ -46,7 +48,7 @@ export async function endMembershipsOf(
         tx,
         sql`DELETE FROM ${tableOf(tx, 'trip')} WHERE id = ${membership.tripId} RETURNING id`,
       );
-      await removeTripRows(tx, membership.tripId, now);
+      files.push(...(await removeTripRows(tx, membership.tripId, now)));
       continue;
     }
     const next = others[0];
@@ -92,7 +94,11 @@ export async function endMembershipsOf(
     tx,
     sql`UPDATE ${memberTable} SET added_by = NULL WHERE added_by = ${accountId} RETURNING trip_id`,
   );
-  // What they planned stays, as the trip's: only the names go.
+  // What they planned and attached stays, as the trip's: only the names go.
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'attachment')} SET created_by = NULL WHERE created_by = ${accountId} RETURNING id`,
+  );
   await dbAll(
     tx,
     sql`UPDATE ${tableOf(tx, 'item')} SET created_by = NULL WHERE created_by = ${accountId} RETURNING id`,
@@ -105,4 +111,5 @@ export async function endMembershipsOf(
     tx,
     sql`UPDATE ${tableOf(tx, 'trip')} SET created_by = NULL WHERE created_by = ${accountId} RETURNING id`,
   );
+  return files;
 }

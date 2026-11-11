@@ -402,3 +402,25 @@ export const item = app.table(
     index('item_place_idx').on(table.placeId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const attachment = app.table(
+  'attachment',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    dayId: ref('day_id'),
+    kind: text('kind').notNull().default('other'),
+    mediaId: ref('media_id').notNull(),
+    thumbId: ref('thumb_id'),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('attachment_trip_idx').on(table.tripId, table.seq),
+    index('attachment_day_idx').on(table.dayId),
+    uniqueIndex('attachment_media_idx').on(table.mediaId),
+  ],
+);

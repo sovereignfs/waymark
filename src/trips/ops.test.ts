@@ -1,4 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tableOf } from '../access/trip';
@@ -12,6 +15,7 @@ import { makeStore, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { OPS_BODY_BYTES, type OpsDeps, handleOp, opsResponse } from './endpoint';
 import { OPERATIONS, type Op, type OpName, applyOp, parseOp } from './ops';
+import { addAttachment } from './attachments';
 import { addItem, addStop } from './plan';
 import { createTrip } from './trips';
 
@@ -34,10 +38,14 @@ let NOW = 1_800_000_000_000;
 let database: Database;
 let close: () => Promise<void>;
 let deps: OpsDeps;
+let directory: string;
+/** The smallest thing the store takes as a PDF: it is judged by its first bytes. */
+const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 let tripId: string;
 
 beforeAll(async () => {
   ({ database, close } = await makeStore());
+  directory = mkdtempSync(path.join(tmpdir(), 'waymark-ops-'));
   deps = {
     database,
     sealer,
@@ -45,6 +53,13 @@ beforeAll(async () => {
     // Each test makes a stop or two of its own to try an operation against.
     limits: { ...DEFAULT_LIMITS, tripStops: 1000 },
     limiter: new RateLimiter(database),
+    media: {
+      database,
+      ring,
+      dir: path.join(directory, 'media'),
+      maxAccountBytes: 1 << 30,
+      now: () => NOW,
+    },
   };
   tripId = (await createTrip(deps, ADA, { name: 'Shared' })).id;
   for (const [id, role] of [
@@ -57,7 +72,10 @@ beforeAll(async () => {
           VALUES (${tripId}, ${id}, ${role}, ${role === 'traveler'}, 'ask', ${NOW}, 2) RETURNING trip_id`,
     );
 });
-afterAll(async () => close());
+afterAll(async () => {
+  await close();
+  rmSync(directory, { recursive: true, force: true });
+});
 
 /** One request for each operation, against the trip above: written for every name, so that a new operation fails to compile here until it is. */
 /** What an operation is tried against: a stop with two days and an item on the first. Each test makes its own, since some remove or move what they are tried on. */
@@ -68,6 +86,7 @@ interface Fixture {
   dayId: string;
   otherDayId: string;
   itemId: string;
+  attachmentId: string;
 }
 
 const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
@@ -106,6 +125,18 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
     toDayId: f.otherDayId,
   }),
   'day.clearItems': (id, f) => ({ op: 'day.clearItems', tripId: id, dayId: f.dayId }),
+  'attachment.list': (id) => ({ op: 'attachment.list', tripId: id }),
+  'attachment.update': (id, f) => ({
+    op: 'attachment.update',
+    tripId: id,
+    attachmentId: f.attachmentId,
+    title: 'Renamed',
+  }),
+  'attachment.delete': (id, f) => ({
+    op: 'attachment.delete',
+    tripId: id,
+    attachmentId: f.attachmentId,
+  }),
   'trip.delete.preview': (id) => ({ op: 'trip.delete.preview', tripId: id }),
   'trip.delete': (id) => ({ op: 'trip.delete', tripId: id, confirm: true }),
 };
@@ -125,6 +156,12 @@ const fresh = async (): Promise<Fixture> => {
   const withItem = await addItem(deps, ADA, tripId, { dayId: day.id, title: 'Existing' });
   const item = withItem?.stops.find((each) => each.id === stop.id)?.days[0]?.items[0];
   if (!item) throw new Error('no item was made');
+  const attached = await addAttachment(deps, ADA, tripId, {
+    bytes: PDF,
+    title: 'Ticket',
+    kind: 'ticket',
+  });
+  if (!attached) throw new Error('no attachment was made');
   const loose = (
     await addStop(deps, ADA, tripId, { place: { name: 'Undated', lat: 1, lng: 2 } })
   )?.stops.at(-1);
@@ -135,6 +172,7 @@ const fresh = async (): Promise<Fixture> => {
     dayId: day.id,
     otherDayId: other.id,
     itemId: item.id,
+    attachmentId: attached.id,
   };
 };
 
@@ -160,6 +198,7 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
           dayId: randomUUID(),
           otherDayId: randomUUID(),
           itemId: randomUUID(),
+          attachmentId: randomUUID(),
         }),
       );
       expect(result).toEqual({ ok: false, reason: 'not_found' });
@@ -268,6 +307,10 @@ describe('a request is an operation', () => {
       { op: 'item.delete', tripId: id, itemId: id },
       { op: 'day.moveItems', tripId: id, fromDayId: id, toDayId: id },
       { op: 'day.clearItems', tripId: id, dayId: id },
+      { op: 'attachment.list', tripId: id },
+      { op: 'attachment.update', tripId: id, attachmentId: id, title: 'T' },
+      { op: 'attachment.update', tripId: id, attachmentId: id, dayId: null },
+      { op: 'attachment.delete', tripId: id, attachmentId: id },
     ])
       expect(parseOp(op).ok, JSON.stringify(op)).toBe(true);
   });
@@ -312,6 +355,11 @@ describe('a request is an operation', () => {
       { op: 'item.delete', tripId: id, itemId: id, hard: true },
       { op: 'day.moveItems', tripId: id, fromDayId: id },
       { op: 'day.clearItems', tripId: id, dayId: 5 },
+      { op: 'attachment.update', tripId: id, attachmentId: id },
+      { op: 'attachment.update', tripId: id, attachmentId: 'abc', title: 'T' },
+      { op: 'attachment.update', tripId: id, attachmentId: id, dayId: 'abc' },
+      { op: 'attachment.delete', tripId: id },
+      { op: 'attachment.list', tripId: id, force: true },
       { op: 'constructor' },
       { op: '__proto__' },
     ])

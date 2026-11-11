@@ -358,6 +358,7 @@ describe('the phases', () => {
       'stop',
       'day',
       'item',
+      'attachment',
       'notice',
       'mail_outbox',
       'core_outbox',

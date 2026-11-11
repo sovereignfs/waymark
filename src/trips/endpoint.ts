@@ -1,6 +1,7 @@
 import { readCapped } from '../access/body';
 import type { Limiter, Rule } from '../limits/rate';
 import { type Op, applyOp, parseOp } from './ops';
+import type { MediaDeps } from '../media/service';
 import type { TripDeps } from './trips';
 
 /**
@@ -12,6 +13,8 @@ import type { TripDeps } from './trips';
  */
 export interface OpsDeps extends TripDeps {
   readonly limiter: Limiter;
+  /** The media store, for the operations on attachments. */
+  readonly media: MediaDeps;
 }
 
 export const OPS_RATE: Rule = { limit: 240, windowMs: 60_000 };

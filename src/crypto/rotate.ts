@@ -47,6 +47,8 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'stop', key: 'id', guard: 'version' },
   { table: 'day', key: 'id', guard: 'version' },
   { table: 'item', key: 'id', guard: 'version' },
+  // An attachment's title is rewritten by a rename, which advances `seq`.
+  { table: 'attachment', key: 'id', guard: 'seq' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },

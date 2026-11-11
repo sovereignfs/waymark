@@ -6,6 +6,8 @@ import type { LimitSettings } from '../config';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
+import { removeFile } from '../media/files';
+import type { MediaDeps } from '../media/service';
 import type { Delivery } from '../notices/notices';
 import { getProfile } from '../profile/profile';
 import { notifyMembers } from './notify';
@@ -72,6 +74,8 @@ export interface TripDeps {
   readonly limits: LimitSettings;
   /** How notices also reach people on this server; absent, the bell alone. */
   readonly delivery?: (() => Delivery) | undefined;
+  /** The media store, whose files go with a trip's attachments. Absent where nothing stores files (the files, if there are any, are found by the orphan sweep). */
+  readonly media?: MediaDeps | undefined;
 }
 
 interface TripRow {
@@ -456,23 +460,36 @@ export async function deleteTrip(
   tripId: string,
 ): Promise<boolean> {
   if (!TRIP_ID.test(tripId)) return false;
-  return transaction(deps.database, async (tx) => {
+  const files = await transaction(deps.database, async (tx) => {
     const gone = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'trip')} WHERE id = ${tripId} AND ${memberOf(tx, sql`${tripId}`, accountId, ORGANIZERS)} RETURNING id`,
     );
-    if (gone.length === 0) return false;
-    await removeTripRows(tx, tripId, deps.now());
-    return true;
+    if (gone.length === 0) return undefined;
+    return removeTripRows(tx, tripId, deps.now());
   });
+  if (!files) return false;
+  // The trip's files go once its rows have: a crash between leaves files with no row, which the orphan sweep finds.
+  if (deps.media) for (const id of files) await removeFile(deps.media.dir, id);
+  return true;
 }
 
 /**
  * What goes with a trip once it is gone (`src/trips/tables.ts` says what each table does): its linked check-ins are unlinked in their authors' streams, and its places and members are removed. **It decides nothing**: the caller
  * has already shown, in the same transaction, that the trip may be deleted: by an Organizer (`deleteTrip`), or because its last member's account is being deleted (`endMembershipsOf`).
  */
-export async function removeTripRows(tx: Database, tripId: string, now: number): Promise<void> {
+export async function removeTripRows(tx: Database, tripId: string, now: number): Promise<string[]> {
   await unlinkCheckins(tx, tripId, now);
+  // Its attachments and their files' rows; the files themselves are removed by the caller after the transaction (they are not in the database).
+  const files = await dbAll<{ id: string }>(
+    tx,
+    sql`SELECT id FROM ${tableOf(tx, 'media')} WHERE trip_id = ${tripId}`,
+  );
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'attachment')} WHERE trip_id = ${tripId} RETURNING id`,
+  );
+  await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'media')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'item')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'day')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE trip_id = ${tripId} RETURNING id`);
@@ -481,6 +498,7 @@ export async function removeTripRows(tx: Database, tripId: string, now: number):
     tx,
     sql`DELETE FROM ${tableOf(tx, 'trip_member')} WHERE trip_id = ${tripId} RETURNING account_id`,
   );
+  return files.map((file) => file.id);
 }
 
 /**

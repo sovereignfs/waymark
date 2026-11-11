@@ -27,6 +27,7 @@ import { listPlaces, makePlace } from '../places/places';
 import { applyMutation } from '../sync/apply';
 import { createProfile, getProfile } from '../profile/profile';
 import { DEFAULT_LIMITS } from '../config';
+import { addAttachment } from '../trips/attachments';
 import { createTrip } from '../trips/trips';
 import { deletePerson } from './people';
 
@@ -67,7 +68,7 @@ const GOES = [
   'verification',
 ];
 /** Tables of shared work: their rows stay when the person goes (a trip with nobody else in it is deleted, and one they alone organized passes on: `src/trips/people.ts`). */
-const STAYS: string[] = ['trip', 'stop', 'day', 'item'];
+const STAYS: string[] = ['trip', 'stop', 'day', 'item', 'attachment'];
 /** Tables that are about something else than a person. */
 const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen', 'key_rotation'];
 
@@ -258,6 +259,11 @@ describe(`deleting a person (${leg})`, () => {
     const shared = await createTrip(tripDeps, ada, { name: 'Shared trip' });
     const soloAda = await createTrip(tripDeps, ada, { name: 'Ada only' });
     const soloGrace = await createTrip(tripDeps, grace, { name: 'Grace only' });
+    // Ada attached a file to her own trip (it goes with the trip, file and all) and one to the shared trip (it stays, as the trip's, with no name on it).
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+    const attachDeps = { ...tripDeps, media };
+    await addAttachment(attachDeps, ada, soloAda.id, { bytes: pdf, title: 'Ada’s booking' });
+    await addAttachment(attachDeps, ada, shared.id, { bytes: pdf, title: 'Shared booking' });
     await dbAll(
       database,
       sql`INSERT INTO ${sql.raw(app('trip_member'))} (trip_id, account_id, role, going, share_checkins, added_by, joined_at, seq)
@@ -291,7 +297,7 @@ describe(`deleting a person (${leg})`, () => {
         t.auth.database,
         sql.raw(`INSERT INTO ${authTable(table)} (${columns}) VALUES (${values}) RETURNING id`),
       );
-    expect(files()).toBe(4);
+    expect(files()).toBe(6);
     expect(await authCount('session', `user_id = '${ada}'`)).toBeGreaterThan(0);
 
     const deps = {
@@ -328,7 +334,11 @@ describe(`deleting a person (${leg})`, () => {
     expect(await usageOf(database, ada)).toBe(0);
     for (const fileId of made[ada] ?? [])
       expect(await readMedia(media, { accountId: ada, id: fileId })).toBeUndefined();
-    expect(files()).toBe(2);
+    // Her own trip's file went with it; the shared trip's stays, with Grace's two.
+    expect(files()).toBe(3);
+    expect(await count('media', `trip_id = '${soloAda.id}'`)).toBe(0);
+    expect(await count('attachment', `trip_id = '${soloAda.id}'`)).toBe(0);
+    expect(await count('attachment', `trip_id = '${shared.id}' AND created_by IS NULL`)).toBe(1);
     expect(await hasImport(importDirBeside(media.dir), imports[ada] ?? '')).toBe(false);
     expect(await hasImport(exportDirBeside(media.dir), exports[ada] ?? '')).toBe(false);
     for (const [table, column] of [
@@ -402,7 +412,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(rows).toHaveLength(2);
     const { rm } = await import('node:fs/promises');
     await rm(path.join(media.dir, rows[0]?.id ?? ''), { force: true });
-    expect(files()).toBe(1);
+    expect(files()).toBe(2);
     const deps = { database, authDatabase: t.auth.database, media, now: () => NOW };
     expect(await deletePerson(deps, grace)).toEqual({ files: 2 });
     expect(files()).toBe(0);

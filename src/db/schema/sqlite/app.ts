@@ -499,3 +499,30 @@ export const item = sqliteTable(
     index('item_place_idx').on(table.placeId),
   ],
 );
+
+/**
+ * An attachment of a trip (DESIGN.md §10.6, §24.3): a receipt, a booking, an accommodation record, a ticket or something else, **a file** (`media_id`, a `media` row owned by the trip, and `thumb_id` for an image's thumbnail) on the trip
+ * or on one day. **Its title is sealed** (`SEALED.attachment`); the file is sealed on disk. **Seen and added by Organizers and Travelers, never by Followers** (DESIGN.md §11.1): every statement that reads or writes one names
+ * `ATTACHMENT_READERS` (`src/access/trip.ts`), so for a Follower the row, the file and the thumbnail are not there. `seq` is the trip's counter at the last change to it (a rename advances it). `created_by` is cleared when the
+ * account is deleted, and the attachment stays, as the trip's. Written only by `src/trips/attachments.ts`.
+ */
+export const attachment = sqliteTable(
+  'attachment',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    dayId: ref('day_id'),
+    kind: text('kind').notNull().default('other'),
+    mediaId: ref('media_id').notNull(),
+    thumbId: ref('thumb_id'),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('attachment_trip_idx').on(table.tripId, table.seq),
+    index('attachment_day_idx').on(table.dayId),
+    uniqueIndex('attachment_media_idx').on(table.mediaId),
+  ],
+);

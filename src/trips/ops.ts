@@ -1,4 +1,12 @@
 import { TRIP_ID, TripError } from './format';
+import {
+  AttachmentRefused,
+  type AttachmentDeps,
+  type AttachmentView,
+  deleteAttachment,
+  listAttachments,
+  updateAttachment,
+} from './attachments';
 import { setGoing, setRole } from './members';
 import {
   type Plan,
@@ -19,7 +27,6 @@ import {
   LimitReached,
   type MemberView,
   type TripDeletion,
-  type TripDeps,
   type TripView,
   createTrip,
   deleteTrip,
@@ -37,6 +44,9 @@ import type { ItemPatch, NewItem, NewStop } from './plan';
  * a refusal says `not_found` for everything that is not the caller's or that their role does not allow (the same words for both, so that a trip is never confirmed to someone who is not in it), `invalid` with a sentence for a
  * value that is not a trip's, and `limit` with a sentence for a server limit.
  */
+/** What the operations need: the trips' own, and the media store for the files of attachments. */
+export type OpDeps = AttachmentDeps;
+
 export type Op =
   | { op: 'trip.list' }
   | { op: 'trip.get'; tripId: string }
@@ -78,6 +88,16 @@ export type Op =
   | { op: 'item.delete'; tripId: string; itemId: string }
   | { op: 'day.moveItems'; tripId: string; fromDayId: string; toDayId: string }
   | { op: 'day.clearItems'; tripId: string; dayId: string }
+  | { op: 'attachment.list'; tripId: string }
+  | {
+      op: 'attachment.update';
+      tripId: string;
+      attachmentId: string;
+      title?: unknown;
+      kind?: unknown;
+      dayId?: unknown;
+    }
+  | { op: 'attachment.delete'; tripId: string; attachmentId: string }
   | { op: 'trip.delete.preview'; tripId: string }
   | { op: 'trip.delete'; tripId: string; confirm: true };
 
@@ -110,6 +130,10 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'item.delete': 'editor',
   'day.moveItems': 'editor',
   'day.clearItems': 'editor',
+  // Attachments: Organizers and Travelers see and change them, **Followers never** (DESIGN.md §10.6, §11.1).
+  'attachment.list': 'editor',
+  'attachment.update': 'editor',
+  'attachment.delete': 'editor',
   'trip.delete.preview': 'organizer',
   'trip.delete': 'organizer',
 };
@@ -163,6 +187,9 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'item.delete': ['op', 'tripId', 'itemId'],
   'day.moveItems': ['op', 'tripId', 'fromDayId', 'toDayId'],
   'day.clearItems': ['op', 'tripId', 'dayId'],
+  'attachment.list': ['op', 'tripId'],
+  'attachment.update': ['op', 'tripId', 'attachmentId', 'title', 'kind', 'dayId'],
+  'attachment.delete': ['op', 'tripId', 'attachmentId'],
   'trip.delete.preview': ['op', 'tripId'],
   'trip.delete': ['op', 'tripId', 'confirm'],
 };
@@ -175,6 +202,8 @@ const NAMES: Partial<Record<OpName, readonly string[]>> = {
   'item.delete': ['itemId'],
   'day.moveItems': ['fromDayId', 'toDayId'],
   'day.clearItems': ['dayId'],
+  'attachment.update': ['attachmentId'],
+  'attachment.delete': ['attachmentId'],
 };
 
 /** Whether a request is an operation: a known name, the keys that name takes and no others, and a trip id where one is needed. What is inside a value is checked when the operation is done. */
@@ -221,6 +250,15 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
     (typeof request.accountId !== 'string' || typeof request.role !== 'string')
   )
     return { ok: false };
+  if (name === 'attachment.update' && !['title', 'kind', 'dayId'].some((key) => key in request))
+    return { ok: false };
+  if (
+    name === 'attachment.update' &&
+    'dayId' in request &&
+    request.dayId !== null &&
+    !isId(request.dayId)
+  )
+    return { ok: false };
   if (name === 'member.going' && typeof request.going !== 'boolean') return { ok: false };
   if (name === 'stop.add' && !isObject(request.place)) return { ok: false };
   if (name === 'stop.update' && !['arrive', 'depart', 'note'].some((key) => key in request))
@@ -236,6 +274,8 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
 }
 
 export type OpResult =
+  | { ok: true; attachments: AttachmentView[] }
+  | { ok: true; attachment: AttachmentView }
   | { ok: true; trips: TripView[] }
   | { ok: true; trip: TripView; members?: MemberView[] }
   | { ok: true; deletion: TripDeletion }
@@ -249,7 +289,7 @@ const NOT_FOUND = { ok: false, reason: 'not_found' } as const;
 const planResult = (plan: Plan | undefined): OpResult => (plan ? { ok: true, plan } : NOT_FOUND);
 
 /** Does one operation for the account. Never throws for what a person did: a value that is not a trip's, a limit and a trip that is not theirs are answers. */
-export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promise<OpResult> {
+export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<OpResult> {
   try {
     switch (op.op) {
       case 'trip.list':
@@ -303,6 +343,18 @@ export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promis
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
       }
+      case 'attachment.list': {
+        const attachments = await listAttachments(deps, accountId, op.tripId);
+        return attachments ? { ok: true, attachments } : NOT_FOUND;
+      }
+      case 'attachment.update': {
+        const attachment = await updateAttachment(deps, accountId, op.tripId, op.attachmentId, op);
+        return attachment ? { ok: true, attachment } : NOT_FOUND;
+      }
+      case 'attachment.delete':
+        return (await deleteAttachment(deps, accountId, op.tripId, op.attachmentId))
+          ? { ok: true, deleted: true }
+          : NOT_FOUND;
       case 'trip.delete.preview': {
         const deletion = await previewDeletion(deps, accountId, op.tripId);
         return deletion ? { ok: true, deletion } : NOT_FOUND;
@@ -319,6 +371,10 @@ export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promis
       return error.failure.reason === 'items'
         ? { ok: false, reason: 'items', sentence: error.failure.sentence, days: error.failure.days }
         : { ok: false, reason: error.failure.reason, sentence: error.failure.sentence };
+    if (error instanceof AttachmentRefused)
+      return error.reason === 'limit'
+        ? { ok: false, reason: 'limit', sentence: error.sentence }
+        : { ok: false, reason: 'invalid', sentence: error.sentence };
     if (error instanceof LimitReached)
       return { ok: false, reason: 'limit', sentence: error.sentence };
     throw error;

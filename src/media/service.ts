@@ -59,6 +59,9 @@ export const SENTENCES: Readonly<Record<Refusal, string>> = {
   id_taken: 'That is not found.',
 };
 
+/** Whose a file is: **exactly one** of an account (a person's photos, their uploaded imports) and a trip (its attachments, 9.5), as `place` is (DESIGN.md §7.1, §24.3). */
+export type Owner = { readonly accountId: string } | { readonly tripId: string };
+
 export type PutResult =
   | { ok: true; id: string; thumbId: string | undefined; bytes: number; existing: boolean }
   | { ok: false; reason: Refusal };
@@ -69,6 +72,7 @@ const table = (database: Database) =>
 interface Row {
   id: string;
   accountId: string | null;
+  tripId: string | null;
   kind: string;
   type: string;
   bytes: number | string;
@@ -76,7 +80,7 @@ interface Row {
   createdAt: number | string;
 }
 
-const COLUMNS = sql`id, account_id AS "accountId", kind, type, bytes, state, created_at AS "createdAt"`;
+const COLUMNS = sql`id, account_id AS "accountId", trip_id AS "tripId", kind, type, bytes, state, created_at AS "createdAt"`;
 
 /** What an account stores, in bytes: the sum of its files that are written (`ready`) and of those being written (`pending`), the thumbnails included. */
 export async function usageOf(database: Database, accountId: string): Promise<number> {
@@ -91,28 +95,42 @@ async function rowOf(database: Database, id: string): Promise<Row | undefined> {
   return dbGet<Row>(database, sql`SELECT ${COLUMNS} FROM ${table(database)} WHERE id = ${id}`);
 }
 
+const ownerOf = (owner: Owner): { accountId: string | null; tripId: string | null } =>
+  'accountId' in owner
+    ? { accountId: owner.accountId, tripId: null }
+    : { accountId: null, tripId: owner.tripId };
+
+/** Whether a row is `owner`'s: the same account, or the same trip, and never the other kind of owner. */
+const ownedBy = (row: Row, owner: Owner): boolean =>
+  'accountId' in owner ? row.accountId === owner.accountId : row.tripId === owner.tripId;
+
+/** The condition that names the owner, for a statement that changes or removes a row. */
+const ownerIs = (owner: Owner) =>
+  'accountId' in owner ? sql`account_id = ${owner.accountId}` : sql`trip_id = ${owner.tripId}`;
+
 async function claimRow(
   deps: MediaDeps,
   id: string,
-  accountId: string,
+  owner: Owner,
   kind: MediaKind,
   type: string,
   bytes: number,
 ): Promise<boolean> {
+  const { accountId, tripId } = ownerOf(owner);
   const rows = await dbAll<{ id: string }>(
     deps.database,
-    sql`INSERT INTO ${table(deps.database)} (id, account_id, kind, type, bytes, state, created_at)
-        VALUES (${id}, ${accountId}, ${kind}, ${type}, ${bytes}, 'pending', ${deps.now()})
+    sql`INSERT INTO ${table(deps.database)} (id, account_id, trip_id, kind, type, bytes, state, created_at)
+        VALUES (${id}, ${accountId}, ${tripId}, ${kind}, ${type}, ${bytes}, 'pending', ${deps.now()})
         ON CONFLICT (id) DO NOTHING
         RETURNING id`,
   );
   return rows.length > 0;
 }
 
-const markReady = (deps: MediaDeps, id: string, accountId: string) =>
+const markReady = (deps: MediaDeps, id: string, owner: Owner) =>
   dbRun(
     deps.database,
-    sql`UPDATE ${table(deps.database)} SET state = 'ready' WHERE id = ${id} AND account_id = ${accountId}`,
+    sql`UPDATE ${table(deps.database)} SET state = 'ready' WHERE id = ${id} AND ${ownerIs(owner)}`,
   );
 
 /**
@@ -122,6 +140,25 @@ const markReady = (deps: MediaDeps, id: string, accountId: string) =>
 export async function putMedia(
   deps: MediaDeps,
   input: { accountId: string; kind: Exclude<MediaKind, 'thumb'>; bytes: Uint8Array; id?: string },
+): Promise<PutResult> {
+  return storeMedia(deps, { accountId: input.accountId }, input);
+}
+
+/**
+ * Stores a trip's file (an attachment, 9.5), judged by its bytes as any other: a PDF as it is, an image re-encoded with a thumbnail. **A trip's file is not counted against anyone's room** (it has no account); the trip's own
+ * limit on its attachments is checked by the caller, which also decides who may add one (`src/trips/attachments.ts`: the permission is in its statement).
+ */
+export async function putTripMedia(
+  deps: MediaDeps,
+  input: { tripId: string; bytes: Uint8Array },
+): Promise<PutResult> {
+  return storeMedia(deps, { tripId: input.tripId }, { kind: 'attachment', bytes: input.bytes });
+}
+
+async function storeMedia(
+  deps: MediaDeps,
+  owner: Owner,
+  input: { kind: Exclude<MediaKind, 'thumb'>; bytes: Uint8Array; id?: string },
 ): Promise<PutResult> {
   const id = input.id ?? randomUUID();
   if (!isFileId(id)) return { ok: false, reason: 'bad_id' };
@@ -133,7 +170,7 @@ export async function putMedia(
 
   // A replay: the same id for the same owner is the same upload.
   const existing = await rowOf(deps.database, id);
-  if (existing && existing.accountId !== input.accountId) return { ok: false, reason: 'id_taken' };
+  if (existing && !ownedBy(existing, owner)) return { ok: false, reason: 'id_taken' };
   if (existing?.state === 'ready') {
     const thumb =
       existing.kind === 'photo' || existing.kind === 'attachment' ? thumbIdOf(id) : undefined;
@@ -175,22 +212,25 @@ export async function putMedia(
   const stored = main.length + (thumb?.length ?? 0);
   // A row already counts (a retry of one that was pending), so only what is new is added.
   const already = existing ? Number(existing.bytes) : 0;
-  if ((await usageOf(deps.database, input.accountId)) - already + stored > deps.maxAccountBytes)
+  if (
+    'accountId' in owner &&
+    (await usageOf(deps.database, owner.accountId)) - already + stored > deps.maxAccountBytes
+  )
     return { ok: false, reason: 'over_limit' };
 
   const thumbId = thumb ? thumbIdOf(id) : undefined;
-  if (!existing) await claimRow(deps, id, input.accountId, input.kind, type, main.length);
+  if (!existing) await claimRow(deps, id, owner, input.kind, type, main.length);
   if (thumbId && thumb) {
     const row = await rowOf(deps.database, thumbId);
-    if (row && row.accountId !== input.accountId) return { ok: false, reason: 'id_taken' };
-    if (!row) await claimRow(deps, thumbId, input.accountId, 'thumb', 'image/webp', thumb.length);
+    if (row && !ownedBy(row, owner)) return { ok: false, reason: 'id_taken' };
+    if (!row) await claimRow(deps, thumbId, owner, 'thumb', 'image/webp', thumb.length);
   }
   await writeSealed(deps.dir, id, main, deps.ring);
   if (thumbId && thumb) {
     await writeSealed(deps.dir, thumbId, thumb, deps.ring);
-    await markReady(deps, thumbId, input.accountId);
+    await markReady(deps, thumbId, owner);
   }
-  await markReady(deps, id, input.accountId);
+  await markReady(deps, id, owner);
   return { ok: true, id, thumbId, bytes: stored, existing: false };
 }
 

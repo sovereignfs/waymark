@@ -61,6 +61,8 @@ export const ROUTES: RouteRule[] = [
   // The online operations on trips (DESIGN.md §15.7), one door: the account is the session's, and **each operation names the membership and the role it needs in its statement** (`src/access/trip.ts`; who may do which is
   // `OPERATIONS` in `src/trips/ops.ts`, which `trips-access.test.ts` calls as a stranger and as each role).
   { route: '/api/ops', methods: { POST: { kind: 'account' } } },
+  // A trip's attachments are uploaded here (the body is the file): the account is the session's, and the statement that adds one names Organizer or Traveler, so for a Follower or a stranger the trip is not there (DESIGN.md §10.6).
+  { route: '/api/trips/[id]/attachments', methods: { POST: { kind: 'account' } } },
   // Notices (DESIGN.md §17.1): the account's own, listed and marked read; every statement names the account, so another person's are not found.
   { route: '/api/notices', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   // What is emailed (DESIGN.md §17.2, §21): the account's own choices, read and changed; every statement names the account.
