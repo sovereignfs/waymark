@@ -4,6 +4,8 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
+import { rotateKeys } from '../crypto/rotate';
+import { serverRotation } from '../crypto/server-rotation';
 import { serverImport } from '../import/server';
 import { sweepExports, workOnExports } from '../portability/export';
 import { serverExport } from '../portability/server';
@@ -163,6 +165,28 @@ export const jobs: readonly JobDefinition[] = [
     run: async ({ signal }) => {
       const deps = await serverExport();
       while (!signal.aborted && (await workOnExports(deps)));
+    },
+  },
+  {
+    // A rotation of the instance key (DESIGN.md §18.1): with `WAYMARK_ENCRYPTION_KEY_PREVIOUS` given, every envelope is moved to the new key, from where it left off, under a lease so that one process of several does
+    // it. It does nothing without a previous key. It logs how many it moved and could not open, never what they were.
+    name: 'rotate-keys',
+    everyMs: 30 * 1000,
+    runAtStart: true,
+    run: async ({ now }) => {
+      const deps = await serverRotation(() => now.getTime());
+      if (!deps.ring.previous) return;
+      if (!(await claimJob(deps.database, 'rotate-keys', 2 * 60 * 1000, now.getTime()))) return;
+      const before = Date.now();
+      const rotation = await rotateKeys(deps);
+      if (rotation.state === 'done')
+        console.info(
+          `[waymark] keys: rotation complete (${rotation.rewrapped} moved, ${rotation.unopenable} could not be opened); the previous key can be removed`,
+        );
+      else
+        console.info(
+          `[waymark] keys: rotating (${rotation.rewrapped} moved so far, ${Date.now() - before} ms)`,
+        );
     },
   },
 ];

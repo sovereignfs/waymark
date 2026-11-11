@@ -329,3 +329,21 @@ export const exportJob = sqliteTable(
     index('export_job_status_idx').on(table.status, table.claimedUntil),
   ],
 );
+
+/**
+ * Where a rotation of the instance key has got to (DESIGN.md §18.1, 3.3): one row for the key being rotated **to** (`fingerprint`, which is a name for a key and never the key), the key it is rotating from, whether
+ * it is `running` or `done`, and the place the job has reached (`phase` and `after`, so a stop carries on and does not begin again), with how many envelopes it has moved and how many it could not open (sealed under
+ * a key that is in neither of the two). Health reads it to say that a rotation is under way.
+ */
+export const keyRotation = sqliteTable('key_rotation', {
+  fingerprint: id('fingerprint'),
+  previousFingerprint: text('previous_fingerprint').notNull(),
+  state: text('state').notNull().default('running'),
+  phase: text('phase').notNull().default(''),
+  after: text('after').notNull().default(''),
+  rewrapped: counter('rewrapped').notNull().default(0),
+  unopenable: counter('unopenable').notNull().default(0),
+  startedAt: epochMs('started_at').notNull(),
+  updatedAt: epochMs('updated_at').notNull(),
+  finishedAt: epochMs('finished_at'),
+});

@@ -190,6 +190,9 @@ function checked(table: SealedTable, fields: Record<string, unknown>): Record<st
 /** The binding of a row's envelope: the table is the purpose, so that an envelope moved to another table, or another row, does not open. */
 const bindingOf = (table: SealedTable, id: string): Binding => ({ id, purpose: table });
 
+/** The binding of a row's envelope, for the one routine that moves envelopes between keys without opening their contents (`rotate.ts`). */
+export const rowBinding = bindingOf;
+
 /** Seals and opens the rows of a database, under a ring of keys. The server makes one from the settings (`src/crypto/server.ts`). */
 export class Sealer {
   constructor(private readonly ring: KeyRing) {}

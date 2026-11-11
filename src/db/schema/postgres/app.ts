@@ -262,3 +262,17 @@ export const exportJob = app.table(
     index('export_job_status_idx').on(table.status, table.claimedUntil),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const keyRotation = app.table('key_rotation', {
+  fingerprint: id('fingerprint'),
+  previousFingerprint: text('previous_fingerprint').notNull(),
+  state: text('state').notNull().default('running'),
+  phase: text('phase').notNull().default(''),
+  after: text('after').notNull().default(''),
+  rewrapped: counter('rewrapped').notNull().default(0),
+  unopenable: counter('unopenable').notNull().default(0),
+  startedAt: epochMs('started_at').notNull(),
+  updatedAt: epochMs('updated_at').notNull(),
+  finishedAt: epochMs('finished_at'),
+});

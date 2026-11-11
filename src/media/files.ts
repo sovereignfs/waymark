@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { openBytes, sealBytes } from '../crypto/envelope';
-import type { KeyRing } from '../crypto/keys';
+import { fingerprintOfEnvelope, openBytes, rewrapBytes, sealBytes } from '../crypto/envelope';
+import type { KeyEntry, KeyRing } from '../crypto/keys';
 
 /**
  * Files on disk (DESIGN.md §18.3): under `<data>/media`, **one file per row, named by a random id, holding one envelope**: the file's bytes sealed with a data key of their own, bound
@@ -95,4 +95,40 @@ export async function listFiles(dir: string): Promise<{ name: string; modifiedAt
 export async function removeByName(dir: string, name: string): Promise<void> {
   if (name.includes('/') || name.includes('..')) throw new Error('not a file name');
   await rm(path.join(dir, name), { force: true });
+}
+
+/**
+ * Moves a file's data key from one instance key to another (3.3), leaving its content as it is. Returns `moved` when it did, `current` when the file is already under `to`, `unknown` when it is under a key that is
+ * neither (it cannot be moved, and is counted), and `gone` when it is not there. The new file is written under a name of its own and moved over the old, **unless the old file was written meanwhile**, in which
+ * case it is left as that write made it.
+ */
+export async function rewrapFile(
+  dir: string,
+  id: string,
+  from: KeyEntry,
+  to: KeyEntry,
+): Promise<'moved' | 'current' | 'unknown' | 'gone'> {
+  const target = fileOf(dir, id);
+  let before;
+  let envelope: Buffer;
+  try {
+    before = await stat(target);
+    envelope = await readFile(target);
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return 'gone';
+    throw error;
+  }
+  const fingerprint = fingerprintOfEnvelope(envelope);
+  if (fingerprint === to.fingerprint) return 'current';
+  if (fingerprint !== from.fingerprint) return 'unknown';
+  const moved = rewrapBytes(envelope, { id, purpose: FILE_PURPOSE }, from, to);
+  const temporary = path.join(dir, `.${id}.${process.pid}.${Date.now()}.rewrap.tmp`);
+  await writeFile(temporary, moved, { mode: 0o600 });
+  const after = await stat(target).catch(() => undefined);
+  if (!after || after.mtimeMs !== before.mtimeMs) {
+    await rm(temporary, { force: true });
+    return after ? 'current' : 'gone';
+  }
+  await rename(temporary, target);
+  return 'moved';
 }

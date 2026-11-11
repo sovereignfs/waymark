@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { access, constants, mkdir } from 'node:fs/promises';
 import { getConfig } from '@/src/config/current';
+import { rotationOf } from '@/src/crypto/rotate';
 import { getDatabase } from '@/src/db/boot';
 import { dbGet } from '@/src/db/exec';
 
@@ -18,8 +19,16 @@ export async function GET() {
     const dataDir = getConfig().media.dataDir;
     await mkdir(dataDir, { recursive: true });
     await access(dataDir, constants.W_OK);
+    // While a previous key is given beside the instance key, it says whether the rotation to the new one is under way or complete (the cue that the previous key can be removed): nothing else about keys.
+    const rotation = await rotationOf(database, getConfig().encryption);
     return Response.json(
-      { status: 'ok', database: database.dialect },
+      {
+        status: 'ok',
+        database: database.dialect,
+        ...(rotation.state === 'none'
+          ? {}
+          : { keyRotation: rotation.state === 'done' ? 'complete' : 'in_progress' }),
+      },
       { headers: { 'cache-control': 'no-store' } },
     );
   } catch {

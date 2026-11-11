@@ -30,6 +30,17 @@ pnpm dev     # http://localhost:3005
 
 The conventions, for people and for agents, are in [`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+## Rotating the encryption key
+
+Everything that says where or what (places, notes, names, files, photos) is sealed under `WAYMARK_ENCRYPTION_KEY`. To change that key without losing anything:
+
+1. Make a new key (32 random bytes, as base64 or hex), and keep the old one.
+2. Set `WAYMARK_ENCRYPTION_KEY` to the **new** key and `WAYMARK_ENCRYPTION_KEY_PREVIOUS` to the **old** one, and restart. Everything still opens: Waymark can read what is under either.
+3. A background job moves every row and file from the old key to the new, from where it left off if it is stopped or the server is restarted. It only re-wraps each item's own key; it does not read or change what people wrote. While it runs, `GET /api/health` says `"keyRotation": "in_progress"`, and the log says how far it has got.
+4. When `/api/health` says `"keyRotation": "complete"` (and the log says `0 could not be opened`), remove `WAYMARK_ENCRYPTION_KEY_PREVIOUS` and restart. Everything opens with the new key alone.
+
+Do not start another rotation until one is complete: the ring holds only two keys, and what is still under the first would be unreadable. Keep the old key as long as you keep a backup of the database or `/data` made before the rotation, since those are sealed under it.
+
 ## The map
 
 The map is drawn in the browser from vector tiles that **Waymark serves itself** (`/api/map/*`, for signed-in people): the browser asks no one else for a style, a tile or a letter. `WAYMARK_MAP_SOURCE` says where the tiles come from:

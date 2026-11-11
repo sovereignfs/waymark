@@ -64,7 +64,7 @@ const GOES = [
 /** Tables of shared work: their rows stay when the person goes. (Trips, from phase 2.) */
 const STAYS: string[] = [];
 /** Tables that are about something else than a person. */
-const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen'];
+const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen', 'key_rotation'];
 
 let t: TwoAccounts;
 let database: Database;

@@ -1,7 +1,13 @@
 import { type FileHandle, mkdir, open, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { CryptoError, openBytes, sealBytes } from '../crypto/envelope';
-import type { KeyRing } from '../crypto/keys';
+import {
+  CryptoError,
+  fingerprintOfEnvelope,
+  openBytes,
+  rewrapBytes,
+  sealBytes,
+} from '../crypto/envelope';
+import type { KeyEntry, KeyRing } from '../crypto/keys';
 import { isFileId } from '../media/files';
 
 /**
@@ -183,4 +189,66 @@ export async function listImports(dir: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * Moves every chunk of an import's (or export's) file to another instance key (3.3), a chunk at a time into a file of its own, which replaces the old **unless the old was written meanwhile**. Each chunk's binding
+ * (its place, and whether it is the last) is the one it was sealed with, so the file is whole afterwards or it is not replaced. Returns as `rewrapFile` does.
+ */
+export async function rewrapImportFile(
+  dir: string,
+  id: string,
+  from: KeyEntry,
+  to: KeyEntry,
+): Promise<'moved' | 'current' | 'unknown' | 'gone'> {
+  const target = fileOf(dir, id);
+  let before;
+  try {
+    before = await stat(target);
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return 'gone';
+    throw error;
+  }
+  const temporary = path.join(dir, `.${id}.${process.pid}.${Date.now()}.rewrap.tmp`);
+  const handle = await open(target, 'r');
+  const out = await open(temporary, 'w', 0o600);
+  let moved = 0;
+  let verdict: 'moved' | 'current' | 'unknown' = 'current';
+  try {
+    let position = 0;
+    let index = 0;
+    while (position < before.size) {
+      const length = (await readExactly(handle, 4, position)).readUInt32BE();
+      if (length < 1 || position + 4 + length > before.size) throw new CryptoError('malformed');
+      const envelope = await readExactly(handle, length, position + 4);
+      position += 4 + length;
+      const fingerprint = fingerprintOfEnvelope(envelope);
+      let next = envelope;
+      if (fingerprint === from.fingerprint) {
+        next = rewrapBytes(envelope, bindingOf(id, index, position === before.size), from, to);
+        moved += 1;
+      } else if (fingerprint !== to.fingerprint) {
+        verdict = 'unknown';
+        break;
+      }
+      const header = Buffer.alloc(4);
+      header.writeUInt32BE(next.length);
+      await out.write(Buffer.concat([header, next]));
+      index += 1;
+    }
+  } finally {
+    await handle.close();
+    await out.close();
+  }
+  if (verdict === 'unknown' || moved === 0) {
+    await rm(temporary, { force: true });
+    return verdict;
+  }
+  const after = await stat(target).catch(() => undefined);
+  if (!after || after.mtimeMs !== before.mtimeMs) {
+    await rm(temporary, { force: true });
+    return after ? 'current' : 'gone';
+  }
+  await rename(temporary, target);
+  return 'moved';
 }
