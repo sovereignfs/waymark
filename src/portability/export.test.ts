@@ -192,7 +192,12 @@ describe(`an export (${leg})`, () => {
       shareDefault: 'ask',
     });
     // Every kind and the person's choice for it, the default where they made none.
-    expect(file.settings.email).toEqual({ import_finished: false, organizer_passed: false });
+    expect(file.settings.email).toEqual({
+      import_finished: false,
+      organizer_passed: false,
+      trip_ready: false,
+      trip_dates: false,
+    });
     expect(file.places.map((p) => p.id).sort()).toEqual(['ada-p1', 'ada-p2', 'ada-p3']);
     expect(file.checkins.map((c) => c.id).sort()).toEqual([
       'ada-c1',

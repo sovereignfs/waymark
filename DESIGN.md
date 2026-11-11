@@ -731,7 +731,7 @@ A row per person told, written in the change's transaction, **never for what a p
 | `invite_accepted`                      | Whoever invited                                                          | 2     |
 | `role_changed`                         | The person whose role changed, or who was removed                        | 2     |
 | `trip_ready`                           | Every member, also when moved back to planning                           | 2     |
-| `trip_dates`                           | Every member, when the trip's dates change                               | 2     |
+| `trip_dates`                           | Every member, when a ready trip's dates change                           | 2     |
 | `checkin_shared`                       | Members who chose it (off by default): a Traveler shared a check-in      | 2     |
 | `edit_replaced`                        | The author of an item edit replaced in a conflict (§15.4)                | 2     |
 | `organizer_passed`                     | A member who became Organizer because the last one's account was deleted | 2     |

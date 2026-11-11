@@ -7,6 +7,7 @@ import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import type { Address } from '../places/clean';
+import type { Delivery } from '../notices/notices';
 import { sealedFields } from '../places/places';
 import { zoneOf } from '../places/tz';
 import {
@@ -20,6 +21,7 @@ import {
   tripDates,
 } from './dates';
 import { TRIP_ID } from './format';
+import { notifyMembers } from './notify';
 import { type ItemKind, checkItem } from './item-format';
 import { after, between, first, many } from '../position';
 import { DAY_REFERENCES, type DayReference, PLACE_USERS } from './tables';
@@ -38,6 +40,8 @@ export interface PlanDeps {
   readonly sealer: Sealer;
   readonly now: () => number;
   readonly limits: LimitSettings;
+  /** How notices also reach people on this server; absent, the bell alone. */
+  readonly delivery?: (() => Delivery) | undefined;
   /** What names a day, which a stop's removal clears and a shrinking stop is refused for (items, 9.3). A parameter so that a test can name a table of its own. */
   readonly dayReferences?: readonly DayReference[] | undefined;
 }
@@ -284,14 +288,21 @@ async function change(
   if (!TRIP_ID.test(tripId)) return undefined;
   const now = deps.now();
   const allowed = await transaction(deps.database, async (tx) => {
-    const touched = await dbAll<{ seq: number | string }>(
+    const touched = await dbAll<{
+      seq: number | string;
+      readyAt: number | string | null;
+      startDate: string | null;
+      endDate: string | null;
+      sealed: Uint8Array | ArrayBuffer;
+    }>(
       tx,
       sql`UPDATE ${tableOf(tx, 'trip')} SET seq = seq + 1, updated_at = ${now}
           WHERE id = ${tripId} AND ${memberOf(tx, sql`${tripId}`, accountId, EDITORS)}
-          RETURNING seq`,
+          RETURNING seq, ready_at AS "readyAt", start_date AS "startDate", end_date AS "endDate", sealed`,
     );
-    const seq = touched[0] ? Number(touched[0].seq) : undefined;
-    if (seq === undefined) return false;
+    const touchedRow = touched[0];
+    if (!touchedRow) return false;
+    const seq = Number(touchedRow.seq);
     const stops = await dbAll<StopRow>(
       tx,
       sql`SELECT ${STOP_COLUMNS} FROM ${tableOf(tx, 'stop')} s WHERE s.trip_id = ${tripId}`,
@@ -307,6 +318,24 @@ async function change(
       tx,
       sql`UPDATE ${tableOf(tx, 'trip')} SET start_date = ${start}, end_date = ${end} WHERE id = ${tripId} RETURNING id`,
     );
+    // The members of a ready trip are told when its dates change (DESIGN.md §17.1), in this transaction. While it is being planned the dates change with every stop, and nobody is told.
+    if (
+      touchedRow.readyAt !== null &&
+      (start !== touchedRow.startDate || end !== touchedRow.endDate)
+    ) {
+      const name = deps.sealer.unseal('trip', tripId, bytes(touchedRow.sealed)).name;
+      await notifyMembers(
+        tx,
+        { sealer: deps.sealer, now: deps.now, delivery: deps.delivery },
+        tripId,
+        accountId,
+        'trip_dates',
+        {
+          title: `The dates of “${name}” changed`,
+          detail: start && end ? `It now runs from ${start} to ${end}.` : 'It has no dates now.',
+        },
+      );
+    }
     return true;
   });
   return allowed ? loadPlan(deps, deps.database, tripId, accountId, EDITORS) : undefined;

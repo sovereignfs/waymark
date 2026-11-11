@@ -76,6 +76,8 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   'trip.create': () => ({ op: 'trip.create', name: 'A new one' }),
   'trip.update': (id) => ({ op: 'trip.update', tripId: id, name: 'Changed' }),
   'trip.plan': (id) => ({ op: 'trip.plan', tripId: id }),
+  'trip.ready': (id) => ({ op: 'trip.ready', tripId: id }),
+  'trip.planning': (id) => ({ op: 'trip.planning', tripId: id }),
   'stop.add': (id) => ({
     op: 'stop.add',
     tripId: id,
@@ -290,6 +292,8 @@ describe('a request is an operation', () => {
       { op: 'stop.move', tripId: id, stopId: id, before: 'abc' },
       { op: 'stop.remove', tripId: id },
       { op: 'stop.remove', tripId: id, stopId: id, force: true },
+      { op: 'trip.ready' },
+      { op: 'trip.ready', tripId: id, force: true },
       { op: 'item.add', tripId: id },
       { op: 'item.add', tripId: id, dayId: 'abc' },
       { op: 'item.add', tripId: id, dayId: id, before: 'abc' },

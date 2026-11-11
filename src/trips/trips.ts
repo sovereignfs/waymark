@@ -6,7 +6,10 @@ import type { LimitSettings } from '../config';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
+import type { Delivery } from '../notices/notices';
 import { getProfile } from '../profile/profile';
+import { notifyMembers } from './notify';
+import { type TripStatus, statusOf } from './status';
 import {
   type Role,
   type TripColor,
@@ -29,6 +32,10 @@ export interface Trip {
   readonly name: string;
   readonly description: string | undefined;
   readonly color: TripColor;
+  /** Computed from `readyAt`, the dates and now, in the first stop's zone, and never stored (DESIGN.md §10.2). */
+  readonly status: TripStatus;
+  /** Planning, with dates that are already over: it can still be marked ready, to reach its journal. */
+  readonly datesPassed: boolean;
   /** Derived from the trip's stops (9.2): null until it has one. */
   readonly startDate: string | null;
   readonly endDate: string | null;
@@ -63,6 +70,8 @@ export interface TripDeps {
   readonly sealer: Sealer;
   readonly now: () => number;
   readonly limits: LimitSettings;
+  /** How notices also reach people on this server; absent, the bell alone. */
+  readonly delivery?: (() => Delivery) | undefined;
 }
 
 interface TripRow {
@@ -77,25 +86,39 @@ interface TripRow {
   sealed: Uint8Array | ArrayBuffer;
   createdAt: number | string;
   updatedAt: number | string;
+  /** The zone of the first stop that has dates: the one the trip's status is decided in. */
+  firstZone: string | null;
 }
 
-const COLUMNS = sql.raw(
-  `t.id, t.color, t.start_date AS "startDate", t.end_date AS "endDate", t.ready_at AS "readyAt", t.cover_place_id AS "coverPlaceId", t.created_by AS "createdBy", t.seq, t.sealed, t.created_at AS "createdAt", t.updated_at AS "updatedAt"`,
-);
+/** The columns of a trip, and **the zone of its first dated stop**, which its status is decided in (a scalar subquery, so a list needs no join). */
+const columnsOf = (database: Database) =>
+  sql.raw(
+    `t.id, t.color, t.start_date AS "startDate", t.end_date AS "endDate", t.ready_at AS "readyAt", t.cover_place_id AS "coverPlaceId", t.created_by AS "createdBy", t.seq, t.sealed, t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+     (SELECT p.tz FROM ${database.dialect === 'postgres' ? 'waymark.stop' : 'stop'} s JOIN ${database.dialect === 'postgres' ? 'waymark.place' : 'place'} p ON p.id = s.place_id AND p.trip_id = s.trip_id
+      WHERE s.trip_id = t.id AND s.arrive IS NOT NULL ORDER BY s.arrive, s.depart, s.position, s.id LIMIT 1) AS "firstZone"`,
+  );
 
 const bytes = (value: Uint8Array | ArrayBuffer): Uint8Array =>
   value instanceof Uint8Array ? value : new Uint8Array(value);
 
 function tripOf(deps: TripDeps, row: TripRow): Trip {
   const fields = deps.sealer.unseal('trip', row.id, bytes(row.sealed));
+  const readyAt = row.readyAt === null ? null : Number(row.readyAt);
+  const decided = statusOf(
+    { readyAt, startDate: row.startDate, endDate: row.endDate },
+    deps.now(),
+    row.firstZone,
+  );
   return {
     id: row.id,
     name: fields.name,
     description: fields.description,
     color: row.color as TripColor,
+    status: decided.status,
+    datesPassed: decided.datesPassed,
     startDate: row.startDate,
     endDate: row.endDate,
-    readyAt: row.readyAt === null ? null : Number(row.readyAt),
+    readyAt,
     coverPlaceId: row.coverPlaceId,
     createdBy: row.createdBy,
     seq: Number(row.seq),
@@ -168,7 +191,7 @@ export async function createTrip(
 export async function listTrips(deps: TripDeps, accountId: string): Promise<TripView[]> {
   const rows = await dbAll<TripRow & { role: string; going: boolean | number }>(
     deps.database,
-    sql`SELECT ${COLUMNS}, m.role AS role, m.going AS going
+    sql`SELECT ${columnsOf(deps.database)}, m.role AS role, m.going AS going
         FROM ${tableOf(deps.database, 'trip')} t
         JOIN ${tableOf(deps.database, 'trip_member')} m ON m.trip_id = t.id
         WHERE m.account_id = ${accountId} AND m.left_at IS NULL
@@ -195,7 +218,7 @@ export async function getTrip(
   if (!TRIP_ID.test(tripId)) return undefined;
   const row = await dbGet<TripRow & { role: string; going: boolean | number }>(
     deps.database,
-    sql`SELECT ${COLUMNS}, m.role AS role, m.going AS going
+    sql`SELECT ${columnsOf(deps.database)}, m.role AS role, m.going AS going
         FROM ${tableOf(deps.database, 'trip')} t
         JOIN ${tableOf(deps.database, 'trip_member')} m ON m.trip_id = t.id
         WHERE t.id = ${tripId} AND m.account_id = ${accountId} AND m.left_at IS NULL`,
@@ -307,6 +330,79 @@ export async function updateTrip(
   return undefined;
 }
 
+/**
+ * Marks a trip ready, or moves it back to planning (DESIGN.md §10.2): **Organizers only**, and the owner's decision. Marking ready **needs at least one stop with dates**; a trip that is already as asked is left as it is, said
+ * nobody and unchanged (so asking twice is safe). The first statement does the change **only if the caller is an Organizer and the trip is in the other state** (and, for ready, has a dated stop), and what follows runs in the same
+ * transaction: every other active member is told (`trip_ready`, also when it goes back), and the answer is the trip with its new status. Returns the trip, or `undefined` for one the caller cannot change. Throws `TripError` for a
+ * trip with no dated stop.
+ */
+export async function setReady(
+  deps: TripDeps,
+  accountId: string,
+  tripId: string,
+  ready: boolean,
+): Promise<TripView | undefined> {
+  if (!TRIP_ID.test(tripId)) return undefined;
+  const now = deps.now();
+  const outcome = await transaction(deps.database, async (tx) => {
+    const datedStop = sql`EXISTS (SELECT 1 FROM ${tableOf(tx, 'stop')} s WHERE s.trip_id = ${tripId} AND s.arrive IS NOT NULL)`;
+    const changed = await dbAll<{
+      sealed: Uint8Array | ArrayBuffer;
+      startDate: string | null;
+      endDate: string | null;
+    }>(
+      tx,
+      ready
+        ? sql`UPDATE ${tableOf(tx, 'trip')} SET ready_at = ${now}, seq = seq + 1, updated_at = ${now}
+              WHERE id = ${tripId} AND ready_at IS NULL AND ${datedStop}
+                AND ${memberOf(tx, sql`${tripId}`, accountId, ORGANIZERS)}
+              RETURNING sealed, start_date AS "startDate", end_date AS "endDate"`
+        : sql`UPDATE ${tableOf(tx, 'trip')} SET ready_at = NULL, seq = seq + 1, updated_at = ${now}
+              WHERE id = ${tripId} AND ready_at IS NOT NULL
+                AND ${memberOf(tx, sql`${tripId}`, accountId, ORGANIZERS)}
+              RETURNING sealed, start_date AS "startDate", end_date AS "endDate"`,
+    );
+    const row = changed[0];
+    if (row) {
+      const name = deps.sealer.unseal('trip', tripId, bytes(row.sealed)).name;
+      await notifyMembers(
+        tx,
+        { sealer: deps.sealer, now: deps.now, delivery: deps.delivery },
+        tripId,
+        accountId,
+        'trip_ready',
+        ready
+          ? {
+              title: `“${name}” is ready`,
+              detail:
+                row.startDate && row.endDate
+                  ? `It runs from ${row.startDate} to ${row.endDate}.`
+                  : undefined,
+            }
+          : {
+              title: `“${name}” is back to planning`,
+              detail: 'Its plan is being worked on again.',
+            },
+      );
+      return 'changed' as const;
+    }
+    // Nothing changed: why? Not theirs to change (the same answer as a trip that is not there), already as asked, or it has no dated stop.
+    const state = await dbGet<{ readyAt: number | string | null; dated: number | string }>(
+      tx,
+      sql`SELECT t.ready_at AS "readyAt", (SELECT COUNT(*) FROM ${tableOf(tx, 'stop')} s WHERE s.trip_id = t.id AND s.arrive IS NOT NULL) AS dated
+          FROM ${tableOf(tx, 'trip')} t
+          WHERE t.id = ${tripId} AND ${memberOf(tx, sql`t.id`, accountId, ORGANIZERS)}`,
+    );
+    if (!state) return 'not_found' as const;
+    if (ready && state.readyAt === null && Number(state.dated) === 0) return 'no_dates' as const;
+    return 'unchanged' as const;
+  });
+  if (outcome === 'not_found') return undefined;
+  if (outcome === 'no_dates')
+    throw new TripError('A trip needs a stop with dates before it is marked ready.');
+  return (await getTrip(deps, accountId, tripId))?.trip;
+}
+
 /** What deleting a trip would take, for the question that is asked first (DESIGN.md §10.1): said by an Organizer's own request, and counts only. */
 export interface TripDeletion {
   readonly name: string;
@@ -325,7 +421,7 @@ export async function previewDeletion(
   if (!TRIP_ID.test(tripId)) return undefined;
   const row = await dbGet<TripRow>(
     deps.database,
-    sql`SELECT ${COLUMNS} FROM ${tableOf(deps.database, 'trip')} t
+    sql`SELECT ${columnsOf(deps.database)} FROM ${tableOf(deps.database, 'trip')} t
         WHERE t.id = ${tripId} AND ${memberOf(deps.database, sql`t.id`, accountId, ORGANIZERS)}`,
   );
   if (!row) return undefined;

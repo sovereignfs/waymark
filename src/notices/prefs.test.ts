@@ -188,6 +188,8 @@ describe(`the choices over HTTP (${leg})`, () => {
       kinds: [
         expect.objectContaining({ kind: 'import_finished', email: false }),
         expect.objectContaining({ kind: 'organizer_passed' }),
+        expect.objectContaining({ kind: 'trip_ready' }),
+        expect.objectContaining({ kind: 'trip_dates' }),
       ],
     });
     expect((await (await get(t.grace)).json()).kinds[0].email).toBe(true);
@@ -199,7 +201,7 @@ describe(`the choices over HTTP (${leg})`, () => {
 
   it('refuses a kind or channel that is not one, a choice that is not yes or no, and a field it does not know, naming nothing of it', async () => {
     for (const body of [
-      { kind: 'trip_ready', channel: 'email', on: true },
+      { kind: 'trip_starts', channel: 'email', on: true },
       { kind: 'import_finished', channel: 'sms', on: true },
       { kind: 'import_finished', channel: 'email', on: 'yes' },
       { kind: 'import_finished', channel: 'email' },

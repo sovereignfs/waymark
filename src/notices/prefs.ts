@@ -18,6 +18,8 @@ export type Channel = (typeof CHANNELS)[number];
 export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   import_finished: 'An import from Swarm has finished',
   organizer_passed: 'A trip has passed to you because its last Organizer deleted their account',
+  trip_ready: 'A trip you are in is marked ready, or moved back to planning',
+  trip_dates: 'The dates of a ready trip you are in change',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
@@ -25,6 +27,9 @@ export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, bool
   import_finished: { email: true, core: true },
   // Said in the bell and by core's bell: not worth a mail of its own.
   organizer_passed: { email: false, core: true },
+  // The bell and core's bell, not mail: a trip changes often and its people are in it.
+  trip_ready: { email: false, core: true },
+  trip_dates: { email: false, core: true },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

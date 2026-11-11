@@ -31,7 +31,7 @@
     "e2e": "playwright test",
     "e2e:fast": "node scripts/e2e-shard.mjs --all",
     "manifest:check": "sovereign-manifest check",
-    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures"
+    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "~1.7.16",

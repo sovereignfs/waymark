@@ -25,6 +25,7 @@ import {
   getTrip,
   listTrips,
   previewDeletion,
+  setReady,
   updateTrip,
 } from './trips';
 import type { ItemPatch, NewItem, NewStop } from './plan';
@@ -48,6 +49,8 @@ export type Op =
       coverPlaceId?: unknown;
     }
   | { op: 'trip.plan'; tripId: string }
+  | { op: 'trip.ready'; tripId: string }
+  | { op: 'trip.planning'; tripId: string }
   | {
       op: 'stop.add';
       tripId: string;
@@ -85,6 +88,9 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'trip.get': 'member',
   // The plan is read by every member, Followers too (DESIGN.md §11.1).
   'trip.plan': 'member',
+  // Marking ready, and back to planning, is the owner's decision (DESIGN.md §10.2): Organizers.
+  'trip.ready': 'organizer',
+  'trip.planning': 'organizer',
   'trip.update': 'organizer',
   // Organizers and Travelers edit the plan (DESIGN.md §10.3, §11.1).
   'stop.add': 'editor',
@@ -112,6 +118,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'trip.create': ['op', 'name', 'description', 'color'],
   'trip.update': ['op', 'tripId', 'name', 'description', 'color', 'coverPlaceId'],
   'trip.plan': ['op', 'tripId'],
+  'trip.ready': ['op', 'tripId'],
+  'trip.planning': ['op', 'tripId'],
   'stop.add': ['op', 'tripId', 'place', 'arrive', 'depart', 'note'],
   'stop.update': ['op', 'tripId', 'stopId', 'arrive', 'depart', 'note'],
   'stop.move': ['op', 'tripId', 'stopId', 'before'],
@@ -268,6 +276,11 @@ export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promis
         return planResult(await moveDayItems(deps, accountId, op.tripId, op.fromDayId, op.toDayId));
       case 'day.clearItems':
         return planResult(await clearDayItems(deps, accountId, op.tripId, op.dayId));
+      case 'trip.ready':
+      case 'trip.planning': {
+        const trip = await setReady(deps, accountId, op.tripId, op.op === 'trip.ready');
+        return trip ? { ok: true, trip } : NOT_FOUND;
+      }
       case 'trip.delete.preview': {
         const deletion = await previewDeletion(deps, accountId, op.tripId);
         return deletion ? { ok: true, deletion } : NOT_FOUND;
