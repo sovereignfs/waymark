@@ -22,6 +22,8 @@ export const TRIP_TABLES: readonly {
   { table: 'attachment', action: 'delete' },
   // A trip's links (9.6): addresses it never fetches.
   { table: 'trip_link', action: 'delete' },
+  // Waiting to link its people's check-ins again (9.7): nothing of a person, and no use once the trip is gone.
+  { table: 'relink', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
   { table: 'checkin', action: 'unlink' },

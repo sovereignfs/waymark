@@ -20,6 +20,7 @@ import {
   reconcileDays,
   tripDates,
 } from './dates';
+import { enqueueRelink } from '../autolink/queue';
 import { TRIP_ID } from './format';
 import { notifyMembers } from './notify';
 import { type ItemKind, checkItem } from './item-format';
@@ -313,6 +314,15 @@ async function change(
       tx,
       sql`SELECT ${STOP_COLUMNS} FROM ${tableOf(tx, 'stop')} s WHERE s.trip_id = ${tripId}`,
     );
+    // When a stop's dates changed, the check-ins of the people who go are linked again in the background (DESIGN.md §12): asked for here, in this transaction, so that a change that is rolled back asks for nothing.
+    const datesOfStops = (rows: readonly StopRow[]) =>
+      JSON.stringify(
+        rows
+          .filter((row) => row.arrive !== null)
+          .map((row) => [row.id, row.arrive, row.depart])
+          .sort(),
+      );
+    if (datesOfStops(stops) !== datesOfStops(after)) await enqueueRelink(tx, tripId, now);
     const { start, end } = tripDates(after);
     await dbAll(
       tx,

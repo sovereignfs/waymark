@@ -1,4 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm';
+import { decideFor, mayLink } from '../autolink/server';
 import { type Reason, SENTENCES, parseMutation } from '../checkins/validate';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
@@ -243,6 +244,22 @@ async function putCheckin(
     );
     if (same && same.id !== id) throw new Refused('duplicate');
   }
+  // The trip link (DESIGN.md §12): **a link set or removed by hand is kept as it was sent**, after checking that the person may link to that trip (an Organizer or a Traveler of it); otherwise **the server decides it again**, with the
+  // same function the device used (`src/autolink`), from the check-in's moment, zone and place, so that the two always agree and a stale device cannot link a check-in to a trip it should not be in.
+  let tripId = row.tripId;
+  let linkSource = row.linkSource;
+  if (row.linkSource === 'manual') {
+    if (row.tripId !== null && !(await mayLink(tx, accountId, row.tripId)))
+      throw new Refused('link');
+  } else {
+    const decided = await decideFor(tx, deps.sealer, accountId, {
+      at: row.at,
+      tz: row.tz,
+      placeId: row.placeId,
+    });
+    tripId = decided ?? null;
+    linkSource = decided === undefined ? null : 'auto';
+  }
   const sealed = deps.sealer.seal('checkin', id, {
     ...(row.note ? { note: row.note } : {}),
     ...(row.companions.length > 0 ? { companions: [...row.companions] } : {}),
@@ -251,8 +268,8 @@ async function putCheckin(
     await dbAll(
       tx,
       sql`UPDATE ${t.checkin}
-          SET place_id = ${row.placeId}, at = ${row.at}, tz = ${row.tz}, offset_min = ${row.offsetMin}, trip_id = ${row.tripId},
-              link_source = ${row.linkSource}, share = ${row.share}, source = ${row.source}, external_id = ${row.externalId ?? null},
+          SET place_id = ${row.placeId}, at = ${row.at}, tz = ${row.tz}, offset_min = ${row.offsetMin}, trip_id = ${tripId},
+              link_source = ${linkSource}, share = ${row.share}, source = ${row.source}, external_id = ${row.externalId ?? null},
               sealed = ${sealed}, version = ${Number(existing.version) + 1}, seq = ${seq}, updated_at = ${now}
           WHERE id = ${id} AND account_id = ${accountId}
           RETURNING id`,
@@ -261,7 +278,7 @@ async function putCheckin(
     await dbAll(
       tx,
       sql`INSERT INTO ${t.checkin} (id, account_id, place_id, at, tz, offset_min, trip_id, link_source, share, source, external_id, version, seq, sealed, created_at, updated_at)
-          VALUES (${id}, ${accountId}, ${row.placeId}, ${row.at}, ${row.tz}, ${row.offsetMin}, ${row.tripId}, ${row.linkSource}, ${row.share},
+          VALUES (${id}, ${accountId}, ${row.placeId}, ${row.at}, ${row.tz}, ${row.offsetMin}, ${tripId}, ${linkSource}, ${row.share},
                   ${row.source}, ${row.externalId ?? null}, 1, ${seq}, ${sealed}, ${now}, ${now})
           RETURNING id`,
     );

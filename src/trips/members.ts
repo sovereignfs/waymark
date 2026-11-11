@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { ORGANIZERS, memberOf, tableOf } from '../access/trip';
 import { dbAll, dbGet, transaction } from '../db/exec';
+import { enqueueRelink } from '../autolink/queue';
 import { notifyMembersOf } from './notify';
 import { ROLES, type Role, TRIP_ID, TripError } from './format';
 import { type TripDeps, type TripView, getTrip } from './trips';
@@ -70,6 +71,8 @@ export async function setRole(
           'A trip always has an Organizer: make another person an Organizer first.',
         );
       }
+      // Who may be linked to the trip changed with their part in it: their check-ins are linked again in the background.
+      await enqueueRelink(tx, tripId, now);
       const name = deps.sealer.unseal('trip', tripId, bytes(trip.sealed)).name;
       await notifyMembersOf(tx, deps, [target], tripId, accountId, 'role_changed', {
         title: `Your part in “${name}” is now ${LABEL[next]}`,
@@ -111,6 +114,7 @@ export async function setGoing(
             RETURNING account_id AS "accountId"`,
       );
       if (changed.length === 0) throw new Unchanged();
+      await enqueueRelink(tx, tripId, now);
       return true;
     });
     if (!found) return undefined;

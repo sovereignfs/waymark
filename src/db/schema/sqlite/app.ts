@@ -544,3 +544,18 @@ export const tripLink = sqliteTable(
   },
   (table) => [index('trip_link_trip_idx').on(table.tripId, table.position)],
 );
+
+/**
+ * Trips whose check-ins must be linked again (DESIGN.md §12): a row is made, **in the transaction that changed the trip's stops' dates** (or who goes on it), and a job (`src/autolink/queue.ts`) re-decides the automatic links of
+ * the people it concerns, a batch at a time, and then deletes the row. A lease (`claimed_until`) so that two workers or two processes never work one, and the row is kept if the trip was asked for again meanwhile
+ * (`requested_at`), so that nothing is lost; the work is safe to do twice, since a decision made again is the same. Holds only an id and two times: nothing of a person.
+ */
+export const relink = sqliteTable(
+  'relink',
+  {
+    tripId: id('trip_id'),
+    requestedAt: epochMs('requested_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+  },
+  (table) => [index('relink_due_idx').on(table.claimedUntil, table.requestedAt)],
+);

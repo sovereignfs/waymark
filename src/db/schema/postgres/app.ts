@@ -438,3 +438,14 @@ export const tripLink = app.table(
   },
   (table) => [index('trip_link_trip_idx').on(table.tripId, table.position)],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const relink = app.table(
+  'relink',
+  {
+    tripId: id('trip_id'),
+    requestedAt: epochMs('requested_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+  },
+  (table) => [index('relink_due_idx').on(table.claimedUntil, table.requestedAt)],
+);

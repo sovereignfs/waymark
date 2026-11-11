@@ -21,6 +21,8 @@ import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
 import { nameWaitingPlaces } from '../places/naming';
 import { serverFind } from '../places/server';
+import { workOnRelinks } from '../autolink/queue';
+import { serverSealer } from '../crypto/server';
 import { claimJob } from './claim';
 import { JobRunner, realDeps, type JobDefinition, type RunnerDeps } from './runner';
 
@@ -188,6 +190,24 @@ export const jobs: readonly JobDefinition[] = [
       else
         console.info(
           `[waymark] keys: rotating (${rotation.rewrapped} moved so far, ${Date.now() - before} ms)`,
+        );
+    },
+  },
+  {
+    // Check-ins are linked to trips again when a trip's stops change dates or who goes on it changes (DESIGN.md §12): the trips that wait are claimed by a lease in the database, so that two processes never work one,
+    // and worked a batch at a time; a link set by hand is never changed. It logs counts only.
+    name: 'relink-trips',
+    everyMs: 15 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const done = await workOnRelinks({
+        database: await getDatabase(),
+        sealer: serverSealer(),
+        now: () => now.getTime(),
+      });
+      if (done.trips > 0)
+        console.info(
+          `[waymark] auto-link: ${done.trips} trips linked again, ${done.changed} check-ins changed`,
         );
     },
   },
