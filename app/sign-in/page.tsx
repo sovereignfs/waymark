@@ -27,8 +27,7 @@ export default async function SignInPage({
             ? { canSignUp: await signUpAvailable(), canReset: mailAvailable() }
             : undefined
         }
-        // Signing in through core is 2.3: until then the page offers it only if the instance has it set up, and nothing does yet.
-        sovereign={false}
+        sovereign={settings.sovereign !== undefined}
         failure={oauthErrorMessage(typeof error === 'string' ? error : undefined)}
       />
     </AuthShell>

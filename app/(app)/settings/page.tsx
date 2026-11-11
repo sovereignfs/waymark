@@ -55,6 +55,17 @@ export default async function SettingsPage({
           <SecuritySection
             passwordMinLength={authSettings()?.passwordMinLength ?? 10}
             hasPassword={signIns.hasPassword}
+            sovereign={
+              authSettings()?.sovereign
+                ? { linkedAccountId: signIns.sovereignAccountId }
+                : undefined
+            }
+            email={user.email}
+            result={{
+              linked: one(query.linked) === '1',
+              unlinked: one(query.unlinked) === '1',
+              error: one(query.error) ?? null,
+            }}
           />
         ),
         notifications: (

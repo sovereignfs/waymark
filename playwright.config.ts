@@ -24,6 +24,15 @@ import { makePmtiles } from './src/map/pmtiles-fixture.ts';
 const PORT = PORTS.app;
 /** An instance with no way of signing in: its own SQLite file, so that it shares nothing with the first. `e2e/auth.spec.ts` uses it. */
 const OFF_PORT = PORTS.off;
+/** An instance that signs in through Sovereign only, and one that offers both ways (`e2e/sovereign.spec.ts`); each has its own database. */
+const SOVEREIGN_PORT = PORTS.sovereign;
+const BOTH_PORT = PORTS.both;
+/** The fake Sovereign (`e2e/fake-sovereign-server.ts`) and how an instance is told to sign in through it. */
+const CORE = {
+  WAYMARK_CORE_URL: `http://localhost:${PORTS.coreAuth}/api/auth`,
+  WAYMARK_CORE_CLIENT_ID: 'waymark-e2e-client',
+  WAYMARK_CORE_CLIENT_SECRET: 'waymark-e2e-secret',
+};
 const SECRET = 'e2e-only-secret-not-for-anything-real-0123456789';
 // Playwright loads this file again in every worker: the first load makes the directory and the others, which inherit the variable, use it.
 const directory = process.env.WAYMARK_E2E_DIR || mkdtempSync(join(tmpdir(), 'waymark-e2e-'));
@@ -98,6 +107,13 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: [
+    // First, so that it is up when the instances that sign in through it start and discover it.
+    {
+      command: 'node e2e/fake-sovereign-server.ts',
+      url: `http://localhost:${PORTS.coreControl}/health`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+    },
     {
       // A place search of a few real places, answered as Nominatim answers, which reaches nothing: what the main instance searches (DESIGN.md §7.2).
       command: 'node scripts/fake-places.mjs',
@@ -138,6 +154,43 @@ export default defineConfig({
         WAYMARK_URL: `http://localhost:${OFF_PORT}`,
         WAYMARK_DATA_DIR: join(directory, 'off-data'),
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      } as Record<string, string>,
+    },
+    {
+      // Sovereign only, and sign-up closed: a core decides who may sign in to it, so this does not turn its people away.
+      command: `node scripts/serve-standalone.mjs ${SOVEREIGN_PORT}`,
+      url: `http://localhost:${SOVEREIGN_PORT}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        WAYMARK_DB_DIALECT: 'sqlite',
+        WAYMARK_SQLITE_URL: `file:${own('sovereign')}`,
+        WAYMARK_URL: `http://localhost:${SOVEREIGN_PORT}`,
+        WAYMARK_DATA_DIR: join(directory, 'sovereign-data'),
+        WAYMARK_AUTH_SECRET: SECRET,
+        WAYMARK_AUTH_SIGNUP: 'closed',
+        WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+        ...CORE,
+      } as Record<string, string>,
+    },
+    {
+      // Both ways, sign-up open.
+      command: `node scripts/serve-standalone.mjs ${BOTH_PORT}`,
+      url: `http://localhost:${BOTH_PORT}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        WAYMARK_DB_DIALECT: 'sqlite',
+        WAYMARK_SQLITE_URL: `file:${own('both')}`,
+        WAYMARK_URL: `http://localhost:${BOTH_PORT}`,
+        WAYMARK_DATA_DIR: join(directory, 'both-data'),
+        WAYMARK_AUTH_LOCAL: '1',
+        WAYMARK_AUTH_SECRET: SECRET,
+        WAYMARK_AUTH_SIGNUP: 'open',
+        WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+        ...CORE,
       } as Record<string, string>,
     },
   ],

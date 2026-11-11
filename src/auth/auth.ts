@@ -2,14 +2,19 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
-import { twoFactor } from 'better-auth/plugins';
+import { genericOAuth, twoFactor } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import type { Database } from '../db/client';
 import type { Mailer } from '../mail/mailer';
 import { resetMessage, verificationMessage } from '../mail/templates';
 import * as postgresAuth from '../db/schema/postgres/auth';
 import * as sqliteAuth from '../db/schema/sqlite/auth';
-import { type AuthSettings, SIGNUP_CLOSED } from './config';
+import {
+  type AuthSettings,
+  SIGNUP_CLOSED,
+  SOVEREIGN_PROVIDER_ID,
+  SOVEREIGN_SCOPES,
+} from './config';
 import { countUsers } from './users';
 
 /**
@@ -65,7 +70,7 @@ export function createAuth({
   onAccountCreated,
 }: AuthDependencies) {
   const schema = database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
-  const { local } = settings;
+  const { local, sovereign } = settings;
   // Mail is for the password's account: an address is verified, and a password reset, only where there is a password.
   const mail = local ? mailer : undefined;
 
@@ -125,7 +130,8 @@ export function createAuth({
         allowDifferentEmails: false,
         // Unlinking can never leave an account with no way to sign in: its last one stays.
         allowUnlinkingAll: false,
-        // `trustedProviders: ['sovereign']` joins with sign-in through core (2.3).
+        // Sovereign's contract is that `email` is verified, which is what linking asks of a provider.
+        ...(sovereign ? { trustedProviders: [SOVEREIGN_PROVIDER_ID] } : {}),
       },
       // What core hands over is not used after sign-in; what is kept is kept encrypted.
       encryptOAuthTokens: true,
@@ -158,8 +164,17 @@ export function createAuth({
       user: {
         create: {
           // One policy for every way an account can come to be (DESIGN.md §19.1), here and not in a route, so that it holds for all of them.
-          before: async () => {
+          before: async (_user: unknown, context: unknown) => {
             if (settings.signUp === 'open') return;
+            // Anyone a core signs in is let in whatever `WAYMARK_AUTH_SIGNUP` says (DESIGN.md §19.1): the core decides who may sign in to it, and this setting is about who may make a
+            // local account. The way in is the callback of the Sovereign provider, which only the OIDC exchange with the core reaches.
+            const ctx = context as { path?: string; params?: { id?: string } } | null;
+            if (
+              sovereign &&
+              ctx?.path === '/callback/:id' &&
+              ctx.params?.id === SOVEREIGN_PROVIDER_ID
+            )
+              return;
             if ((await countUsers(database)) > 0) {
               // With a code, so that a refusal can be told apart from any other 403.
               throw new APIError('FORBIDDEN', {
@@ -189,6 +204,36 @@ export function createAuth({
             twoFactor({ issuer: name }),
             // Passkeys, which can sign in with no password. The relying party is the address people use (`WAYMARK_URL`): a passkey made here works here and nowhere else.
             passkey({ rpID: new URL(settings.url).hostname, rpName: name, origin: settings.url }),
+          ]
+        : []),
+      ...(sovereign
+        ? [
+            genericOAuth({
+              config: [
+                {
+                  providerId: SOVEREIGN_PROVIDER_ID,
+                  discoveryUrl: `${sovereign.issuer}/.well-known/openid-configuration`,
+                  // The profile comes from the ID token, so this refuses to run on one that cannot be checked against the issuer's keys: a discovery
+                  // document without them is not a reason to trust whatever the token endpoint says.
+                  requireIdTokenVerification: true,
+                  clientId: sovereign.clientId,
+                  clientSecret: sovereign.clientSecret,
+                  authentication: 'basic',
+                  scopes: SOVEREIGN_SCOPES,
+                  pkce: true,
+                  // Signing out of Waymark does not sign the person out of core, which is their account for other things as well.
+                  disableProviderLogout: true,
+                  // Core's contract is `sub`, `email` and `name`; a missing name is not a reason to refuse.
+                  mapProfileToUser: (profile: Record<string, unknown>) => ({
+                    name:
+                      typeof profile.name === 'string' && profile.name.trim() !== ''
+                        ? profile.name
+                        : String(profile.email ?? '').split('@')[0] || 'Sovereign user',
+                    emailVerified: profile.emailVerified === true,
+                  }),
+                },
+              ],
+            }),
           ]
         : []),
       // Must be last: it turns cookies set while handling a Server Action into real ones.

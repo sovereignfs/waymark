@@ -4,6 +4,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { messageFor } from '../auth/messages';
 import { authClient } from '../auth/client';
 import { Alert, Button, FormField, Input } from '@sovereignfs/ui';
+import { SovereignPanel } from './SovereignPanel';
 import { PasskeysPanel } from './PasskeysPanel';
 import { TwoFactorPanel } from './TwoFactorPanel';
 import styles from './Settings.module.css';
@@ -44,10 +45,18 @@ export function deviceName(userAgent: string | null | undefined): string {
 export function SecuritySection({
   passwordMinLength,
   hasPassword,
+  sovereign,
+  email,
+  result,
 }: {
   passwordMinLength: number;
   /** The account has a password. One that came in through Sovereign alone has none, and so no password, authenticator app or passkeys to manage. */
   hasPassword: boolean;
+  /** Sovereign sign-in is set up on this server: whether this account has it linked (its row's id), or null. Absent where it is not. */
+  sovereign: { linkedAccountId: string | null } | undefined;
+  email: string;
+  /** What the way back from Sovereign (or from unlinking) left in the address. */
+  result: { linked: boolean; unlinked: boolean; error: string | null };
 }) {
   return (
     <>
@@ -66,7 +75,14 @@ export function SecuritySection({
           </p>
         </div>
       )}
-      {/* Linking and unlinking Sovereign join with sign-in through core (2.3). */}
+      {sovereign ? (
+        <SovereignPanel
+          linkedAccountId={sovereign.linkedAccountId}
+          canUnlink={hasPassword}
+          email={email}
+          result={result}
+        />
+      ) : null}
       <Devices />
     </>
   );

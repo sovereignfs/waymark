@@ -15,4 +15,10 @@ export const PORTS = {
   off: 4004 + offset,
   /** The fake place search (`src/places/fake.ts`): the main instance's provider, so that the browser tests search with nothing reaching the internet. */
   places: 4006 + offset,
+  /** The instance that takes only Sovereign (sign-up closed), and the one that takes both ways (`e2e/sovereign.spec.ts`). */
+  sovereign: 4003 + offset,
+  both: 4002 + offset,
+  /** The fake Sovereign: the OIDC provider, and the control port a test says who signs in next on. (Not 4190: it is on the Fetch standard's list of ports a fetch refuses, "bad port".) */
+  coreAuth: 4192 + offset,
+  coreControl: 4193 + offset,
 } as const;
