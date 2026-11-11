@@ -4,6 +4,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
+import { deleteImportsOf, importDirBeside } from '../import/service';
 import { deleteMailOf } from '../mail/outbox';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
@@ -14,7 +15,7 @@ import { deletePlacesOf } from '../places/places';
  * sign-in store) cannot share a transaction, and files are not in a database at all, so a run that stopped part way is finished by running it again, and the row that makes the
  * account findable (the account itself, and later the link to a Sovereign identity) goes **last**, so that a run that stopped can still find it.
  *
- *  1. Their files: every file under `/data/media`, and then its row (`deleteMediaOf`: the files first, so that rows that name a file still there are found again).
+ *  1. Their files: every file under `/data/media`, and then its row (`deleteMediaOf`: the files first, so that rows that name a file still there are found again); and their uploaded imports under `/data/imports`.
  *  2. What the app keeps of them in its store, in one transaction: their profile, their check-ins and places, what orders them (the stream's counter, the mutations applied and the
  *     tombstones), and their rate counters. (Import jobs, notices, settings, mail queued to them and the rest join here with the tasks that make their tables; the trip rules, handing a trip
  *     on or deleting an empty one and clearing `created_by`, with 10.4.)
@@ -46,6 +47,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
 
   // 1. Files, and then their rows.
   const files = await deleteMediaOf({ ...deps.media, database }, accountId);
+  // Their uploaded imports, the files and then the rows.
+  await deleteImportsOf({ database, dir: importDirBeside(deps.media.dir) }, accountId);
 
   // 2. What the app keeps of them, in one transaction of the app's store.
   await transaction(database, async (tx) => {

@@ -15,6 +15,9 @@ import * as sqliteSchema from '../db/schema/sqlite';
 import { openAppBesideAuth, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
+import { hasImport } from '../import/files';
+import type { ImportReader } from '../import/job';
+import { createImport, importDirBeside } from '../import/service';
 import { enqueueMail } from '../mail/outbox';
 import { raiseNotice } from '../notices/notices';
 import { setPref } from '../notices/prefs';
@@ -45,6 +48,7 @@ const GOES = [
   'notice',
   'notice_pref',
   'mail_outbox',
+  'import_job',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -148,6 +152,7 @@ describe(`deleting a person (${leg})`, () => {
     ] as const)
       await createProfile(database, sealer, { accountId: who, name, email }, NOW);
     const made: Record<string, string[]> = { [ada]: [], [grace]: [] };
+    const imports: Record<string, string> = {};
     for (const who of [ada, grace]) {
       const result = await putMedia(media, {
         accountId: who,
@@ -169,6 +174,27 @@ describe(`deleting a person (${leg})`, () => {
         message: { to: 'x@example.com', subject: 's', text: 't' },
       });
       await setPref(database, who, 'import_finished', 'email', false, NOW);
+      // An uploaded import, with its file.
+      const queued = await createImport(
+        {
+          database,
+          sealer,
+          ring,
+          dir: importDirBeside(media.dir),
+          workDir: path.join(directory, 'work'),
+          now: () => NOW,
+          readers: { swarm: { source: 'swarm' } as ImportReader },
+        },
+        {
+          accountId: who,
+          source: 'swarm',
+          body: (async function* () {
+            yield Buffer.from('PK export');
+          })(),
+        },
+      );
+      if (!queued.ok) throw new Error('could not seed an import');
+      imports[who] = queued.id;
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
@@ -244,6 +270,7 @@ describe(`deleting a person (${leg})`, () => {
     for (const fileId of made[ada] ?? [])
       expect(await readMedia(media, { accountId: ada, id: fileId })).toBeUndefined();
     expect(files()).toBe(2);
+    expect(await hasImport(importDirBeside(media.dir), imports[ada] ?? '')).toBe(false);
     for (const [table, column] of [
       ['user', 'id'],
       ['session', 'user_id'],
@@ -267,6 +294,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('import_job', `account_id = '${grace}'`)).toBe(1);
+    expect(await hasImport(importDirBeside(media.dir), imports[grace] ?? '')).toBe(true);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

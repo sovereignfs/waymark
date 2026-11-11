@@ -259,3 +259,36 @@ export const noticePref = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.accountId, table.kind, table.channel] })],
 );
+
+/**
+ * An import from another service (DESIGN.md §16, §24.3): one row for each file a person uploaded. The file itself is sealed on disk under `/data/imports` (`src/import/files.ts`), named by this row's id.
+ * What is plain is what the job and the screen read without opening anything: the owner, the `source` (`swarm`), the `status` (`queued`, `running`, `done`, `failed`, `cancelled`), the `phase` it is in and
+ * the `cursor` it has reached in that phase (written after every step, so a restart, a crash or a deploy carries on from it and does nothing twice), the counts shown on the screen, a lease
+ * (`claimed_until`, so two workers never work one import) and when it began and ended. **What went wrong is sealed** (`SEALED.import_job`: the errors, each a sentence and a count, never a place or a name).
+ */
+export const importJob = sqliteTable(
+  'import_job',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    source: text('source').notNull(),
+    status: text('status').notNull().default('queued'),
+    phase: text('phase').notNull().default('checkins'),
+    cursor: counter('cursor').notNull().default(0),
+    fileBytes: counter('file_bytes').notNull().default(0),
+    checkinsDone: counter('checkins_done').notNull().default(0),
+    checkinsSkipped: counter('checkins_skipped').notNull().default(0),
+    placesMade: counter('places_made').notNull().default(0),
+    photosDone: counter('photos_done').notNull().default(0),
+    photosFailed: counter('photos_failed').notNull().default(0),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed'),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+    finishedAt: epochMs('finished_at'),
+  },
+  (table) => [
+    index('import_job_account_idx').on(table.accountId, table.createdAt),
+    index('import_job_status_idx').on(table.status, table.claimedUntil),
+  ],
+);

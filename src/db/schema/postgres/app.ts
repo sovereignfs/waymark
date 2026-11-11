@@ -205,3 +205,31 @@ export const noticePref = app.table(
   },
   (table) => [primaryKey({ columns: [table.accountId, table.kind, table.channel] })],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const importJob = app.table(
+  'import_job',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    source: text('source').notNull(),
+    status: text('status').notNull().default('queued'),
+    phase: text('phase').notNull().default('checkins'),
+    cursor: counter('cursor').notNull().default(0),
+    fileBytes: counter('file_bytes').notNull().default(0),
+    checkinsDone: counter('checkins_done').notNull().default(0),
+    checkinsSkipped: counter('checkins_skipped').notNull().default(0),
+    placesMade: counter('places_made').notNull().default(0),
+    photosDone: counter('photos_done').notNull().default(0),
+    photosFailed: counter('photos_failed').notNull().default(0),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed'),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+    finishedAt: epochMs('finished_at'),
+  },
+  (table) => [
+    index('import_job_account_idx').on(table.accountId, table.createdAt),
+    index('import_job_status_idx').on(table.status, table.claimedUntil),
+  ],
+);

@@ -4,6 +4,9 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
+import { serverImport } from '../import/server';
+import { sweepImports } from '../import/service';
+import { workOnImports } from '../import/job';
 import { dropStale, sendDue } from '../mail/outbox';
 import { serverMailer, serverOutbox } from '../mail/server';
 import { pruneNotices } from '../notices/notices';
@@ -42,6 +45,12 @@ export const jobs: readonly JobDefinition[] = [
       if (!(await claimJob(media.database, 'sweep-media', 55 * 60 * 1000, now.getTime()))) return;
       const swept = await sweepOrphans({ ...media, now: () => now.getTime() });
       const unattached = await sweepUnattachedPhotos({ ...media, now: () => now.getTime() });
+      // What an upload that died left: a file no import names, an import whose file is gone, and old finished ones (DESIGN.md §16).
+      const imports = await sweepImports(await serverImport(() => now.getTime()));
+      if (imports.files + imports.orphaned + imports.pruned > 0)
+        console.info(
+          `[waymark] imports: swept ${imports.files} files, ${imports.orphaned} lost, ${imports.pruned} old`,
+        );
       if (unattached > 0)
         console.info(`[waymark] media: swept ${unattached} photos that no check-in names`);
       if (swept.rows + swept.files > 0)
@@ -126,6 +135,17 @@ export const jobs: readonly JobDefinition[] = [
         console.info(
           `[waymark] mail: ${pass.sent} sent, ${pass.retry} to try again, ${pass.gaveUp + stale} given up on`,
         );
+    },
+  },
+  {
+    // Imports are worked here (DESIGN.md §16): one is claimed by a lease in the database, worked in short steps with a cursor kept after each, and given up at the end of the budget so that the next run, or
+    // another process, carries on. It runs at the start, so that an import a deploy interrupted carries on at once. It logs ids and counts, never a place, a name or a line of the file.
+    name: 'import',
+    everyMs: 10 * 1000,
+    runAtStart: true,
+    run: async ({ signal }) => {
+      const worked = await workOnImports(await serverImport(), { signal });
+      if (worked.ended > 0) console.info(`[waymark] imports: ${worked.ended} ended`);
     },
   },
 ];
