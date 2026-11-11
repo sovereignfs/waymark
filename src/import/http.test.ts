@@ -21,7 +21,10 @@ const ring: KeyRing = made;
 const sealer = new Sealer(ring);
 const reader: ImportReader = {
   source: 'swarm',
-  checkins: async () => ({ items: [], cursor: 0, done: true }),
+  open: async () => ({
+    checkins: async () => ({ items: [], cursor: 0, done: true }),
+    close: async () => undefined,
+  }),
 };
 
 let t: TwoAccounts;

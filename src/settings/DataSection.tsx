@@ -2,6 +2,7 @@
 
 import { DeleteAccountSection } from './DeleteAccountSection';
 import { ExportSection } from './ExportSection';
+import { ImportFileSection } from './ImportFileSection';
 import styles from './Settings.module.css';
 
 const megabytes = (bytes: number): string =>
@@ -10,7 +11,7 @@ const megabytes = (bytes: number): string =>
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 /**
- * Settings, Data (DESIGN.md §21): how much of the account's room the files use, and deleting the account. Import from Swarm and import of a file join with 8.3 and 15.2.
+ * Settings, Data (DESIGN.md §21): how much of the account's room the files use, and deleting the account. Import from Swarm joins with 8.3.
  */
 export function DataSection({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: number }) {
   return (
@@ -24,6 +25,7 @@ export function DataSection({ usedBytes, limitBytes }: { usedBytes: number; limi
         <progress value={usedBytes} max={limitBytes} aria-label="Storage used" />
       </div>
       <ExportSection />
+      <ImportFileSection />
       <DeleteAccountSection />
     </>
   );

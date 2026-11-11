@@ -57,15 +57,20 @@ let failWith: Error | undefined;
 /** A reader of a file that is a JSON list of items: it reads the whole (small) file from the sealed store, so the file matters, and gives the batch after the cursor. */
 const reader: ImportReader = {
   source: 'swarm',
-  async checkins({ file, cursor, limit }): Promise<CheckinsRead> {
-    cursorsRead.push(cursor);
-    await onStep(cursor);
-    if (failWith) throw failWith;
-    const chunks: Buffer[] = [];
-    for await (const chunk of file.stream()) chunks.push(chunk);
-    const all = JSON.parse(Buffer.concat(chunks).toString('utf8')) as ImportItem[];
-    const items = all.slice(cursor, cursor + limit);
-    return { items, cursor: cursor + items.length, done: cursor + items.length >= all.length };
+  async open(file) {
+    return {
+      async checkins({ cursor, limit }): Promise<CheckinsRead> {
+        cursorsRead.push(cursor);
+        await onStep(cursor);
+        if (failWith) throw failWith;
+        const chunks: Buffer[] = [];
+        for await (const chunk of file.stream()) chunks.push(chunk);
+        const all = JSON.parse(Buffer.concat(chunks).toString('utf8')) as ImportItem[];
+        const items = all.slice(cursor, cursor + limit);
+        return { items, cursor: cursor + items.length, done: cursor + items.length >= all.length };
+      },
+      close: async () => undefined,
+    };
   },
 };
 

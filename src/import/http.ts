@@ -8,7 +8,7 @@ import { SENTENCES, cancelImport, createImport, listImportsOf } from './service'
  * another's. A refusal is a status, a code and a sentence a person can act on; it never says what was in the file.
  */
 const noStore = { 'cache-control': 'no-store' };
-const SOURCES: readonly ImportSource[] = ['swarm'];
+const SOURCES: readonly ImportSource[] = ['swarm', 'waymark'];
 const STATUS = { unavailable: 404, busy: 409, too_big: 413, empty: 400 } as const;
 
 export async function listResponse(accountId: string, deps: ImportDeps): Promise<Response> {
@@ -34,7 +34,7 @@ async function* chunksOf(body: ReadableStream<Uint8Array>): AsyncGenerator<Uint8
   }
 }
 
-/** `POST /api/imports?source=swarm` with the file as the body. `take` is the per-account limit on uploads. */
+/** `POST /api/imports?source=swarm` (or `waymark`) with the file as the body. `take` is the per-account limit on uploads. */
 export async function uploadResponse(
   request: Request,
   accountId: string,

@@ -2,6 +2,7 @@ import path from 'node:path';
 import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getDatabase } from '../db/boot';
+import { serverMedia } from '../media/server';
 import { noticeDelivery } from '../notices/server';
 import { importDirOf } from './files';
 import type { ImportDeps } from './job';
@@ -17,6 +18,7 @@ export async function serverImport(now: () => number = Date.now): Promise<Import
     dir: importDirOf(config.media.dataDir),
     workDir: path.join(config.media.dataDir, 'tmp'),
     now,
+    media: { ...(await serverMedia()), now },
     readers: READERS,
     delivery: noticeDelivery,
   };
