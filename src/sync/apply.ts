@@ -1,6 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm';
 import { decideFor, mayLink } from '../autolink/server';
 import { type Reason, SENTENCES, parseMutation } from '../checkins/validate';
+import type { LimitSettings } from '../config';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
@@ -41,6 +42,8 @@ export interface ApplyDeps {
   readonly release?: (accountId: string, mediaIds: readonly string[]) => Promise<void>;
   /** To tell the members who chose it that a check-in was shared with their trip (10.3). Without it nobody is told, and the sharing itself is the same. */
   readonly notify?: Pick<NotifyDeps, 'delivery'> | undefined;
+  /** The server's limits, for what a trip's stream holds (a day's items); the defaults without it. */
+  readonly limits?: LimitSettings | undefined;
 }
 
 export type ApplyResult =

@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { type LoopEnv, EVERY_MS, PAUSE_MS, startLoop } from './loop';
+import { PROTOCOL_VERSION } from '../sync/format';
 import { openLocal } from './db';
 import { LocalStore } from './store';
 import type { SyncState, Transport } from './sync';
@@ -10,8 +11,10 @@ import type { SyncState, Transport } from './sync';
  * The loop that syncs (DESIGN.md §15.3), driven with no browser: its triggers, one tab at a time, and the tabs told. The time is the test's, and so are the events.
  */
 const emptyAnswer = {
-  protocol: 1,
+  protocol: PROTOCOL_VERSION,
   results: [],
+  trips: [],
+  gone: [],
   account: {
     places: [],
     checkins: [],

@@ -53,10 +53,31 @@ export async function pruneHistory(
       tx,
       sql`DELETE FROM ${s.tombstone} WHERE deleted_at < ${cutoff} RETURNING row_id AS id`,
     );
+    // The same for each trip's stream (6.6): its floor rises to the highest number that goes, and a device behind it is given the trip again from the start.
+    const oldTrips = await dbAll<{ tripId: string; top: number | string }>(
+      tx,
+      sql`SELECT trip_id AS "tripId", MAX(seq) AS top FROM ${s.tripTombstone} WHERE deleted_at < ${cutoff} GROUP BY trip_id`,
+    );
+    for (const row of oldTrips) {
+      const top = Number(row.top);
+      const changed = await dbAll<{ id: string }>(
+        tx,
+        sql`UPDATE ${s.trip} SET floor = ${top} WHERE id = ${row.tripId} AND floor < ${top} RETURNING id`,
+      );
+      raised += changed.length;
+    }
+    const tripTombstones = await dbAll<{ id: string }>(
+      tx,
+      sql`DELETE FROM ${s.tripTombstone} WHERE deleted_at < ${cutoff} RETURNING row_id AS id`,
+    );
     const mutations = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${s.appliedMutation} WHERE applied_at < ${cutoff} RETURNING mutation_id AS id`,
     );
-    return { tombstones: tombstones.length, mutations: mutations.length, raised };
+    return {
+      tombstones: tombstones.length + tripTombstones.length,
+      mutations: mutations.length,
+      raised,
+    };
   });
 }

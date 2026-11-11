@@ -46,6 +46,8 @@ function isResponse(value: unknown): value is SyncResponse {
     Array.isArray(v.account.places) &&
     Array.isArray(v.account.checkins) &&
     Array.isArray(v.account.deleted) &&
+    Array.isArray(v.trips) &&
+    Array.isArray(v.gone) &&
     typeof v.account.cursor === 'number' &&
     typeof v.account.floor === 'number' &&
     typeof v.account.reset === 'boolean' &&
@@ -66,6 +68,7 @@ export async function syncOnce(
     const sent = await store.pending(LIMITS.outbox);
     const cursor = await store.cursor();
     const floor = await store.floor();
+    const trips = await store.tripAsks();
     let reply: { status: number; json: unknown };
     try {
       reply = await transport({
@@ -73,6 +76,7 @@ export async function syncOnce(
         outbox: sent.map((entry) => entry.mutation),
         cursor,
         floor,
+        trips,
         ...(options.limit ? { limit: options.limit } : {}),
       });
     } catch {
@@ -85,9 +89,10 @@ export async function syncOnce(
     if (reply.status !== 200 || !isResponse(reply.json)) return 'error';
     await store.settle(sent, reply.json);
     // More to pull, or more to send than one request carries: go round again at once.
-    if (reply.json.account.more || (await store.pendingCount()) > 0) {
+    const more = reply.json.account.more || reply.json.trips.some((trip) => trip.more);
+    if (more || (await store.pendingCount()) > 0) {
       // A request that applied nothing and moved no cursor would go round for ever.
-      if (!reply.json.account.more && sent.length === 0) return 'ok';
+      if (!more && sent.length === 0) return 'ok';
       continue;
     }
     return 'ok';

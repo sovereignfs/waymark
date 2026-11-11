@@ -388,6 +388,8 @@ export const trip = sqliteTable(
     readyAt: epochMs('ready_at'),
     coverPlaceId: ref('cover_place_id'),
     seq: counter('seq').notNull().default(0),
+    // The highest number of a trip tombstone that was pruned (`src/sync/history.ts`): a device behind it is given the trip's snapshot again.
+    floor: counter('floor').notNull().default(0),
     createdBy: ref('created_by'),
     sealed: sealed('sealed').notNull(),
     createdAt: epochMs('created_at').notNull(),
@@ -577,5 +579,24 @@ export const sharedCheckin = sqliteTable(
   (table) => [
     index('shared_checkin_trip_idx').on(table.tripId, table.seq),
     index('shared_checkin_account_idx').on(table.accountId),
+  ],
+);
+
+/**
+ * What was deleted from a trip's stream (DESIGN.md §15.3): **the trip's counterpart of `tombstone`**. A row of a trip that is deleted (a stop, a day, an item, a trip place, a link, an attachment, a shared check-in's copy, a member's row) leaves its table, its id and the trip's number at the deletion
+ * here, **with no content**, so that a device that was away is told. Written in the transaction of the deletion (`src/trips/gone.ts`), taken away when the row is made again under its id, and pruned after 90 days (`src/sync/history.ts`), which raises the trip's `floor`. A deleted *trip* leaves no tombstones: its members are told it is gone.
+ */
+export const tripTombstone = sqliteTable(
+  'trip_tombstone',
+  {
+    tripId: ref('trip_id').notNull(),
+    tableName: text('table_name').notNull(),
+    rowId: ref('row_id').notNull(),
+    seq: counter('seq').notNull(),
+    deletedAt: epochMs('deleted_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.tableName, table.rowId] }),
+    index('trip_tombstone_seq_idx').on(table.tripId, table.seq),
   ],
 );

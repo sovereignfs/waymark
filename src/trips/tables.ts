@@ -28,6 +28,8 @@ export const TRIP_TABLES: readonly {
   { table: 'place', action: 'delete' },
   // Copies of check-ins shared with it (10.3): the originals are their authors' (`checkin`, unlinked below), and a copy has no use once the trip is gone.
   { table: 'shared_checkin', action: 'delete' },
+  // A trip's deletions, told to its members' devices (6.6): no use once the trip is gone.
+  { table: 'trip_tombstone', action: 'delete' },
   { table: 'checkin', action: 'unlink' },
   { table: 'notice', action: 'keep' },
   { table: 'media', action: 'delete' },

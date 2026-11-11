@@ -1,6 +1,7 @@
 import type { PlaceView } from '../actions/types';
 import { localDate, localTime } from '../places/tz';
 import type { Change, Mutation } from '../sync/format';
+import type { AnyMutation } from './db';
 
 /**
  * What a mutation was, in a few words a person recognises (DESIGN.md §15.5), for Couldn't sync: "Check-in at Café de Flore, 4 July 2026 12:30", "Place Café de Flore", "Delete of a check-in". Pure. The place
@@ -30,12 +31,25 @@ function when(at: number, tz: string): string {
   }
 }
 
+/** A change to a trip's items or a day, in a few words: the item's own title when it has one. */
+function describeTrip(mutation: Extract<AnyMutation, { stream: `trip:${string}` }>): string {
+  const parts: string[] = [];
+  for (const change of mutation.changes) {
+    if (change.table === 'day') parts.push('A day’s notes');
+    else if (change.op === 'delete') parts.push('Delete of an item');
+    else parts.push(`Item ${change.row.title ?? 'at a place'}`);
+  }
+  return parts.join('; ') || 'A change';
+}
+
 export function describeMutation(
-  mutation: Mutation | undefined,
+  anyMutation: AnyMutation | undefined,
   places: readonly Pick<PlaceView, 'id' | 'name'>[] = [],
 ): string {
   // A photo that could not be uploaded has no mutation of its own: it belongs to a check-in that names it.
-  if (!mutation) return 'A photo of a check-in';
+  if (!anyMutation) return 'A photo of a check-in';
+  if (anyMutation.stream !== 'account') return describeTrip(anyMutation);
+  const mutation: Mutation = anyMutation;
   const parts: string[] = [];
   const nameOf = (id: string): string =>
     mutation.changes.flatMap((c: Change) =>

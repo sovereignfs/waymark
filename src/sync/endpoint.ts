@@ -1,6 +1,10 @@
 import { type ApplyDeps, applyMutation } from './apply';
+import { TRIP_ID } from '../trips/format';
+import { applyTripMutation } from '../trips/sync';
 import { LIMITS, PROTOCOL_VERSION } from './format';
 import { DEFAULT_PAGE, MAX_PAGE, type Page, pullAccount } from './pull';
+import type { TripAsks, TripPage } from './trip-format';
+import { pullTrips } from './trips';
 
 /**
  * `POST /api/sync` without the HTTP around it (DESIGN.md §15.3): what a device sends, and what the server answers. The session and `Origin` are checked by the route before this is called, and the
@@ -21,6 +25,8 @@ export interface SyncRequest {
   /** The floor of the stream the device last saw (`history.ts`); 0 for a device that has none. A device behind it is given a fresh snapshot. */
   readonly floor?: number;
   readonly limit?: number;
+  /** For each trip the device holds: the cursor and floor of its stream. A trip the account is in that is not named is given whole (6.6). */
+  readonly trips?: TripAsks;
 }
 
 export type Outcome =
@@ -38,6 +44,10 @@ export interface SyncResponse {
   /** One for each mutation sent, in the order sent. */
   readonly results: Outcome[];
   readonly account: Page;
+  /** One page for each trip the account is an active member of (6.6). */
+  readonly trips: TripPage[];
+  /** Trips the device holds that the account is not in any more: the device deletes its copy. */
+  readonly gone: string[];
 }
 
 export type SyncAnswer =
@@ -74,6 +84,9 @@ export async function handleSync(
   if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE)
     return { status: 400, body: { code: 'BAD_REQUEST' } };
 
+  const asked = readAsks(body.trips);
+  if (asked === undefined) return { status: 400, body: { code: 'BAD_REQUEST' } };
+
   const results: Outcome[] = [];
   for (const mutation of outbox) {
     // The id is read for the answer only; whether it is a valid one is `applyMutation`'s to say.
@@ -81,7 +94,24 @@ export async function handleSync(
       isObject(mutation) && typeof mutation.mutationId === 'string'
         ? mutation.mutationId.slice(0, 64)
         : '';
-    const applied = await applyMutation(deps, accountId, mutation);
+    // A mutation names the stream it belongs to: the person's own, or a trip's.
+    const inTrip =
+      isObject(mutation) &&
+      typeof mutation.stream === 'string' &&
+      mutation.stream.startsWith('trip:');
+    const applied = inTrip
+      ? await applyTripMutation(
+          {
+            database: deps.database,
+            sealer: deps.sealer,
+            now: deps.now,
+            limits: deps.limits,
+            delivery: deps.notify?.delivery,
+          },
+          accountId,
+          mutation,
+        )
+      : await applyMutation(deps, accountId, mutation);
     if (applied.status === 'applied')
       results.push({ mutationId, status: 'applied', seq: applied.seq });
     else if (applied.status === 'replay') results.push({ mutationId, status: 'replay' });
@@ -94,5 +124,33 @@ export async function handleSync(
       });
   }
   const account = await pullAccount(deps, accountId, cursor, limit, floor);
-  return { status: 200, body: { protocol: PROTOCOL_VERSION, results, account } };
+  const { trips, gone } = await pullTrips(deps, accountId, asked, limit);
+  return { status: 200, body: { protocol: PROTOCOL_VERSION, results, account, trips, gone } };
+}
+
+/** The most trips a device names in one request. */
+const MAX_TRIPS = 500;
+
+/** What a device says it holds of its trips: ids with a cursor and a floor each, or undefined if it is not that. */
+function readAsks(value: unknown): TripAsks | undefined {
+  if (value === undefined) return {};
+  if (!isObject(value)) return undefined;
+  const entries = Object.entries(value);
+  if (entries.length > MAX_TRIPS) return undefined;
+  const asks: Record<string, { cursor: number; floor: number }> = {};
+  for (const [id, ask] of entries) {
+    if (
+      !TRIP_ID.test(id) ||
+      !isObject(ask) ||
+      typeof ask.cursor !== 'number' ||
+      !Number.isInteger(ask.cursor) ||
+      ask.cursor < 0 ||
+      typeof ask.floor !== 'number' ||
+      !Number.isInteger(ask.floor) ||
+      ask.floor < 0
+    )
+      return undefined;
+    asks[id] = { cursor: ask.cursor, floor: ask.floor };
+  }
+  return asks;
 }

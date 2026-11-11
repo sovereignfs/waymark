@@ -15,6 +15,7 @@ import { LocalStore } from '../local/store';
 import { type Transport, syncOnce } from '../local/sync';
 import { type ApplyDeps, applyMutation } from './apply';
 import { handleSync } from './endpoint';
+import { PROTOCOL_VERSION } from './format';
 import { KEEP_MS, pruneHistory } from './history';
 
 /**
@@ -260,7 +261,9 @@ describe(`a device behind the floor (${leg})`, () => {
   it('refuses a floor that is not one', async () => {
     const who = account();
     for (const floor of [-1, 1.5, '2'])
-      expect(await handleSync(deps, who, { protocol: 1, outbox: [], cursor: 0, floor })).toEqual({
+      expect(
+        await handleSync(deps, who, { protocol: PROTOCOL_VERSION, outbox: [], cursor: 0, floor }),
+      ).toEqual({
         status: 400,
         body: { code: 'BAD_REQUEST' },
       });

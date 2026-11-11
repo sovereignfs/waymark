@@ -6,6 +6,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import { readSealed, removeFile } from '../media/files';
 import { type MediaDeps, SENTENCES, type Refusal, putTripMedia, readMedia } from '../media/service';
 import { readSharedPhoto } from '../sharing/read';
+import { recordGone } from './gone';
 import { TRIP_ID } from './format';
 import type { TripDeps } from './trips';
 
@@ -114,7 +115,7 @@ const COLUMNS = sql.raw(
   `a.id, a.day_id AS "dayId", a.kind, a.media_id AS "mediaId", a.thumb_id AS "thumbId", a.seq, a.created_by AS "createdBy", a.sealed, a.created_at AS "createdAt", m.type, m.bytes`,
 );
 
-function viewOf(deps: AttachmentDeps, row: Row): AttachmentView {
+function viewOf(deps: TripDeps, row: Row): AttachmentView {
   return {
     id: row.id,
     dayId: row.dayId,
@@ -132,7 +133,7 @@ function viewOf(deps: AttachmentDeps, row: Row): AttachmentView {
 
 /** The attachments of a trip, as Organizers and Travelers may read them: `undefined` for a Follower, a former member and a stranger (the trip, for them, has none to say). Oldest first. */
 export async function listAttachments(
-  deps: AttachmentDeps,
+  deps: TripDeps,
   accountId: string,
   tripId: string,
 ): Promise<AttachmentView[] | undefined> {
@@ -330,6 +331,8 @@ export async function deleteAttachment(
       sql`DELETE FROM ${tableOf(tx, 'attachment')} WHERE id = ${attachmentId} AND trip_id = ${tripId}
           RETURNING media_id AS "mediaId", thumb_id AS "thumbId"`,
     );
+    if (rows[0])
+      await recordGone(tx, tripId, 'attachment', [attachmentId], Number(touched[0].seq), now);
     return rows[0];
   });
   if (!gone) return false;

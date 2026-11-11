@@ -192,6 +192,7 @@ describe(`the choices over HTTP (${leg})`, () => {
         expect.objectContaining({ kind: 'trip_dates' }),
         expect.objectContaining({ kind: 'role_changed' }),
         expect.objectContaining({ kind: 'checkin_shared', email: false }),
+        expect.objectContaining({ kind: 'edit_replaced' }),
       ],
     });
     expect((await (await get(t.grace)).json()).kinds[0].email).toBe(true);

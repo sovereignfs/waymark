@@ -4,6 +4,7 @@ import { EDITORS, MEMBERS, memberOf, tableOf } from '../access/trip';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { after, between, first } from '../position';
+import { recordGone } from './gone';
 import { TRIP_ID } from './format';
 import { type LinkKind, MAX_LINKS, checkLink } from './link-format';
 import type { TripDeps } from './trips';
@@ -234,11 +235,12 @@ export async function removeLink(
   linkId: string,
 ): Promise<LinkView[] | undefined> {
   if (!TRIP_ID.test(linkId)) return undefined;
-  return change(deps, accountId, tripId, async (tx) => {
+  return change(deps, accountId, tripId, async (tx, seq) => {
     const gone = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'trip_link')} WHERE id = ${linkId} AND trip_id = ${tripId} RETURNING id`,
     );
     if (gone.length === 0) throw new NotFound();
+    await recordGone(tx, tripId, 'trip_link', [linkId], seq, deps.now());
   });
 }

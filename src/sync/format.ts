@@ -6,7 +6,7 @@ import type { Address, PlaceSource } from '../places/clean';
  *
  * A **mutation** is what one thing a person did changes, applied once or not at all: its id, made by the device, makes replaying it harmless. It holds **changes**, each a whole row put
  * (a create, or an edit that replaces the row: the edit that reaches the server later stands, whole, §15.4) or a delete, and an edit carries the `baseVersion` it was made from. It belongs
- * to a **stream**: `account`, the person's own places and check-ins, today; a trip's (`trip:<id>`) joins with trips in phase 2.
+ * to a **stream**: `account`, the person's own places and check-ins, or a trip's (`trip:<id>`, its items and its days' words: `src/trips/sync-format.ts`).
  *
  * ```json
  * {
@@ -20,7 +20,7 @@ import type { Address, PlaceSource } from '../places/clean';
  */
 
 /** Bumped when a device and the server stop understanding each other. A device that is too old is told to update; its outbox is kept (§15.3). */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** The tables that sync in a person's own stream (§15.2): their places and their check-ins. */
 export const TABLES = ['place', 'checkin'] as const;

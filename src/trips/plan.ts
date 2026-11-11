@@ -20,6 +20,7 @@ import {
   reconcileDays,
   tripDates,
 } from './dates';
+import { recordGone } from './gone';
 import { enqueueRelink } from '../autolink/queue';
 import { TRIP_ID } from './format';
 import { notifyMembers } from './notify';
@@ -490,8 +491,8 @@ export async function updateStop(
       );
       const going = current.filter((day) => remove.includes(day.date));
       await refuseDaysWithItems(deps, tx, tripId, going);
-      for (const day of going) await dropDay(tx, tripId, day.id, deps.dayReferences, seq);
-      if (going.length > 0) await sweepPlaces(tx, tripId);
+      for (const day of going) await dropDay(tx, tripId, day.id, deps.dayReferences, seq, now);
+      if (going.length > 0) await sweepPlaces(tx, tripId, seq, now);
       await addDays(tx, deps.sealer, tripId, stopId, add, seq);
     }
     const sealed = deps.sealer.seal(
@@ -558,19 +559,27 @@ export async function removeStop(
   tripId: string,
   stopId: string,
 ): Promise<Plan | undefined> {
-  return change(deps, accountId, tripId, async ({ tx, stops, seq }) => {
+  return change(deps, accountId, tripId, async ({ tx, stops, seq, now }) => {
     const stop = stops.find((each) => each.id === stopId);
     if (!stop) throw new NotThisTripsStop();
     const days = await dbAll<{ id: string }>(
       tx,
       sql`SELECT id FROM ${tableOf(tx, 'day')} WHERE stop_id = ${stopId} AND trip_id = ${tripId}`,
     );
-    for (const day of days) await dropDay(tx, tripId, day.id, deps.dayReferences, seq);
-    await dbAll(
+    for (const day of days) await dropDay(tx, tripId, day.id, deps.dayReferences, seq, now);
+    const removed = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE id = ${stopId} AND trip_id = ${tripId} RETURNING id`,
     );
-    await sweepPlaces(tx, tripId);
+    await recordGone(
+      tx,
+      tripId,
+      'stop',
+      removed.map((row) => row.id),
+      seq,
+      now,
+    );
+    await sweepPlaces(tx, tripId, seq, now);
   }).catch(notThisTrips);
 }
 
@@ -653,20 +662,46 @@ async function dropDay(
   dayId: string,
   references: readonly DayReference[] | undefined,
   seq: number,
+  now: number,
 ): Promise<void> {
   // What was attached to the day is the trip's now: a file is never lost with a day.
   await dbAll(
     tx,
     sql`UPDATE ${tableOf(tx, 'attachment')} SET day_id = NULL, seq = ${seq} WHERE day_id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
   );
-  for (const reference of references ?? DAY_REFERENCES)
+  for (const reference of references ?? DAY_REFERENCES) {
+    // The items that go with the day are gone from the trip's stream too (a test may name a table of its own; only items are in the trip's stream).
+    const items =
+      reference.table === 'item'
+        ? await dbAll<{ id: string }>(
+            tx,
+            sql`SELECT id FROM ${tableOf(tx, 'item')} WHERE trip_id = ${tripId} AND day_id = ${dayId}`,
+          )
+        : [];
     await dbAll(
       tx,
       sql`DELETE FROM ${tableOf(tx, reference.table)} WHERE trip_id = ${tripId} AND ${sql.raw(reference.column)} = ${dayId} RETURNING 1 AS gone`,
     );
-  await dbAll(
+    await recordGone(
+      tx,
+      tripId,
+      'item',
+      items.map((row) => row.id),
+      seq,
+      now,
+    );
+  }
+  const dropped = await dbAll<{ id: string }>(
     tx,
     sql`DELETE FROM ${tableOf(tx, 'day')} WHERE id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
+  );
+  await recordGone(
+    tx,
+    tripId,
+    'day',
+    dropped.map((row) => row.id),
+    seq,
+    now,
   );
 }
 
@@ -674,14 +709,27 @@ async function dropDay(
  * Removes the trip's own places that nothing names any more (`PLACE_USERS`: a stop, an item) and clears a cover that was one of them. Run after anything that can leave a place unnamed: a stop removed, an item changed or deleted,
  * a day's items cleared. The trip's own places are the trip's alone, so nothing of a person's is ever in reach of this.
  */
-async function sweepPlaces(tx: Database, tripId: string): Promise<void> {
+export async function sweepPlaces(
+  tx: Database,
+  tripId: string,
+  seq: number,
+  now: number,
+): Promise<void> {
   const unused = PLACE_USERS.map(
     (user) =>
       sql`NOT EXISTS (SELECT 1 FROM ${tableOf(tx, user.table)} u WHERE u.${sql.raw(user.column)} = ${tableOf(tx, 'place')}.id AND u.trip_id = ${tripId})`,
   );
-  await dbAll(
+  const removed = await dbAll<{ id: string }>(
     tx,
     sql`DELETE FROM ${tableOf(tx, 'place')} WHERE trip_id = ${tripId} AND ${sql.join(unused, sql` AND `)} RETURNING id`,
+  );
+  await recordGone(
+    tx,
+    tripId,
+    'place',
+    removed.map((row) => row.id),
+    seq,
+    now,
   );
   await dbAll(
     tx,
@@ -906,7 +954,7 @@ export async function updateItem(
               version = version + 1, seq = ${seq}, updated_at = ${now}
           WHERE id = ${itemId} AND trip_id = ${tripId} RETURNING id`,
     );
-    await sweepPlaces(tx, tripId);
+    await sweepPlaces(tx, tripId, seq, now);
   }).catch(notThisTrips);
 }
 
@@ -947,13 +995,14 @@ export async function deleteItem(
   tripId: string,
   itemId: string,
 ): Promise<Plan | undefined> {
-  return change(deps, accountId, tripId, async ({ tx }) => {
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
     const gone = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'item')} WHERE id = ${itemId} AND trip_id = ${tripId} RETURNING id`,
     );
     if (gone.length === 0) throw new NotThisTripsStop();
-    await sweepPlaces(tx, tripId);
+    await recordGone(tx, tripId, 'item', [itemId], seq, now);
+    await sweepPlaces(tx, tripId, seq, now);
   }).catch(notThisTrips);
 }
 
@@ -994,12 +1043,20 @@ export async function clearDayItems(
   tripId: string,
   dayId: string,
 ): Promise<Plan | undefined> {
-  return change(deps, accountId, tripId, async ({ tx }) => {
+  return change(deps, accountId, tripId, async ({ tx, seq, now }) => {
     await dayOfTrip(tx, tripId, dayId);
-    await dbAll(
+    const removed = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'item')} WHERE day_id = ${dayId} AND trip_id = ${tripId} RETURNING id`,
     );
-    await sweepPlaces(tx, tripId);
+    await recordGone(
+      tx,
+      tripId,
+      'item',
+      removed.map((row) => row.id),
+      seq,
+      now,
+    );
+    await sweepPlaces(tx, tripId, seq, now);
   }).catch(notThisTrips);
 }

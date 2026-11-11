@@ -4,6 +4,7 @@ import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
 import { wants } from '../notices/prefs';
+import { clearGone, recordGone } from '../trips/gone';
 import { notifyMembersOf, type NotifyDeps } from '../trips/notify';
 import { type CheckinShare, type ShareChoice, sharedWith } from './rules';
 
@@ -69,12 +70,18 @@ export async function dropCopy(
   tx: Database,
   accountId: string,
   checkinId: string,
+  now: number = Date.now(),
 ): Promise<boolean> {
   const gone = await dbAll<{ tripId: string }>(
     tx,
     sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE checkin_id = ${checkinId} AND account_id = ${accountId} RETURNING trip_id AS "tripId"`,
   );
-  for (const row of gone) await bump(tx, row.tripId);
+  // The trip's next number, and the removal in its stream: members' devices are told by it (`pullTrips`).
+  for (const row of gone) {
+    const seq = await bump(tx, row.tripId);
+    if (seq !== undefined)
+      await recordGone(tx, row.tripId, 'shared_checkin', [checkinId], seq, now);
+  }
   return gone.length > 0;
 }
 
@@ -86,14 +93,26 @@ export async function dropCopiesOf(
   tx: Database,
   accountId: string,
   tripId?: string,
+  now: number = Date.now(),
 ): Promise<number> {
-  const gone = await dbAll<{ tripId: string }>(
+  const gone = await dbAll<{ tripId: string; id: string }>(
     tx,
     tripId === undefined
-      ? sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE account_id = ${accountId} RETURNING trip_id AS "tripId"`
-      : sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE account_id = ${accountId} AND trip_id = ${tripId} RETURNING trip_id AS "tripId"`,
+      ? sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE account_id = ${accountId} RETURNING trip_id AS "tripId", checkin_id AS id`
+      : sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE account_id = ${accountId} AND trip_id = ${tripId} RETURNING trip_id AS "tripId", checkin_id AS id`,
   );
-  for (const trip of [...new Set(gone.map((row) => row.tripId))].sort()) await bump(tx, trip);
+  for (const trip of [...new Set(gone.map((row) => row.tripId))].sort()) {
+    const seq = await bump(tx, trip);
+    if (seq !== undefined)
+      await recordGone(
+        tx,
+        trip,
+        'shared_checkin',
+        gone.filter((row) => row.tripId === trip).map((row) => row.id),
+        seq,
+        now,
+      );
+  }
   return gone.length;
 }
 
@@ -124,7 +143,7 @@ export async function syncCopy(
     sql`SELECT trip_id AS "tripId" FROM ${tableOf(tx, 'shared_checkin')} WHERE checkin_id = ${checkinId} AND account_id = ${accountId}`,
   );
   const drop = async (): Promise<CopyOutcome> =>
-    existing && (await dropCopy(tx, accountId, checkinId)) ? 'removed' : 'none';
+    existing && (await dropCopy(tx, accountId, checkinId, deps.now())) ? 'removed' : 'none';
   if (!row) return drop();
 
   let target: string | undefined;
@@ -148,7 +167,7 @@ export async function syncCopy(
   }
   if (target === undefined) return drop();
   // Linked to another trip now: the old copy goes (and the old trip hears of it) before the new one is made.
-  if (existing && existing.tripId !== target) await dropCopy(tx, accountId, checkinId);
+  if (existing && existing.tripId !== target) await dropCopy(tx, accountId, checkinId, deps.now());
   const kept = existing !== undefined && existing.tripId === target;
   if (kept && !options.rewrite) return 'kept';
 
@@ -178,6 +197,7 @@ export async function syncCopy(
           VALUES (${checkinId}, ${target}, ${accountId}, ${Number(trip.seq)}, ${sealed})
           RETURNING checkin_id`,
     );
+  await clearGone(tx, target, 'shared_checkin', checkinId);
   if (!kept && deps.notify) await tellOptedIn(tx, deps.notify, target, accountId);
   return 'written';
 }

@@ -4,6 +4,7 @@ import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll } from '../db/exec';
 import { type Delivery, raiseNotice } from '../notices/notices';
+import { recordGone } from './gone';
 import { dropCopiesOf } from '../sharing/copies';
 import { removeTripRows } from './trips';
 
@@ -33,7 +34,7 @@ export async function endMembershipsOf(
   const files: string[] = [];
   const memberTable = tableOf(tx, 'trip_member');
   // Nothing of theirs stays in any trip: their copies of shared check-ins go first (a trip they were alone in goes below, with the rest of its rows).
-  await dropCopiesOf(tx, accountId);
+  await dropCopiesOf(tx, accountId, undefined, now);
   const mine = await dbAll<{ tripId: string; role: string }>(
     tx,
     sql`SELECT trip_id AS "tripId", role FROM ${memberTable} WHERE account_id = ${accountId} AND left_at IS NULL ORDER BY trip_id`,
@@ -89,10 +90,19 @@ export async function endMembershipsOf(
     }
   }
   // Every row of theirs, left ones too, and what names them.
-  await dbAll(
+  const removed = await dbAll<{ tripId: string }>(
     tx,
-    sql`DELETE FROM ${memberTable} WHERE account_id = ${accountId} RETURNING trip_id`,
+    sql`DELETE FROM ${memberTable} WHERE account_id = ${accountId} RETURNING trip_id AS "tripId"`,
   );
+  // The trips that go on without them say so in their streams, so that the other members' devices drop the row.
+  for (const { tripId } of removed) {
+    const bumped = await dbAll<{ seq: number | string }>(
+      tx,
+      sql`UPDATE ${tableOf(tx, 'trip')} SET seq = seq + 1 WHERE id = ${tripId} RETURNING seq`,
+    );
+    if (bumped[0])
+      await recordGone(tx, tripId, 'trip_member', [accountId], Number(bumped[0].seq), now);
+  }
   await dbAll(
     tx,
     sql`UPDATE ${memberTable} SET added_by = NULL WHERE added_by = ${accountId} RETURNING trip_id`,

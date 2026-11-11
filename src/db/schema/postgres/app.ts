@@ -307,6 +307,8 @@ export const trip = app.table(
     readyAt: epochMs('ready_at'),
     coverPlaceId: ref('cover_place_id'),
     seq: counter('seq').notNull().default(0),
+    // The highest number of a trip tombstone that was pruned (`src/sync/history.ts`): a device behind it is given the trip's snapshot again.
+    floor: counter('floor').notNull().default(0),
     createdBy: ref('created_by'),
     sealed: sealed('sealed').notNull(),
     createdAt: epochMs('created_at').notNull(),
@@ -463,5 +465,21 @@ export const sharedCheckin = app.table(
   (table) => [
     index('shared_checkin_trip_idx').on(table.tripId, table.seq),
     index('shared_checkin_account_idx').on(table.accountId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const tripTombstone = app.table(
+  'trip_tombstone',
+  {
+    tripId: ref('trip_id').notNull(),
+    tableName: text('table_name').notNull(),
+    rowId: ref('row_id').notNull(),
+    seq: counter('seq').notNull(),
+    deletedAt: epochMs('deleted_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.tableName, table.rowId] }),
+    index('trip_tombstone_seq_idx').on(table.tripId, table.seq),
   ],
 );

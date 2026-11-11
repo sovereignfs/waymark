@@ -25,6 +25,8 @@ export async function listShared(
   accountId: string,
   tripId: string,
   after = 0,
+  /** Up to and including this number (a page of a trip's stream, 6.6); no bound without it. */
+  through = Number.MAX_SAFE_INTEGER,
 ): Promise<SharedCheckin[] | undefined> {
   if (!TRIP_ID.test(tripId)) return undefined;
   const there = await dbGet<{ id: string }>(
@@ -41,7 +43,7 @@ export async function listShared(
     database,
     sql`SELECT s.checkin_id AS id, s.account_id AS "authorId", s.seq AS seq, s.sealed AS sealed
         FROM ${tableOf(database, 'shared_checkin')} s
-        WHERE s.trip_id = ${tripId} AND s.account_id <> ${accountId} AND s.seq > ${after}
+        WHERE s.trip_id = ${tripId} AND s.account_id <> ${accountId} AND s.seq > ${after} AND s.seq <= ${through}
           AND ${memberOf(database, sql`s.trip_id`, accountId, MEMBERS)}
         ORDER BY s.seq, s.checkin_id`,
   );

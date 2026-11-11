@@ -69,7 +69,15 @@ const GOES = [
   'verification',
 ];
 /** Tables of shared work: their rows stay when the person goes (a trip with nobody else in it is deleted, and one they alone organized passes on: `src/trips/people.ts`). */
-const STAYS: string[] = ['trip', 'stop', 'day', 'item', 'attachment', 'trip_link'];
+const STAYS: string[] = [
+  'trip',
+  'stop',
+  'day',
+  'item',
+  'attachment',
+  'trip_link',
+  'trip_tombstone',
+];
 /** Tables that are about something else than a person. */
 const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen', 'key_rotation', 'relink'];
 

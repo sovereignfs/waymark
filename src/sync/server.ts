@@ -1,4 +1,5 @@
 import { releasePhotos } from '../checkins/photos';
+import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
@@ -16,6 +17,7 @@ export async function serverSync(): Promise<ApplyDeps> {
     release: releasePhotos(media),
     // The members who chose to hear of a shared check-in, beyond the bell (DESIGN.md §17.1).
     notify: { delivery: noticeDelivery },
+    limits: getConfig().limits,
   };
 }
 

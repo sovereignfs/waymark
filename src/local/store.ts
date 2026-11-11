@@ -1,8 +1,18 @@
 import type { CheckinView, PlaceView } from '../actions/types';
-import type { Mutation } from '../sync/format';
 import type { SyncResponse } from '../sync/endpoint';
-import { type LocalDb, type OutboxEntry, type PhotoEntry, type Refused } from './db';
-import { overlay } from './overlay';
+import type { DayRecord, ItemRecord, TripAsks, TripSets } from '../sync/trip-format';
+import type { SharedCheckin } from '../sharing/read';
+import type { IDBPTransaction } from 'idb';
+import {
+  type AnyMutation,
+  type LocalDb,
+  type LocalSchema,
+  type OutboxEntry,
+  type PhotoEntry,
+  type Refused,
+  type TripEntry,
+} from './db';
+import { overlay, overlayTrip } from './overlay';
 
 /**
  * The device's store (DESIGN.md §15.1, §15.3): the rows, the outbox, the refused, and the cursor, behind the few things the app does with them.
@@ -13,6 +23,14 @@ import { overlay } from './overlay';
  *    (a person's work is never thrown away); the rows past the cursor replace the device's and the tombstones delete theirs; and the cursor moves. A transaction that fails changes none of it, so
  *    a device that is stopped half way sends the same outbox again, which the server answers as replays.
  */
+type SettleTx = IDBPTransaction<
+  LocalSchema,
+  ['places', 'checkins', 'outbox', 'refused', 'meta', 'trips', 'tripItems', 'tripShared'],
+  'readwrite'
+>;
+
+const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 export class LocalStore {
   constructor(
     readonly db: LocalDb,
@@ -20,7 +38,7 @@ export class LocalStore {
   ) {}
 
   /** Records what a person did, to be sent. */
-  async record(mutation: Mutation): Promise<void> {
+  async record(mutation: AnyMutation): Promise<void> {
     await this.db.add('outbox', {
       mutationId: mutation.mutationId,
       mutation,
@@ -45,6 +63,74 @@ export class LocalStore {
   /** The floor of the stream the device last saw: the server gives a fresh snapshot to a device behind it (`sync/history.ts`). */
   async floor(): Promise<number> {
     return (await this.db.get('meta', 'floor'))?.value ?? 0;
+  }
+
+  /** What the device holds of each of its trips, to ask for what is past it (DESIGN.md §15.3). A trip it holds nothing of is not named, and is given whole. */
+  async tripAsks(): Promise<TripAsks> {
+    const asks: Record<string, { cursor: number; floor: number }> = {};
+    for (const trip of await this.db.getAll('trips'))
+      asks[trip.id] = { cursor: trip.cursor, floor: trip.floor };
+    return asks;
+  }
+
+  /** The trips the account is in, as the server last said them. */
+  async trips(): Promise<TripEntry[]> {
+    return (await this.db.getAll('trips')).sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  /**
+   * What a trip's screens show (DESIGN.md §15.1): the trip's small sets, its items with the outbox laid over them, its days with their edited words, and the check-ins others have shared with it. Read in **one transaction** for the
+   * reason `view` is. `me` is the account, who made what is in the outbox. `undefined` for a trip the device does not hold.
+   */
+  async tripView(
+    tripId: string,
+    me: string,
+  ): Promise<
+    | {
+        role: string;
+        sets: TripSets | undefined;
+        items: ItemRecord[];
+        days: DayRecord[];
+        shared: SharedCheckin[];
+      }
+    | undefined
+  > {
+    const tx = this.db.transaction(['trips', 'tripItems', 'tripShared', 'outbox'], 'readonly');
+    const [entry, items, shared, outbox] = await Promise.all([
+      tx.objectStore('trips').get(tripId),
+      tx.objectStore('tripItems').index('tripId').getAll(tripId),
+      tx.objectStore('tripShared').index('tripId').getAll(tripId),
+      tx.objectStore('outbox').getAll(),
+    ]);
+    await tx.done;
+    if (!entry) return undefined;
+    const places = new Map<string, NonNullable<ItemRecord['place']>>();
+    for (const stop of entry.sets?.stops ?? []) places.set(stop.place.id, stop.place);
+    for (const item of items) if (item.place) places.set(item.place.id, item.place);
+    const seen = overlayTrip(
+      tripId,
+      {
+        items: new Map(items.map((row) => [row.id, row])),
+        days: new Map((entry.sets?.days ?? []).map((row) => [row.id, row])),
+      },
+      places,
+      outbox.map((each) => each.mutation),
+      me,
+    );
+    return {
+      role: entry.role,
+      sets: entry.sets,
+      items: [...seen.items.values()].sort(
+        (a, b) =>
+          a.dayId.localeCompare(b.dayId) ||
+          compare(a.position, b.position) ||
+          a.id.localeCompare(b.id),
+      ),
+      days: [...seen.days.values()].sort(
+        (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+      ),
+      shared: shared.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id)),
+    };
   }
 
   /** The rows as the server last said, with nothing laid over them: for the sync's own use and for tests. */
@@ -198,7 +284,7 @@ export class LocalStore {
    */
   async settle(sent: readonly OutboxEntry[], response: SyncResponse): Promise<void> {
     const tx = this.db.transaction(
-      ['places', 'checkins', 'outbox', 'refused', 'meta'],
+      ['places', 'checkins', 'outbox', 'refused', 'meta', 'trips', 'tripItems', 'tripShared'],
       'readwrite',
     );
     const byId = new Map(sent.map((entry) => [entry.mutationId, entry]));
@@ -229,7 +315,47 @@ export class LocalStore {
     await tx.objectStore('meta').put({ key: 'cursor', value: page.cursor });
     await tx.objectStore('meta').put({ key: 'head', value: page.head });
     await tx.objectStore('meta').put({ key: 'floor', value: page.floor });
+
+    // The trips (6.6): one stream each. A trip the account is not in any more is deleted from here with everything of it.
+    for (const tripId of response.gone) await this.forgetTrip(tx, tripId);
+    for (const trip of response.trips) {
+      const before = await tx.objectStore('trips').get(trip.tripId);
+      // Behind the floor: what the device holds of this trip's rows may include ones that no longer exist; the page brings back every one there is.
+      if (trip.reset || !before) await this.clearTripRows(tx, trip.tripId);
+      let sets = trip.sets ?? before?.sets;
+      // A Follower is never given an attachment: one that a device learns it may no longer see goes.
+      if (trip.role === 'follower' && sets?.attachments) {
+        const { attachments: _gone, ...rest } = sets;
+        sets = rest;
+      }
+      await tx.objectStore('trips').put({
+        id: trip.tripId,
+        role: trip.role,
+        cursor: trip.cursor,
+        floor: trip.floor,
+        head: trip.head,
+        sets,
+      });
+      for (const item of trip.items)
+        await tx.objectStore('tripItems').put({ ...item, tripId: trip.tripId });
+      for (const copy of trip.shared)
+        await tx.objectStore('tripShared').put({ ...copy, tripId: trip.tripId });
+      for (const gone of trip.deleted)
+        await tx.objectStore(gone.table === 'item' ? 'tripItems' : 'tripShared').delete(gone.id);
+    }
     await tx.done;
+  }
+
+  private async clearTripRows(tx: SettleTx, tripId: string): Promise<void> {
+    for (const name of ['tripItems', 'tripShared'] as const) {
+      const store = tx.objectStore(name);
+      for (const key of await store.index('tripId').getAllKeys(tripId)) await store.delete(key);
+    }
+  }
+
+  private async forgetTrip(tx: SettleTx, tripId: string): Promise<void> {
+    await this.clearTripRows(tx, tripId);
+    await tx.objectStore('trips').delete(tripId);
   }
 
   close(): void {
