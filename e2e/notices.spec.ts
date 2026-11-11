@@ -38,6 +38,13 @@ async function serve(page: Page, held: Held[]) {
 }
 
 const NOW = () => Date.now();
+/** Yesterday at noon on this machine's clock: whatever time of day the test runs, it is yesterday and not the day before. */
+const yesterdayNoon = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  d.setHours(12, 0, 0, 0);
+  return d.getTime();
+};
 const notice = (n: number, over: Partial<Held> = {}): Held => ({
   id: `n${String(n).padStart(3, '0')}`,
   kind: 'import_finished',
@@ -101,7 +108,7 @@ test('the page lists by day, opens a notice and marks it read, and says so when 
   const day = 86_400_000;
   const held = [
     notice(1, { detail: 'It took 3 minutes.' }),
-    notice(2, { at: NOW() - 1.2 * day, title: 'Yesterday’s one' }),
+    notice(2, { at: yesterdayNoon(), title: 'Yesterday’s one' }),
     notice(3, { at: NOW() - 40 * day, title: 'Long ago', read: true }),
   ];
   const posted = await serve(page, held);

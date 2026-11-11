@@ -5,6 +5,8 @@ import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
 import { serverImport } from '../import/server';
+import { sweepExports, workOnExports } from '../portability/export';
+import { serverExport } from '../portability/server';
 import { sweepImports } from '../import/service';
 import { workOnImports } from '../import/job';
 import { forgetSeen } from '../sovereign/verifiers';
@@ -48,6 +50,8 @@ export const jobs: readonly JobDefinition[] = [
       if (!(await claimJob(media.database, 'sweep-media', 55 * 60 * 1000, now.getTime()))) return;
       const swept = await sweepOrphans({ ...media, now: () => now.getTime() });
       const unattached = await sweepUnattachedPhotos({ ...media, now: () => now.getTime() });
+      // An export that has run out is deleted, and what a worker that died left (DESIGN.md §22).
+      await sweepExports(await serverExport(() => now.getTime()));
       // What an upload that died left: a file no import names, an import whose file is gone, and old finished ones (DESIGN.md §16).
       const imports = await sweepImports(await serverImport(() => now.getTime()));
       if (imports.files + imports.orphaned + imports.pruned > 0)
@@ -149,6 +153,16 @@ export const jobs: readonly JobDefinition[] = [
     run: async ({ signal }) => {
       const worked = await workOnImports(await serverImport(), { signal });
       if (worked.ended > 0) console.info(`[waymark] imports: ${worked.ended} ended`);
+    },
+  },
+  {
+    // Exports are built here (DESIGN.md §22): one is claimed by a lease in the database, streamed into a sealed file, and marked ready for a day. It logs ids and counts, never what is in a file.
+    name: 'export',
+    everyMs: 15 * 1000,
+    runAtStart: true,
+    run: async ({ signal }) => {
+      const deps = await serverExport();
+      while (!signal.aborted && (await workOnExports(deps)));
     },
   },
 ];

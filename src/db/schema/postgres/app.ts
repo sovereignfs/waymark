@@ -243,3 +243,22 @@ export const noticeSeen = app.table(
   },
   (table) => [index('notice_seen_expires_idx').on(table.expiresAt)],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const exportJob = app.table(
+  'export_job',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    status: text('status').notNull().default('queued'),
+    bytes: counter('bytes').notNull().default(0),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    createdAt: epochMs('created_at').notNull(),
+    readyAt: epochMs('ready_at'),
+    expiresAt: epochMs('expires_at'),
+  },
+  (table) => [
+    index('export_job_account_idx').on(table.accountId, table.createdAt),
+    index('export_job_status_idx').on(table.status, table.claimedUntil),
+  ],
+);

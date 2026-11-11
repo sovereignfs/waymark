@@ -70,6 +70,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "fake-indexeddb": "^6.2.8",
+    "fflate": "0.8.3",
     "globals": "^17.14.0",
     "jiti": "^2.7.0",
     "jose": "6.2.16",

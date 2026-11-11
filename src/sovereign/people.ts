@@ -5,6 +5,7 @@ import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
 import { deleteImportsOf, importDirBeside } from '../import/service';
+import { deleteExportsOf, exportDirBeside } from '../portability/export';
 import { deleteMailOf } from '../mail/outbox';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
@@ -49,6 +50,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
   const files = await deleteMediaOf({ ...deps.media, database }, accountId);
   // Their uploaded imports, the files and then the rows.
   await deleteImportsOf({ database, dir: importDirBeside(deps.media.dir) }, accountId);
+  // And the exports they asked for, the files and then the rows.
+  await deleteExportsOf({ database, dir: exportDirBeside(deps.media.dir) }, accountId);
 
   // 2. What the app keeps of them, in one transaction of the app's store.
   await transaction(database, async (tx) => {

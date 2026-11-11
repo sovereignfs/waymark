@@ -85,6 +85,12 @@ export const ROUTES: RouteRule[] = [
       },
     },
   },
+  // Exports (DESIGN.md §22): the account's own, listed, asked for (limited for each account), downloaded while ready and deleted; every statement names the account, so another person's are not found.
+  { route: '/api/exports', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
+  {
+    route: '/api/exports/[id]',
+    methods: { GET: { kind: 'account' }, DELETE: { kind: 'account' } },
+  },
   // Finding a place (DESIGN.md §7.2): the account's own places, opened for it alone, and then the operator's place search, which only the server reaches.
   { route: '/api/places', methods: { GET: { kind: 'account' } } },
   // The device's sync (DESIGN.md §15.3): its outbox in, what was applied, refused and changed out, for the session's account alone; `Origin` is checked.

@@ -339,6 +339,7 @@ describe('starting the jobs', () => {
       'prune-notices',
       'send-mail',
       'import',
+      'export',
     ]);
     for (const job of jobs.filter((each) => each.name.startsWith('sweep')))
       expect(job).toMatchObject({ everyMs: 3_600_000, runAtStart: true });

@@ -19,6 +19,7 @@ import { hasImport } from '../import/files';
 import type { ImportReader } from '../import/job';
 import { createImport, importDirBeside } from '../import/service';
 import { enqueueMail } from '../mail/outbox';
+import { exportDirBeside, requestExport, workOnExports } from '../portability/export';
 import { raiseNotice } from '../notices/notices';
 import { setPref } from '../notices/prefs';
 import { listPlaces, makePlace } from '../places/places';
@@ -49,6 +50,7 @@ const GOES = [
   'notice_pref',
   'mail_outbox',
   'import_job',
+  'export_job',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -153,6 +155,7 @@ describe(`deleting a person (${leg})`, () => {
       await createProfile(database, sealer, { accountId: who, name, email }, NOW);
     const made: Record<string, string[]> = { [ada]: [], [grace]: [] };
     const imports: Record<string, string> = {};
+    const exports: Record<string, string> = {};
     for (const who of [ada, grace]) {
       const result = await putMedia(media, {
         accountId: who,
@@ -195,6 +198,19 @@ describe(`deleting a person (${leg})`, () => {
       );
       if (!queued.ok) throw new Error('could not seed an import');
       imports[who] = queued.id;
+      // An export they asked for, built, with its file.
+      const exportDeps = {
+        database,
+        sealer,
+        ring,
+        dir: exportDirBeside(media.dir),
+        media,
+        now: () => NOW,
+      };
+      const asked = await requestExport(exportDeps, who);
+      if (!asked.ok) throw new Error('could not seed an export');
+      await workOnExports(exportDeps);
+      exports[who] = asked.id;
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
@@ -271,6 +287,7 @@ describe(`deleting a person (${leg})`, () => {
       expect(await readMedia(media, { accountId: ada, id: fileId })).toBeUndefined();
     expect(files()).toBe(2);
     expect(await hasImport(importDirBeside(media.dir), imports[ada] ?? '')).toBe(false);
+    expect(await hasImport(exportDirBeside(media.dir), exports[ada] ?? '')).toBe(false);
     for (const [table, column] of [
       ['user', 'id'],
       ['session', 'user_id'],
@@ -295,6 +312,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
     expect(await count('import_job', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('export_job', `account_id = '${grace}'`)).toBe(1);
+    expect(await hasImport(exportDirBeside(media.dir), exports[grace] ?? '')).toBe(true);
     expect(await hasImport(importDirBeside(media.dir), imports[grace] ?? '')).toBe(true);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();

@@ -306,3 +306,26 @@ export const noticeSeen = sqliteTable(
   },
   (table) => [index('notice_seen_expires_idx').on(table.expiresAt)],
 );
+
+/**
+ * A person's export (DESIGN.md §22, §24.3): one row for each time they asked for their data. A job builds the ZIP (`src/portability/export.ts`) and seals it on disk under `/data/exports`, named by this row's id;
+ * the person downloads it from Settings > Data until `expires_at` (a day after it was ready), and then the file is deleted and the row stays a little as a record that it was. Plain: the owner, the `status`
+ * (`queued`, `running`, `ready`, `failed`, `expired`), the size, the times and a lease (`claimed_until`, so two workers never build one). Nothing in the row says what is in the file.
+ */
+export const exportJob = sqliteTable(
+  'export_job',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    status: text('status').notNull().default('queued'),
+    bytes: counter('bytes').notNull().default(0),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    createdAt: epochMs('created_at').notNull(),
+    readyAt: epochMs('ready_at'),
+    expiresAt: epochMs('expires_at'),
+  },
+  (table) => [
+    index('export_job_account_idx').on(table.accountId, table.createdAt),
+    index('export_job_status_idx').on(table.status, table.claimedUntil),
+  ],
+);

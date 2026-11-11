@@ -177,3 +177,9 @@
   margin-left: var(--sv-space-6);
   color: var(--sv-color-text-muted);
 }
+
+/* A link that looks like the section's buttons (a download). */
+.link {
+  color: var(--sv-color-accent);
+  font-weight: var(--sv-font-weight-medium);
+}
