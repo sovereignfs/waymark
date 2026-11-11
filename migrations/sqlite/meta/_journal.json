@@ -141,6 +141,13 @@
       "when": 1794490805386,
       "tag": "0019_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794491979305,
+      "tag": "0020_trip_links",
+      "breakpoints": true
     }
   ]
 }

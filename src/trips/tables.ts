@@ -20,6 +20,8 @@ export const TRIP_TABLES: readonly {
   { table: 'item', action: 'delete' },
   // Files of the trip (9.5): the attachment rows and their `media` rows go with it, and **their files on disk after the transaction** (`removeTripRows` returns their ids).
   { table: 'attachment', action: 'delete' },
+  // A trip's links (9.6): addresses it never fetches.
+  { table: 'trip_link', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
   { table: 'checkin', action: 'unlink' },

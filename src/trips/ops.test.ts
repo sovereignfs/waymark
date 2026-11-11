@@ -16,6 +16,7 @@ import { RateLimiter } from '../limits/rate';
 import { OPS_BODY_BYTES, type OpsDeps, handleOp, opsResponse } from './endpoint';
 import { OPERATIONS, type Op, type OpName, applyOp, parseOp } from './ops';
 import { addAttachment } from './attachments';
+import { addLink } from './links';
 import { addItem, addStop } from './plan';
 import { createTrip } from './trips';
 
@@ -87,6 +88,7 @@ interface Fixture {
   otherDayId: string;
   itemId: string;
   attachmentId: string;
+  linkId: string;
 }
 
 const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
@@ -125,6 +127,16 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
     toDayId: f.otherDayId,
   }),
   'day.clearItems': (id, f) => ({ op: 'day.clearItems', tripId: id, dayId: f.dayId }),
+  'link.list': (id) => ({ op: 'link.list', tripId: id }),
+  'link.add': (id) => ({
+    op: 'link.add',
+    tripId: id,
+    url: 'https://example.org/new',
+    title: 'New',
+  }),
+  'link.update': (id, f) => ({ op: 'link.update', tripId: id, linkId: f.linkId, title: 'Renamed' }),
+  'link.move': (id, f) => ({ op: 'link.move', tripId: id, linkId: f.linkId, before: null }),
+  'link.remove': (id, f) => ({ op: 'link.remove', tripId: id, linkId: f.linkId }),
   'attachment.list': (id) => ({ op: 'attachment.list', tripId: id }),
   'attachment.update': (id, f) => ({
     op: 'attachment.update',
@@ -162,6 +174,15 @@ const fresh = async (): Promise<Fixture> => {
     kind: 'ticket',
   });
   if (!attached) throw new Error('no attachment was made');
+  // A trip has at most ten links, and each fixture has one: the earlier fixtures' go.
+  await dbAll(
+    database,
+    sql`DELETE FROM ${tableOf(database, 'trip_link')} WHERE trip_id = ${tripId} RETURNING id`,
+  );
+  const linked = (
+    await addLink(deps, ADA, tripId, { url: 'https://example.org/l', title: 'Existing' })
+  )?.at(-1);
+  if (!linked) throw new Error('no link was made');
   const loose = (
     await addStop(deps, ADA, tripId, { place: { name: 'Undated', lat: 1, lng: 2 } })
   )?.stops.at(-1);
@@ -173,6 +194,7 @@ const fresh = async (): Promise<Fixture> => {
     otherDayId: other.id,
     itemId: item.id,
     attachmentId: attached.id,
+    linkId: linked.id,
   };
 };
 
@@ -199,6 +221,7 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
           otherDayId: randomUUID(),
           itemId: randomUUID(),
           attachmentId: randomUUID(),
+          linkId: randomUUID(),
         }),
       );
       expect(result).toEqual({ ok: false, reason: 'not_found' });
@@ -307,6 +330,20 @@ describe('a request is an operation', () => {
       { op: 'item.delete', tripId: id, itemId: id },
       { op: 'day.moveItems', tripId: id, fromDayId: id, toDayId: id },
       { op: 'day.clearItems', tripId: id, dayId: id },
+      { op: 'link.list', tripId: id },
+      { op: 'link.add', tripId: id, url: 'https://example.org/' },
+      {
+        op: 'link.add',
+        tripId: id,
+        url: 'https://example.org/',
+        kind: 'tally',
+        title: 'T',
+        before: id,
+      },
+      { op: 'link.update', tripId: id, linkId: id, title: 'T' },
+      { op: 'link.move', tripId: id, linkId: id, before: null },
+      { op: 'link.move', tripId: id, linkId: id, before: id },
+      { op: 'link.remove', tripId: id, linkId: id },
       { op: 'attachment.list', tripId: id },
       { op: 'attachment.update', tripId: id, attachmentId: id, title: 'T' },
       { op: 'attachment.update', tripId: id, attachmentId: id, dayId: null },
@@ -355,6 +392,14 @@ describe('a request is an operation', () => {
       { op: 'item.delete', tripId: id, itemId: id, hard: true },
       { op: 'day.moveItems', tripId: id, fromDayId: id },
       { op: 'day.clearItems', tripId: id, dayId: 5 },
+      { op: 'link.add', tripId: id },
+      { op: 'link.add', tripId: id, url: 'https://x.org/', before: 'abc' },
+      { op: 'link.update', tripId: id, linkId: id },
+      { op: 'link.update', tripId: id, linkId: 'abc', title: 'T' },
+      { op: 'link.move', tripId: id, linkId: id },
+      { op: 'link.move', tripId: id, linkId: id, before: 'abc' },
+      { op: 'link.remove', tripId: id },
+      { op: 'link.list', tripId: id, force: true },
       { op: 'attachment.update', tripId: id, attachmentId: id },
       { op: 'attachment.update', tripId: id, attachmentId: 'abc', title: 'T' },
       { op: 'attachment.update', tripId: id, attachmentId: id, dayId: 'abc' },

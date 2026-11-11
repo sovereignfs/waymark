@@ -424,3 +424,17 @@ export const attachment = app.table(
     uniqueIndex('attachment_media_idx').on(table.mediaId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const tripLink = app.table(
+  'trip_link',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    kind: text('kind').notNull().default('other'),
+    position: position('position').notNull(),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [index('trip_link_trip_idx').on(table.tripId, table.position)],
+);

@@ -7,6 +7,15 @@ import {
   listAttachments,
   updateAttachment,
 } from './attachments';
+import {
+  LinkRefused,
+  type LinkView,
+  addLink,
+  listLinks,
+  moveLink,
+  removeLink,
+  updateLink,
+} from './links';
 import { setGoing, setRole } from './members';
 import {
   type Plan,
@@ -88,6 +97,25 @@ export type Op =
   | { op: 'item.delete'; tripId: string; itemId: string }
   | { op: 'day.moveItems'; tripId: string; fromDayId: string; toDayId: string }
   | { op: 'day.clearItems'; tripId: string; dayId: string }
+  | { op: 'link.list'; tripId: string }
+  | {
+      op: 'link.add';
+      tripId: string;
+      url: unknown;
+      kind?: unknown;
+      title?: unknown;
+      before?: string | null;
+    }
+  | {
+      op: 'link.update';
+      tripId: string;
+      linkId: string;
+      url?: unknown;
+      kind?: unknown;
+      title?: unknown;
+    }
+  | { op: 'link.move'; tripId: string; linkId: string; before: string | null }
+  | { op: 'link.remove'; tripId: string; linkId: string }
   | { op: 'attachment.list'; tripId: string }
   | {
       op: 'attachment.update';
@@ -131,6 +159,12 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'day.moveItems': 'editor',
   'day.clearItems': 'editor',
   // Attachments: Organizers and Travelers see and change them, **Followers never** (DESIGN.md §10.6, §11.1).
+  // Links are read by every member, Followers too, and edited by Organizers and Travelers (DESIGN.md §10.7, §11.1).
+  'link.list': 'member',
+  'link.add': 'editor',
+  'link.update': 'editor',
+  'link.move': 'editor',
+  'link.remove': 'editor',
   'attachment.list': 'editor',
   'attachment.update': 'editor',
   'attachment.delete': 'editor',
@@ -187,6 +221,11 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'item.delete': ['op', 'tripId', 'itemId'],
   'day.moveItems': ['op', 'tripId', 'fromDayId', 'toDayId'],
   'day.clearItems': ['op', 'tripId', 'dayId'],
+  'link.list': ['op', 'tripId'],
+  'link.add': ['op', 'tripId', 'url', 'kind', 'title', 'before'],
+  'link.update': ['op', 'tripId', 'linkId', 'url', 'kind', 'title'],
+  'link.move': ['op', 'tripId', 'linkId', 'before'],
+  'link.remove': ['op', 'tripId', 'linkId'],
   'attachment.list': ['op', 'tripId'],
   'attachment.update': ['op', 'tripId', 'attachmentId', 'title', 'kind', 'dayId'],
   'attachment.delete': ['op', 'tripId', 'attachmentId'],
@@ -202,6 +241,9 @@ const NAMES: Partial<Record<OpName, readonly string[]>> = {
   'item.delete': ['itemId'],
   'day.moveItems': ['fromDayId', 'toDayId'],
   'day.clearItems': ['dayId'],
+  'link.update': ['linkId'],
+  'link.move': ['linkId'],
+  'link.remove': ['linkId'],
   'attachment.update': ['attachmentId'],
   'attachment.delete': ['attachmentId'],
 };
@@ -250,6 +292,19 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
     (typeof request.accountId !== 'string' || typeof request.role !== 'string')
   )
     return { ok: false };
+  if (
+    name === 'link.add' &&
+    (!('url' in request) ||
+      ('before' in request && request.before !== null && !isId(request.before)))
+  )
+    return { ok: false };
+  if (name === 'link.update' && !['url', 'kind', 'title'].some((key) => key in request))
+    return { ok: false };
+  if (
+    name === 'link.move' &&
+    (!('before' in request) || (request.before !== null && !isId(request.before)))
+  )
+    return { ok: false };
   if (name === 'attachment.update' && !['title', 'kind', 'dayId'].some((key) => key in request))
     return { ok: false };
   if (
@@ -274,6 +329,7 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
 }
 
 export type OpResult =
+  | { ok: true; links: LinkView[] }
   | { ok: true; attachments: AttachmentView[] }
   | { ok: true; attachment: AttachmentView }
   | { ok: true; trips: TripView[] }
@@ -286,6 +342,8 @@ export type OpResult =
   | { ok: false; reason: 'items'; sentence: string; days: string[] };
 
 const NOT_FOUND = { ok: false, reason: 'not_found' } as const;
+const linksResult = (links: LinkView[] | undefined): OpResult =>
+  links ? { ok: true, links } : NOT_FOUND;
 const planResult = (plan: Plan | undefined): OpResult => (plan ? { ok: true, plan } : NOT_FOUND);
 
 /** Does one operation for the account. Never throws for what a person did: a value that is not a trip's, a limit and a trip that is not theirs are answers. */
@@ -343,6 +401,18 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
       }
+      case 'link.list': {
+        const links = await listLinks(deps, accountId, op.tripId);
+        return links ? { ok: true, links } : NOT_FOUND;
+      }
+      case 'link.add':
+        return linksResult(await addLink(deps, accountId, op.tripId, op));
+      case 'link.update':
+        return linksResult(await updateLink(deps, accountId, op.tripId, op.linkId, op));
+      case 'link.move':
+        return linksResult(await moveLink(deps, accountId, op.tripId, op.linkId, op.before));
+      case 'link.remove':
+        return linksResult(await removeLink(deps, accountId, op.tripId, op.linkId));
       case 'attachment.list': {
         const attachments = await listAttachments(deps, accountId, op.tripId);
         return attachments ? { ok: true, attachments } : NOT_FOUND;
@@ -371,6 +441,8 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       return error.failure.reason === 'items'
         ? { ok: false, reason: 'items', sentence: error.failure.sentence, days: error.failure.days }
         : { ok: false, reason: error.failure.reason, sentence: error.failure.sentence };
+    if (error instanceof LinkRefused)
+      return { ok: false, reason: error.reason, sentence: error.sentence };
     if (error instanceof AttachmentRefused)
       return error.reason === 'limit'
         ? { ok: false, reason: 'limit', sentence: error.sentence }

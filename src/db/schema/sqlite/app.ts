@@ -526,3 +526,21 @@ export const attachment = sqliteTable(
     uniqueIndex('attachment_media_idx').on(table.mediaId),
   ],
 );
+
+/**
+ * A link of a trip (DESIGN.md §10.7, §24.3): up to ten, each **a title and an `https` address, both sealed** (`SEALED.trip_link`: an address can carry a token in its path or query, and a title says what a trip is for). The `kind` is
+ * `tally` when it was chosen as _Expenses in Tally_ and `other` otherwise: Waymark knows nothing of Tally beyond that choice and the address. `position` is the order they were put in. **Waymark never fetches a link, shows no preview**
+ * and makes no request to its address; a person's own browser opens it when they choose to. Read by every member, Followers included, and edited by Organizers and Travelers (`src/trips/links.ts`).
+ */
+export const tripLink = sqliteTable(
+  'trip_link',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    kind: text('kind').notNull().default('other'),
+    position: position('position').notNull(),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [index('trip_link_trip_idx').on(table.tripId, table.position)],
+);
