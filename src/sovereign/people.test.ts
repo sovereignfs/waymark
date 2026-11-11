@@ -47,6 +47,7 @@ const GOES = [
   'place',
   'checkin',
   'checkin_photo',
+  'shared_checkin',
   'trip_member',
   'account_stream',
   'applied_mutation',
@@ -279,6 +280,16 @@ describe(`deleting a person (${leg})`, () => {
         sql`INSERT INTO ${sql.raw(app('checkin'))} (id, account_id, place_id, at, tz, offset_min, trip_id, link_source, share, source, version, seq, sealed, created_at, updated_at)
             VALUES (${checkin}, ${grace}, 'p', ${NOW}, 'Europe/Lisbon', 60, ${tripId}, 'manual', 'trip', 'live', 1, 50, ${sealer.seal('checkin', checkin, {})}, ${NOW}, ${NOW}) RETURNING id`,
       );
+    // Copies of check-ins shared with the shared trip, Ada's and Grace's: Ada's go with her, Grace's stay (the trip passes to her).
+    for (const [checkin, owner] of [
+      ['a-copy', ada],
+      ['g-copy', grace],
+    ] as const)
+      await dbAll(
+        database,
+        sql`INSERT INTO ${sql.raw(app('shared_checkin'))} (checkin_id, trip_id, account_id, seq, sealed)
+            VALUES (${checkin}, ${shared.id}, ${owner}, 5, ${sealer.seal('shared_checkin', checkin, { copy: {} })}) RETURNING checkin_id`,
+      );
 
     // The sign-in store: a pending verification named by the address, a second factor and a passkey.
     await dbAll(
@@ -314,6 +325,8 @@ describe(`deleting a person (${leg})`, () => {
       },
     };
     expect(await deletePerson(deps, ada)).toEqual({ files: 2 });
+    expect(await count('shared_checkin', `account_id = '${ada}'`)).toBe(0);
+    expect(await count('shared_checkin', `account_id = '${grace}'`)).toBe(1);
 
     // Nothing of Ada, anywhere.
     expect(await getProfile(database, sealer, ada)).toBeUndefined();

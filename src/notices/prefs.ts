@@ -21,6 +21,7 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   trip_ready: 'A trip you are in is marked ready, or moved back to planning',
   trip_dates: 'The dates of a ready trip you are in change',
   role_changed: 'Your part in a trip is changed by an Organizer',
+  checkin_shared: 'A Traveler shares a check-in with a trip you are in',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
@@ -32,6 +33,8 @@ export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, bool
   trip_ready: { email: false, core: true },
   trip_dates: { email: false, core: true },
   role_changed: { email: false, core: true },
+  // Off by default, in every channel: a member is told of a shared check-in only if they turned it on (DESIGN.md §17.1).
+  checkin_shared: { email: false, core: false },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

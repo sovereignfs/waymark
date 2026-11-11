@@ -489,6 +489,11 @@ export async function removeTripRows(tx: Database, tripId: string, now: number):
     tx,
     sql`DELETE FROM ${tableOf(tx, 'relink')} WHERE trip_id = ${tripId} RETURNING trip_id`,
   );
+  // The copies of check-ins shared with it: the originals are their authors' and stay.
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'shared_checkin')} WHERE trip_id = ${tripId} RETURNING checkin_id`,
+  );
   await dbAll(
     tx,
     sql`DELETE FROM ${tableOf(tx, 'trip_link')} WHERE trip_id = ${tripId} RETURNING id`,

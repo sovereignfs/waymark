@@ -3,6 +3,7 @@ import { serverSealer } from '../crypto/server';
 import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
+import { noticeDelivery } from '../notices/server';
 import type { ApplyDeps } from './apply';
 
 /** The sync as the server runs it: this process's database, instance key and media store (the files of photos that leave a check-in are removed after the transaction). */
@@ -13,6 +14,8 @@ export async function serverSync(): Promise<ApplyDeps> {
     sealer: serverSealer(),
     now: Date.now,
     release: releasePhotos(media),
+    // The members who chose to hear of a shared check-in, beyond the bell (DESIGN.md §17.1).
+    notify: { delivery: noticeDelivery },
   };
 }
 

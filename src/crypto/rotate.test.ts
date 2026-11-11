@@ -360,6 +360,7 @@ describe('the phases', () => {
       'item',
       'attachment',
       'trip_link',
+      'shared_checkin',
       'notice',
       'mail_outbox',
       'core_outbox',

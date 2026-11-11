@@ -449,3 +449,19 @@ export const relink = app.table(
   },
   (table) => [index('relink_due_idx').on(table.claimedUntil, table.requestedAt)],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const sharedCheckin = app.table(
+  'shared_checkin',
+  {
+    checkinId: id('checkin_id'),
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [
+    index('shared_checkin_trip_idx').on(table.tripId, table.seq),
+    index('shared_checkin_account_idx').on(table.accountId),
+  ],
+);

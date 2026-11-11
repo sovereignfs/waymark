@@ -17,6 +17,9 @@ import {
   updateLink,
 } from './links';
 import { setGoing, setRole } from './members';
+import { setShareChoice } from '../sharing/choice';
+import type { ShareChoice } from '../sharing/rules';
+import { type SharedCheckin, listShared } from '../sharing/read';
 import {
   type Plan,
   PlanRefused,
@@ -73,6 +76,8 @@ export type Op =
   | { op: 'trip.planning'; tripId: string }
   | { op: 'member.role'; tripId: string; accountId: string; role: string }
   | { op: 'member.going'; tripId: string; going: boolean }
+  | { op: 'member.share'; tripId: string; choice: string }
+  | { op: 'checkin.shared'; tripId: string; after?: number }
   | {
       op: 'stop.add';
       tripId: string;
@@ -145,6 +150,9 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   // Roles are changed by Organizers, and only an Organizer has a "Not going" switch (DESIGN.md §11.1).
   'member.role': 'organizer',
   'member.going': 'organizer',
+  // A Traveler's (or going Organizer's) own choice to share their check-ins on the trip, and what the members are given of them: every member reads it, Followers too (DESIGN.md §11.3).
+  'member.share': 'editor',
+  'checkin.shared': 'member',
   'trip.update': 'organizer',
   // Organizers and Travelers edit the plan (DESIGN.md §10.3, §11.1).
   'stop.add': 'editor',
@@ -186,6 +194,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'trip.planning': ['op', 'tripId'],
   'member.role': ['op', 'tripId', 'accountId', 'role'],
   'member.going': ['op', 'tripId', 'going'],
+  'member.share': ['op', 'tripId', 'choice'],
+  'checkin.shared': ['op', 'tripId', 'after'],
   'stop.add': ['op', 'tripId', 'place', 'arrive', 'depart', 'note'],
   'stop.update': ['op', 'tripId', 'stopId', 'arrive', 'depart', 'note'],
   'stop.move': ['op', 'tripId', 'stopId', 'before'],
@@ -315,6 +325,13 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
   )
     return { ok: false };
   if (name === 'member.going' && typeof request.going !== 'boolean') return { ok: false };
+  if (name === 'member.share' && typeof request.choice !== 'string') return { ok: false };
+  if (
+    name === 'checkin.shared' &&
+    'after' in request &&
+    !(typeof request.after === 'number' && Number.isInteger(request.after) && request.after >= 0)
+  )
+    return { ok: false };
   if (name === 'stop.add' && !isObject(request.place)) return { ok: false };
   if (name === 'stop.update' && !['arrive', 'depart', 'note'].some((key) => key in request))
     return { ok: false };
@@ -330,6 +347,8 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
 
 export type OpResult =
   | { ok: true; links: LinkView[] }
+  | { ok: true; choice: ShareChoice }
+  | { ok: true; checkins: SharedCheckin[] }
   | { ok: true; attachments: AttachmentView[] }
   | { ok: true; attachment: AttachmentView }
   | { ok: true; trips: TripView[] }
@@ -400,6 +419,20 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       case 'member.going': {
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'member.share': {
+        const choice = await setShareChoice(deps, accountId, op.tripId, op.choice);
+        return choice ? { ok: true, choice } : NOT_FOUND;
+      }
+      case 'checkin.shared': {
+        const checkins = await listShared(
+          deps.database,
+          deps.sealer,
+          accountId,
+          op.tripId,
+          op.after ?? 0,
+        );
+        return checkins ? { ok: true, checkins } : NOT_FOUND;
       }
       case 'link.list': {
         const links = await listLinks(deps, accountId, op.tripId);

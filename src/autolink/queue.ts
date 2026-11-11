@@ -4,6 +4,7 @@ import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { type Link, reconcile } from './decide';
+import { syncCopy } from '../sharing/copies';
 import { decideFor } from './server';
 
 /**
@@ -93,6 +94,9 @@ export async function relinkBatch(
             RETURNING id`,
       );
       changed += done.length;
+      // A check-in linked to another trip (or to none) is shared, or no longer shared, with the one it is in now.
+      if (done.length > 0)
+        await syncCopy(tx, { sealer, now: () => now }, owner, row.id, { rewrite: false });
     }
   }
   return changed;

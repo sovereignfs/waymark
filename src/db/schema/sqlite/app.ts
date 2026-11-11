@@ -559,3 +559,23 @@ export const relink = sqliteTable(
   },
   (table) => [index('relink_due_idx').on(table.claimedUntil, table.requestedAt)],
 );
+
+/**
+ * A check-in shared with a trip (DESIGN.md §11.3, §15.3, §24.3): **the reader's copy**, one for each check-in that is shared and linked, in the trip's stream (`seq` is the trip's counter at the change). The author's own check-in stays in their
+ * stream; this is what the other members are given, with the place, moment, note, companions and photos, **sealed** (`SEALED.shared_checkin`). Written only by `src/sharing/copies.ts`, in the transaction of the change that shares, edits, unshares or unlinks
+ * the check-in (or that changes the author's part in the trip), and removed with it. Plain: the check-in, the trip and the author, which are what a statement asks about; nothing of where anyone was.
+ */
+export const sharedCheckin = sqliteTable(
+  'shared_checkin',
+  {
+    checkinId: id('checkin_id'),
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [
+    index('shared_checkin_trip_idx').on(table.tripId, table.seq),
+    index('shared_checkin_account_idx').on(table.accountId),
+  ],
+);

@@ -26,6 +26,8 @@ export const TRIP_TABLES: readonly {
   { table: 'relink', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
+  // Copies of check-ins shared with it (10.3): the originals are their authors' (`checkin`, unlinked below), and a copy has no use once the trip is gone.
+  { table: 'shared_checkin', action: 'delete' },
   { table: 'checkin', action: 'unlink' },
   { table: 'notice', action: 'keep' },
   { table: 'media', action: 'delete' },

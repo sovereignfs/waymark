@@ -102,6 +102,8 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   // Makes the Follower a Traveler: a change an Organizer may make and nobody else.
   'member.role': (id) => ({ op: 'member.role', tripId: id, accountId: NOOR, role: 'traveler' }),
   'member.going': (id) => ({ op: 'member.going', tripId: id, going: false }),
+  'member.share': (id) => ({ op: 'member.share', tripId: id, choice: 'on' }),
+  'checkin.shared': (id) => ({ op: 'checkin.shared', tripId: id }),
   'stop.add': (id) => ({
     op: 'stop.add',
     tripId: id,
@@ -379,6 +381,10 @@ describe('a request is an operation', () => {
       { op: 'member.role', tripId: id, accountId: 'someone' },
       { op: 'member.going', tripId: id, going: 'no' },
       { op: 'member.going', tripId: id },
+      { op: 'member.share', tripId: id },
+      { op: 'member.share', tripId: id, choice: 5 },
+      { op: 'checkin.shared', tripId: id, after: -1 },
+      { op: 'checkin.shared', tripId: id, after: 'x' },
       { op: 'trip.ready' },
       { op: 'trip.ready', tripId: id, force: true },
       { op: 'item.add', tripId: id },

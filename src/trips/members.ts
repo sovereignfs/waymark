@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { ORGANIZERS, memberOf, tableOf } from '../access/trip';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { enqueueRelink } from '../autolink/queue';
+import { resyncAuthor } from '../sharing/copies';
 import { notifyMembersOf } from './notify';
 import { ROLES, type Role, TRIP_ID, TripError } from './format';
 import { type TripDeps, type TripView, getTrip } from './trips';
@@ -73,6 +74,8 @@ export async function setRole(
       }
       // Who may be linked to the trip changed with their part in it: their check-ins are linked again in the background.
       await enqueueRelink(tx, tripId, now);
+      // A Follower's check-ins are not shared with the trip (DESIGN.md §11.3): whatever the new role means for what they share is made right here.
+      await resyncAuthor(tx, deps, tripId, target);
       const name = deps.sealer.unseal('trip', tripId, bytes(trip.sealed)).name;
       await notifyMembersOf(tx, deps, [target], tripId, accountId, 'role_changed', {
         title: `Your part in “${name}” is now ${LABEL[next]}`,

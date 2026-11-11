@@ -5,6 +5,7 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { readSealed, removeFile } from '../media/files';
 import { type MediaDeps, SENTENCES, type Refusal, putTripMedia, readMedia } from '../media/service';
+import { readSharedPhoto } from '../sharing/read';
 import { TRIP_ID } from './format';
 import type { TripDeps } from './trips';
 
@@ -358,7 +359,7 @@ export async function readAttachmentFile(
 }
 
 /**
- * The file `/api/media/<id>` serves to an account: **its own first, and failing that a file of an attachment of a trip it may see attachments of**. A person's own files are named by the account in their statement, so a trip's
+ * The file `/api/media/<id>` serves to an account: **its own first, then a file of an attachment of a trip it may see attachments of, then a photo of a check-in shared with a trip it is in**. A person's own files are named by the account in their statement, so a trip's
  * file is never found that way (it has no account), and an attachment's file is found only through the attachment and the caller's membership: for a Follower, a former member and a stranger there is no such file.
  */
 export async function readFileFor(
@@ -368,6 +369,8 @@ export async function readFileFor(
 ): Promise<{ type: string; bytes: Buffer } | undefined> {
   return (
     (await readMedia(media, { accountId, id: fileId })) ??
-    (await readAttachmentFile({ database: media.database, media }, accountId, fileId))
+    (await readAttachmentFile({ database: media.database, media }, accountId, fileId)) ??
+    // A photo of a check-in someone shared with a trip this account is in (DESIGN.md §11.3): Followers see these too.
+    (await readSharedPhoto(media, accountId, fileId))
   );
 }

@@ -8,6 +8,8 @@ import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { sealedFields } from '../places/places';
 import { zoneOf } from '../places/tz';
+import { resyncPlace, syncCopy } from '../sharing/copies';
+import type { NotifyDeps } from '../trips/notify';
 import type { CheckinRow, PlaceRow } from './format';
 
 /**
@@ -37,6 +39,8 @@ export interface ApplyDeps {
    * the file for the sweep (`checkins/photos.ts`), which removes what no check-in names. Without it nothing is removed here.
    */
   readonly release?: (accountId: string, mediaIds: readonly string[]) => Promise<void>;
+  /** To tell the members who chose it that a check-in was shared with their trip (10.3). Without it nobody is told, and the sharing itself is the same. */
+  readonly notify?: Pick<NotifyDeps, 'delivery'> | undefined;
 }
 
 export type ApplyResult =
@@ -81,6 +85,15 @@ const tablesOf = (database: Database): Tables => {
     tombstone: sql`${s.tombstone}`,
   };
 };
+
+/** What the copies of shared check-ins need of the apply: its sealer and clock, and who to tell. */
+const copyDeps = (deps: ApplyDeps) => ({
+  sealer: deps.sealer,
+  now: deps.now,
+  ...(deps.notify
+    ? { notify: { sealer: deps.sealer, now: deps.now, delivery: deps.notify.delivery } }
+    : {}),
+});
 
 interface Existing {
   accountId: string;
@@ -135,6 +148,8 @@ export async function applyMutation(
           await deleteRow(tx, t, 'place', accountId, change.id, seq, now, released);
         } else {
           await deleteRow(tx, t, 'checkin', accountId, change.id, seq, now, released);
+          // A deleted check-in is gone from the trip it was shared with.
+          await syncCopy(tx, copyDeps(deps), accountId, change.id, { rewrite: false });
         }
       }
       await dbAll(
@@ -203,6 +218,8 @@ async function putPlace(
           WHERE id = ${id} AND account_id = ${accountId}
           RETURNING id`,
     );
+    // A check-in shared with a trip holds a copy of its place: a reader is not left with the old name or point.
+    await resyncPlace(tx, copyDeps(deps), accountId, id);
   } else {
     await dbAll(
       tx,
@@ -285,6 +302,8 @@ async function putCheckin(
   }
   await clearTombstone(tx, t, accountId, 'checkin', id);
   await setPhotos(tx, t, accountId, id, row.photos ?? [], seq, released);
+  // Who it is shared with (DESIGN.md §11.3): the trip's copy follows the check-in, in this transaction.
+  await syncCopy(tx, copyDeps(deps), accountId, id, { rewrite: true });
 }
 
 /**

@@ -51,6 +51,8 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'attachment', key: 'id', guard: 'seq' },
   // A link's title and address are rewritten by an edit, which advances `seq`.
   { table: 'trip_link', key: 'id', guard: 'seq' },
+  // A copy of a shared check-in is rewritten by every change to it, each of which advances `seq`.
+  { table: 'shared_checkin', key: 'checkin_id', guard: 'seq' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },
