@@ -1,7 +1,8 @@
-import { refuse, validatePlaceRow } from '../checkins/validate';
+import { refuse, validatePlaceRow, type Refusal } from '../checkins/validate';
 import type { Address } from '../places/clean';
 import { zoneOf } from '../places/tz';
-import { ACCOUNT_STREAM, type Mutation, type PlaceRow } from '../sync/format';
+import { ACCOUNT_STREAM, LIMITS, type Change, type Mutation, type PlaceRow } from '../sync/format';
+import { checkinRowOf } from './checkins';
 import type { ActionResult, CheckinView, Context, NewPlaceInput, PlaceView } from './types';
 
 /**
@@ -118,4 +119,51 @@ export function deletePlace(
     mutation: mutation(ctx, [{ table: 'place', op: 'delete', id: place.id }]),
     created: {},
   };
+}
+
+/** What merging two places makes: the mutations to send, in order, and how many check-ins move. */
+export type MergeResult =
+  { readonly ok: true; readonly mutations: readonly Mutation[]; readonly moved: number } | Refusal;
+
+/**
+ * Merges a place into another of the person's own (DESIGN.md §20.8): **every check-in at `from` is put again at `into`, and `from` is deleted**, through the one write path, so it works with no
+ * network, reaches every device of the person through the stream, and is applied by the server as any other change (re-checking that both places are theirs). `checkins` is every check-in the device
+ * holds. A place with more check-ins than a mutation may hold is moved over several mutations, **in order, the delete last**: the outbox sends them in order, and a delete that came before a move
+ * could not happen (a place with a check-in is not deleted, §4.1). A check-in's moment, zone and everything else stay as they were; only the place changes.
+ */
+export function mergePlaces(
+  from: PlaceView | undefined,
+  into: PlaceView | undefined,
+  checkins: readonly CheckinView[],
+  ctx: Context,
+): MergeResult {
+  if (!from || !into) return refuse('missing');
+  if (from.id === into.id) return refuse('same_place');
+  const moves: Change[] = [];
+  for (const checkin of checkins) {
+    if (checkin.placeId !== from.id) continue;
+    const row = checkinRowOf(checkin);
+    if (!row) return refuse('missing');
+    moves.push({
+      table: 'checkin',
+      op: 'put',
+      id: checkin.id,
+      baseVersion: checkin.version,
+      row: { ...row, placeId: into.id },
+    });
+  }
+  // One change is left over for the delete, which is in the last mutation.
+  const size = LIMITS.changesPerMutation - 1;
+  const mutations: Mutation[] = [];
+  for (let at = 0; at < moves.length; at += size) {
+    const batch = moves.slice(at, at + size);
+    const last = at + size >= moves.length;
+    mutations.push(
+      mutation(ctx, last ? [...batch, { table: 'place', op: 'delete', id: from.id }] : batch),
+    );
+  }
+  if (moves.length === 0) {
+    mutations.push(mutation(ctx, [{ table: 'place', op: 'delete', id: from.id }]));
+  }
+  return { ok: true, mutations, moved: moves.length };
 }

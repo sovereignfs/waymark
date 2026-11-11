@@ -9,7 +9,7 @@ import {
   editCheckin,
   nearName,
 } from './checkins';
-import { createPlace, deletePlace, updatePlace } from './places';
+import { createPlace, deletePlace, mergePlaces, updatePlace } from './places';
 import type { ActionResult, CheckinView, Context, PlaceView } from './types';
 
 /**
@@ -517,6 +517,84 @@ describe('places', () => {
     expect(refused.reason).toBe('in_use');
     expect(refused.sentence).toContain('Merge it into another place');
     expect(failure(deletePlace(undefined, [], ctx())).reason).toBe('missing');
+  });
+});
+
+describe('merging places', () => {
+  const into: PlaceView = { ...AUCKLAND, id: 'into' };
+  const at = (n: number, placeId = 'lisbon'): CheckinView => ({
+    ...CHECKIN,
+    id: `c${n}`,
+    placeId,
+    at: CHECKIN.at + n * 60_000,
+    version: n + 1,
+  });
+  const accept = (result: ReturnType<typeof mergePlaces>) => {
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.sentence);
+    // Every mutation is one the server's parser takes.
+    for (const mutation of result.mutations)
+      expect(parseMutation(JSON.parse(JSON.stringify(mutation)), NOW).ok).toBe(true);
+    return result;
+  };
+
+  it('puts each check-in at the place again, whole and with the version it was made from, and deletes the first place, in one mutation', () => {
+    const made = accept(
+      mergePlaces(LISBON, into, [at(1), at(2), at(3, 'elsewhere'), at(4, 'into')], ctx()),
+    );
+    expect(made.moved).toBe(2);
+    expect(made.mutations).toHaveLength(1);
+    const [first] = made.mutations;
+    expect(first?.changes.map((c) => `${c.table} ${c.op} ${c.id}`)).toEqual([
+      'checkin put c1',
+      'checkin put c2',
+      'place delete lisbon',
+    ]);
+    // Only the place changes: the moment, the zone, the offset and who was there are as they were.
+    expect(first?.changes[0]).toMatchObject({
+      baseVersion: 2,
+      row: {
+        placeId: 'into',
+        at: CHECKIN.at + 60_000,
+        tz: 'Europe/Lisbon',
+        offsetMin: 60,
+        companions: ['Ada'],
+        source: 'manual',
+      },
+    });
+  });
+
+  it('is only a delete for a place with no check-ins', () => {
+    const made = accept(mergePlaces(LISBON, into, [at(3, 'elsewhere')], ctx()));
+    expect(made.moved).toBe(0);
+    expect(made.mutations.map((m) => m.changes)).toEqual([
+      [{ table: 'place', op: 'delete', id: 'lisbon' }],
+    ]);
+  });
+
+  it('moves a place with more check-ins than a mutation holds over several, in order, with the delete in the last and never before a move', () => {
+    const many = Array.from({ length: 120 }, (_, i) => at(i));
+    const made = accept(mergePlaces(LISBON, into, many, ctx()));
+    expect(made.moved).toBe(120);
+    const sizes = made.mutations.map((m) => m.changes.length);
+    expect(sizes).toEqual([49, 49, 23]);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(50);
+    const flat = made.mutations.flatMap((m) => m.changes);
+    expect(flat.filter((c) => c.table === 'place')).toHaveLength(1);
+    expect(flat.at(-1)).toEqual({ table: 'place', op: 'delete', id: 'lisbon' });
+    // Each check-in once, and every mutation with an id of its own.
+    expect(new Set(flat.filter((c) => c.table === 'checkin').map((c) => c.id)).size).toBe(120);
+    expect(new Set(made.mutations.map((m) => m.mutationId)).size).toBe(3);
+  });
+
+  it('refuses a place into itself and a place that is not there, with a sentence', () => {
+    const same = mergePlaces(LISBON, LISBON, [at(1)], ctx());
+    expect(same).toMatchObject({ ok: false, reason: 'same_place' });
+    expect(mergePlaces(undefined, into, [], ctx())).toMatchObject({ ok: false, reason: 'missing' });
+    expect(mergePlaces(LISBON, undefined, [], ctx())).toMatchObject({
+      ok: false,
+      reason: 'missing',
+    });
   });
 });
 

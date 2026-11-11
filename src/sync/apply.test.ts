@@ -10,6 +10,8 @@ import { type FakeSearch, startFakePlaces } from '../places/fake';
 import { PlaceFinder } from '../places/finder';
 import { MAX_TRIES, nameWaitingPlaces } from '../places/naming';
 import { getPlace, listPlaces, updatePlace } from '../places/places';
+import { mergePlaces } from '../actions/places';
+import type { CheckinView, PlaceView } from '../actions/types';
 import { type ApplyDeps, applyMutation } from './apply';
 
 /**
@@ -611,5 +613,85 @@ describe(`a place that is named later (${leg})`, () => {
     expect(await unnamedOf(id)).toBe(1);
     await release();
     expect(await nameWaitingPlaces(naming())).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe(`merging places (${leg})`, () => {
+  const view = (id: string): PlaceView => ({
+    id,
+    ...(PLACE as Omit<PlaceView, 'id' | 'version'>),
+    version: 1,
+  });
+  const ctx = () => {
+    let k = 0;
+    return { ids: { newId: () => uid(`merge${++k}`) }, now: NOW, deviceZone: 'Europe/Paris' };
+  };
+  const seed = async (count: number) => {
+    const from = uid('place');
+    const into = uid('place');
+    const other = uid('place');
+    await apply(ADA, mutation([putPlace(from), putPlace(into), putPlace(other)]));
+    const views: CheckinView[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const id = uid('checkin');
+      await apply(ADA, mutation([putCheckin(id, from, { at: NOW - 1_000_000 + i })]));
+      views.push({
+        id,
+        ...checkinRow(from, { at: NOW - 1_000_000 + i }),
+        version: 1,
+      } as CheckinView);
+    }
+    const kept = uid('checkin');
+    await apply(ADA, mutation([putCheckin(kept, other)]));
+    return { from, into, other, kept, views };
+  };
+
+  it('moves every check-in and deletes the place, through the one path, over several mutations when there are many, and the count adds up', async () => {
+    const { from, into, other, kept, views } = await seed(60);
+    const before = await count('checkin', ADA);
+    const made = mergePlaces(view(from), view(into), views, ctx());
+    if (!made.ok) throw new Error(made.sentence);
+    expect(made.mutations).toHaveLength(2);
+    for (const each of made.mutations)
+      expect(await apply(ADA, each)).toMatchObject({ status: 'applied' });
+
+    const mine = await checkins(ADA);
+    expect(mine.filter((c) => c.placeId === into)).toHaveLength(60);
+    expect(mine.filter((c) => c.placeId === from)).toHaveLength(0);
+    expect(mine.find((c) => c.id === kept)?.placeId).toBe(other);
+    expect(await count('checkin', ADA)).toBe(before);
+    expect(await getPlace({ database, sealer }, ADA, from)).toBeUndefined();
+    expect(await getPlace({ database, sealer }, ADA, into)).toBeDefined();
+    // Each moved check-in is a new version, with a number in the stream past the old, so a device pulls it; the place is a tombstone.
+    expect(mine.filter((c) => c.placeId === into).every((c) => c.version === 2)).toBe(true);
+    expect((await tombstones(ADA)).some((t) => t.rowId === from && t.tableName === 'place')).toBe(
+      true,
+    );
+    // A replay writes nothing.
+    const stream = await streamSeq(ADA);
+    for (const each of made.mutations)
+      expect(await apply(ADA, each)).toMatchObject({ status: 'replay' });
+    expect(await streamSeq(ADA)).toBe(stream);
+  });
+
+  it('does not delete the place when a mutation that moves check-ins did not arrive first: nothing is lost', async () => {
+    const { from, into, views } = await seed(60);
+    const made = mergePlaces(view(from), view(into), views, ctx());
+    if (!made.ok) throw new Error(made.sentence);
+    // Only the last, with the delete, arrives: the check-ins of the first are still at the place.
+    const last = made.mutations[1];
+    expect(await apply(ADA, last)).toMatchObject({ status: 'refused', reason: 'in_use' });
+    expect(await getPlace({ database, sealer }, ADA, from)).toBeDefined();
+  });
+
+  it('is not another person’s to do: merging someone’s places as a second person changes nothing', async () => {
+    const { from, into, views } = await seed(3);
+    const made = mergePlaces(view(from), view(into), views, ctx());
+    if (!made.ok) throw new Error(made.sentence);
+    const mutationOf = made.mutations[0];
+    const result = await apply(GRACE, mutationOf);
+    expect(result.status).toBe('refused');
+    expect((await checkins(ADA)).filter((c) => c.placeId === from)).toHaveLength(3);
+    expect(await getPlace({ database, sealer }, ADA, from)).toBeDefined();
   });
 });

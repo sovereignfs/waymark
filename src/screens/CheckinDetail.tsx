@@ -79,7 +79,31 @@ export function CheckinDetail({ id }: { id: string }) {
       >
         ← Check-ins
       </Button>
-      <h1>{place?.name ?? 'A place'}</h1>
+      <h1>
+        {place ? (
+          <a
+            href={`/places/${place.id}`}
+            className={styles.placeLink}
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              event.preventDefault();
+              goTo(`/places/${place.id}`);
+            }}
+          >
+            {place.name}
+          </a>
+        ) : (
+          'A place'
+        )}
+      </h1>
       <p className={styles.when}>
         {date}, {localTimeOf(checkin)} ({checkin.tz})
       </p>

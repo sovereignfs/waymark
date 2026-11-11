@@ -232,6 +232,11 @@ export function editCheckin(
   };
 }
 
+/** The row of a check-in as validation shapes it, for comparing with what an edit would make, or for sending it again changed in one field (merging places, §20.8). */
+export function checkinRowOf(view: CheckinView): CheckinRow | undefined {
+  return normalised(view);
+}
+
 /** The row of a check-in as validation shapes it, for comparing with what an edit would make. */
 function normalised(view: CheckinView): CheckinRow | undefined {
   // Only what a check-in is: a row from the device's store also carries the server's number for it (`seq`) and whatever else a later version adds, which is not part of what an edit says.

@@ -49,6 +49,7 @@ export type Reason =
   | 'share'
   | 'source'
   | 'in_use'
+  | 'same_place'
   | 'missing'
   | 'nothing'
   | 'duplicate';
@@ -78,6 +79,7 @@ export const SENTENCES: Readonly<Record<Reason, string>> = {
   share: 'A check-in is shared with its trip, or on, or off.',
   source: 'A check-in is live, manual or imported from Swarm.',
   in_use: 'This place has check-ins. Merge it into another place, or delete them first.',
+  same_place: 'Choose another place to merge this one into.',
   missing: 'That is not there any more.',
   nothing: 'Nothing was changed.',
   duplicate: 'That check-in is already here.',

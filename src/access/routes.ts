@@ -39,6 +39,8 @@ export const ROUTES: RouteRule[] = [
   { route: '/c/[id]', page: { kind: 'account' } },
   { route: '/map', page: { kind: 'account' } },
   { route: '/places', page: { kind: 'account' } },
+  // One place (DESIGN.md §20.8): the places with it open, which is the same page as `/places`.
+  { route: '/places/[id]', page: { kind: 'account' } },
   // Settings (DESIGN.md §21): the profile, sign-in and data, for the signed-in account only.
   { route: '/settings', page: { kind: 'account' } },
 
