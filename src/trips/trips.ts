@@ -5,6 +5,7 @@ import { visibleProfile } from '../access/visibility';
 import type { LimitSettings } from '../config';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
+import { lockStreams } from '../access/locks';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import { removeFile } from '../media/files';
 import type { MediaDeps } from '../media/service';
@@ -461,6 +462,8 @@ export async function deleteTrip(
 ): Promise<boolean> {
   if (!TRIP_ID.test(tripId)) return false;
   const files = await transaction(deps.database, async (tx) => {
+    // The authors of the check-ins linked to it have their streams written below: taken first, in the one order (`access/locks.ts`).
+    await lockStreams(tx, await linkedAuthors(tx, tripId));
     const gone = await dbAll<{ id: string }>(
       tx,
       sql`DELETE FROM ${tableOf(tx, 'trip')} WHERE id = ${tripId} AND ${memberOf(tx, sql`${tripId}`, accountId, ORGANIZERS)} RETURNING id`,
@@ -472,6 +475,15 @@ export async function deleteTrip(
   // The trip's files go once its rows have: a crash between leaves files with no row, which the orphan sweep finds.
   if (deps.media) for (const id of files) await removeFile(deps.media.dir, id);
   return true;
+}
+
+/** The accounts with a check-in linked to a trip. */
+export async function linkedAuthors(tx: Database, tripId: string): Promise<string[]> {
+  const rows = await dbAll<{ accountId: string }>(
+    tx,
+    sql`SELECT DISTINCT account_id AS "accountId" FROM ${tableOf(tx, 'checkin')} WHERE trip_id = ${tripId}`,
+  );
+  return rows.map((row) => row.accountId);
 }
 
 /**
@@ -522,10 +534,18 @@ export async function removeTripRows(tx: Database, tripId: string, now: number):
  * Makes each check-in that was linked to a trip its author's alone again, **in its author's stream**: the account's counter is advanced once for all of theirs and each row is stamped, as the one write path does, so
  * that their devices pull the change. The check-in itself is not touched otherwise; a manual link is as undone as an automatic one, since the trip is gone.
  */
-export async function unlinkCheckins(tx: Database, tripId: string, now: number): Promise<void> {
+export async function unlinkCheckins(
+  tx: Database,
+  tripId: string,
+  now: number,
+  /** Only this person's (leaving, being removed); everyone's without it (the trip is gone). */
+  only?: string,
+): Promise<void> {
   const rows = await dbAll<{ id: string; accountId: string; version: number | string }>(
     tx,
-    sql`SELECT id, account_id AS "accountId", version FROM ${tableOf(tx, 'checkin')} WHERE trip_id = ${tripId} ORDER BY account_id, id`,
+    only === undefined
+      ? sql`SELECT id, account_id AS "accountId", version FROM ${tableOf(tx, 'checkin')} WHERE trip_id = ${tripId} ORDER BY account_id, id`
+      : sql`SELECT id, account_id AS "accountId", version FROM ${tableOf(tx, 'checkin')} WHERE trip_id = ${tripId} AND account_id = ${only} ORDER BY account_id, id`,
   );
   const byAccount: Record<string, { id: string; version: number }[]> = {};
   for (const row of rows)

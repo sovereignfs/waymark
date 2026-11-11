@@ -6,7 +6,8 @@ import { dbAll } from '../db/exec';
 import { type Delivery, raiseNotice } from '../notices/notices';
 import { recordGone } from './gone';
 import { dropCopiesOf } from '../sharing/copies';
-import { removeTripRows } from './trips';
+import { lockStreams } from '../access/locks';
+import { linkedAuthors, removeTripRows } from './trips';
 
 /**
  * What becomes of a person's part in trips when their account is deleted (DESIGN.md §11.4, §23), run by `People.deletePerson` **in its transaction**:
@@ -47,7 +48,8 @@ export async function endMembershipsOf(
           ORDER BY CASE role WHEN 'organizer' THEN 0 WHEN 'traveler' THEN 1 ELSE 2 END, joined_at, account_id`,
     );
     if (others.length === 0) {
-      // Nobody else: the trip goes, with everything it holds.
+      // Nobody else: the trip goes, with everything it holds. The streams of the authors of its check-ins are taken first, in the one order (`access/locks.ts`).
+      await lockStreams(tx, await linkedAuthors(tx, membership.tripId));
       await dbAll(
         tx,
         sql`DELETE FROM ${tableOf(tx, 'trip')} WHERE id = ${membership.tripId} RETURNING id`,

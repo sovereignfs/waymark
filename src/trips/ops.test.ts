@@ -103,6 +103,8 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   'member.role': (id) => ({ op: 'member.role', tripId: id, accountId: NOOR, role: 'traveler' }),
   'member.going': (id) => ({ op: 'member.going', tripId: id, going: false }),
   'member.share': (id) => ({ op: 'member.share', tripId: id, choice: 'on' }),
+  'member.leave': (id) => ({ op: 'member.leave', tripId: id }),
+  'member.remove': (id) => ({ op: 'member.remove', tripId: id, accountId: NOOR }),
   'checkin.shared': (id) => ({ op: 'checkin.shared', tripId: id }),
   'stop.add': (id) => ({
     op: 'stop.add',
@@ -170,6 +172,11 @@ const fresh = async (): Promise<Fixture> => {
   const withItem = await addItem(deps, ADA, tripId, { dayId: day.id, title: 'Existing' });
   const item = withItem?.stops.find((each) => each.id === stop.id)?.days[0]?.items[0];
   if (!item) throw new Error('no item was made');
+  // A trip has at most a hundred attachments, and each fixture adds one: the earlier fixtures' go.
+  await dbAll(
+    database,
+    sql`DELETE FROM ${tableOf(database, 'attachment')} WHERE trip_id = ${tripId} RETURNING id`,
+  );
   const attached = await addAttachment(deps, ADA, tripId, {
     bytes: PDF,
     title: 'Ticket',
@@ -254,7 +261,8 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
           reason: 'not_found',
         });
       });
-    for (const [role, id] of allowed)
+    // Leaving ends the caller's part in the trip the other tests share: it is tried on trips of its own (`leaving.test.ts`).
+    for (const [role, id] of name === 'member.leave' ? [] : allowed)
       it(`${name}: a ${role} may`, async () => {
         expect((await applyOp(deps, id, REQUESTS[name](tripId, await fresh()))).ok).toBe(true);
       });
@@ -382,6 +390,8 @@ describe('a request is an operation', () => {
       { op: 'member.going', tripId: id, going: 'no' },
       { op: 'member.going', tripId: id },
       { op: 'member.share', tripId: id },
+      { op: 'member.leave', tripId: id, successor: 5 },
+      { op: 'member.remove', tripId: id },
       { op: 'member.share', tripId: id, choice: 5 },
       { op: 'checkin.shared', tripId: id, after: -1 },
       { op: 'checkin.shared', tripId: id, after: 'x' },

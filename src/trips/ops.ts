@@ -16,6 +16,7 @@ import {
   removeLink,
   updateLink,
 } from './links';
+import { leaveTrip, removeMember } from './leaving';
 import { setGoing, setRole } from './members';
 import { setShareChoice } from '../sharing/choice';
 import type { ShareChoice } from '../sharing/rules';
@@ -77,6 +78,8 @@ export type Op =
   | { op: 'member.role'; tripId: string; accountId: string; role: string }
   | { op: 'member.going'; tripId: string; going: boolean }
   | { op: 'member.share'; tripId: string; choice: string }
+  | { op: 'member.leave'; tripId: string; successor?: string }
+  | { op: 'member.remove'; tripId: string; accountId: string }
   | { op: 'checkin.shared'; tripId: string; after?: number }
   | {
       op: 'stop.add';
@@ -152,6 +155,9 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'member.going': 'organizer',
   // A Traveler's (or going Organizer's) own choice to share their check-ins on the trip, and what the members are given of them: every member reads it, Followers too (DESIGN.md §11.3).
   'member.share': 'editor',
+  // Anyone in the trip leaves it; only an Organizer removes someone else (DESIGN.md §11.4).
+  'member.leave': 'member',
+  'member.remove': 'organizer',
   'checkin.shared': 'member',
   'trip.update': 'organizer',
   // Organizers and Travelers edit the plan (DESIGN.md §10.3, §11.1).
@@ -195,6 +201,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'member.role': ['op', 'tripId', 'accountId', 'role'],
   'member.going': ['op', 'tripId', 'going'],
   'member.share': ['op', 'tripId', 'choice'],
+  'member.leave': ['op', 'tripId', 'successor'],
+  'member.remove': ['op', 'tripId', 'accountId'],
   'checkin.shared': ['op', 'tripId', 'after'],
   'stop.add': ['op', 'tripId', 'place', 'arrive', 'depart', 'note'],
   'stop.update': ['op', 'tripId', 'stopId', 'arrive', 'depart', 'note'],
@@ -326,6 +334,9 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
     return { ok: false };
   if (name === 'member.going' && typeof request.going !== 'boolean') return { ok: false };
   if (name === 'member.share' && typeof request.choice !== 'string') return { ok: false };
+  if (name === 'member.leave' && 'successor' in request && typeof request.successor !== 'string')
+    return { ok: false };
+  if (name === 'member.remove' && typeof request.accountId !== 'string') return { ok: false };
   if (
     name === 'checkin.shared' &&
     'after' in request &&
@@ -348,6 +359,7 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
 export type OpResult =
   | { ok: true; links: LinkView[] }
   | { ok: true; choice: ShareChoice }
+  | { ok: true; left: true }
   | { ok: true; checkins: SharedCheckin[] }
   | { ok: true; attachments: AttachmentView[] }
   | { ok: true; attachment: AttachmentView }
@@ -418,6 +430,14 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       }
       case 'member.going': {
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
+        return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'member.leave': {
+        const left = await leaveTrip(deps, accountId, op.tripId, op.successor);
+        return left ? { ok: true, left: true } : NOT_FOUND;
+      }
+      case 'member.remove': {
+        const trip = await removeMember(deps, accountId, op.tripId, op.accountId);
         return trip ? { ok: true, trip } : NOT_FOUND;
       }
       case 'member.share': {
