@@ -5,6 +5,11 @@ import type { Database } from '../db/client';
 import { dbAll } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
+import { enqueueMail } from '../mail/outbox';
+import { notificationMessage } from '../mail/templates';
+import { getProfile } from '../profile/profile';
+import { KINDS, type NoticeKind } from './kinds';
+import { wants } from './prefs';
 
 /**
  * **Notices** (DESIGN.md §17): what a person is told, in the app, by the bell and `/notifications`. A notice is **raised in the transaction of the change that caused it** (`raiseNotice`, given
@@ -14,8 +19,7 @@ import * as sqliteSchema from '../db/schema/sqlite';
  *
  * Phase 1 has one kind, `import_finished`; the kinds of phases 2 and 3 are added by the tasks that raise them, here and in `KINDS`, with the sentence the person reads.
  */
-export const KINDS = ['import_finished'] as const;
-export type NoticeKind = (typeof KINDS)[number];
+export { KINDS, type NoticeKind };
 
 /** What a notice says. `href` is a path of this app (the notice opens there), or absent. */
 export interface NoticeContent {
@@ -70,6 +74,11 @@ export function cleanContent(content: NoticeContent): NoticeContent {
   };
 }
 
+/** How a notice also reaches a person beyond the bell. Present only when this server can send mail (`WAYMARK_SMTP_HOST`): `app` is the name in the message and `url` the address people use. */
+export interface Delivery {
+  readonly mail?: { readonly app: string; readonly url: string } | undefined;
+}
+
 export interface Raise {
   /** The person to tell. */
   readonly to: string;
@@ -89,6 +98,7 @@ export async function raiseNotice(
   sealer: Sealer,
   now: number,
   raise: Raise,
+  delivery: Delivery = {},
 ): Promise<string | undefined> {
   if (raise.to === raise.by) return undefined;
   const id = randomUUID();
@@ -100,6 +110,26 @@ export async function raiseNotice(
         VALUES (${id}, ${raise.to}, ${raise.kind}, ${raise.tripId ?? null}, NULL, ${sealed}, ${now})
         RETURNING id`,
   );
+  // By email too, where the person wants it and this server can send it (DESIGN.md §17.2): queued in the same transaction, so a notice and its mail stand or fall together. The message is Waymark's own words
+  // and a link, to the address the person signs up with, which only they receive (§6.1).
+  if (delivery.mail && (await wants(tx, raise.to, raise.kind, 'email'))) {
+    const profile = await getProfile(tx, sealer, raise.to);
+    if (profile) {
+      const base = delivery.mail.url.replace(/\/+$/, '');
+      await enqueueMail(tx, sealer, now, {
+        accountId: raise.to,
+        kind: 'notice',
+        message: notificationMessage(
+          delivery.mail.app,
+          profile.email,
+          content.title,
+          content.detail,
+          `${base}${content.href ?? '/notifications'}`,
+          `${base}/settings?section=notifications`,
+        ),
+      });
+    }
+  }
   return id;
 }
 

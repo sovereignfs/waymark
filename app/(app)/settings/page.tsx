@@ -4,6 +4,9 @@ import { getConfig } from '@/src/config/current';
 import { serverSealer } from '@/src/crypto/server';
 import { getDatabase } from '@/src/db/boot';
 import { usageOf } from '@/src/media/service';
+import { KIND_LABELS, listPrefs } from '@/src/notices/prefs';
+import { KINDS } from '@/src/notices/kinds';
+import { NotificationsSection } from '@/src/settings/NotificationsSection';
 import { ensureProfile } from '@/src/profile/profile';
 import { DataSection } from '@/src/settings/DataSection';
 import { DeviceSection } from '@/src/settings/DeviceSection';
@@ -33,6 +36,7 @@ export default async function SettingsPage({
     Date.now(),
   );
   const signIns = await signInsOf(user.id);
+  const prefs = await listPrefs(database, user.id);
   return (
     <SettingsShell
       initial={sectionOf(one(query.section))}
@@ -51,6 +55,16 @@ export default async function SettingsPage({
           <SecuritySection
             passwordMinLength={authSettings()?.passwordMinLength ?? 10}
             hasPassword={signIns.hasPassword}
+          />
+        ),
+        notifications: (
+          <NotificationsSection
+            mail={getConfig().mail !== undefined}
+            initial={KINDS.map((kind) => ({
+              kind,
+              label: KIND_LABELS[kind],
+              email: prefs[kind].email,
+            }))}
           />
         ),
         data: (

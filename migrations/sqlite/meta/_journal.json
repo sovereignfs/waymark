@@ -71,6 +71,13 @@
       "when": 1794432404052,
       "tag": "0009_mail_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794432881832,
+      "tag": "0010_notice_pref",
+      "breakpoints": true
     }
   ]
 }

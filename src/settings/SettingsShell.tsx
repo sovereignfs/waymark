@@ -8,6 +8,7 @@ import styles from './Settings.module.css';
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'security', label: 'Sign-in', icon: 'shield' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell' },
   { id: 'data', label: 'Data', icon: 'database' },
   { id: 'device', label: 'This device', icon: 'smartphone' },
 ];

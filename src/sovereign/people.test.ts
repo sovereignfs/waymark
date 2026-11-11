@@ -17,6 +17,7 @@ import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
 import { enqueueMail } from '../mail/outbox';
 import { raiseNotice } from '../notices/notices';
+import { setPref } from '../notices/prefs';
 import { listPlaces, makePlace } from '../places/places';
 import { applyMutation } from '../sync/apply';
 import { createProfile, getProfile } from '../profile/profile';
@@ -42,6 +43,7 @@ const GOES = [
   'applied_mutation',
   'tombstone',
   'notice',
+  'notice_pref',
   'mail_outbox',
   'media',
   'rate_bucket',
@@ -166,6 +168,7 @@ describe(`deleting a person (${leg})`, () => {
         kind: 'notice',
         message: { to: 'x@example.com', subject: 's', text: 't' },
       });
+      await setPref(database, who, 'import_finished', 'email', false, NOW);
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
@@ -263,6 +266,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('tombstone', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

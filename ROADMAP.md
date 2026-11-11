@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-11: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.3, 6.5 and 6.7 done (6.4, opening offline, waits for the screens). **Milestone E in progress** (7.1 done, 7.2 done except picking a point on the map (17.1); 7.3 done except the photo viewer (17.6) and what waits for trips; 7.5 done except moving a place's point and its small map (17.1); the rest wait on `Map`, the photo viewer, `AvatarStack` and a floating button, work in `sovereign`). **Milestone F in progress** (12.1, notices and the bell, and 12.2, the mail outbox, done; the import and notification preferences are next). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-11: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.3, 6.5 and 6.7 done (6.4, opening offline, waits for the screens). **Milestone E in progress** (7.1 done, 7.2 done except picking a point on the map (17.1); 7.3 done except the photo viewer (17.6) and what waits for trips; 7.5 done except moving a place's point and its small map (17.1); the rest wait on `Map`, the photo viewer, `AvatarStack` and a floating button, work in `sovereign`). **Milestone F in progress** (12.1, notices and the bell, 12.2, the mail outbox, and 12.3, notification preferences, done; the import is next). **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -129,7 +129,7 @@ second run creates nothing; and the bell and email say it finished.
 | 46  | [8.3](docs/epics/import.md)   | The import screen      | P1       | 8.2, 7.1   | 📋     |
 | 47  | [12.1](docs/epics/notices.md) | Notices and the bell   | P1       | 7.1        | ✅     |
 | 48  | [12.2](docs/epics/notices.md) | The mail outbox        | P1       | 1.6        | ✅     |
-| 49  | [12.3](docs/epics/notices.md) | Preferences and email  | P1       | 12.1, 12.2 | 📋     |
+| 49  | [12.3](docs/epics/notices.md) | Preferences and email  | P1       | 12.1, 12.2 | ✅     |
 
 8.2 waits on a real Swarm export from the owner (`DESIGN.md` §28); its job and screens do not.
 

@@ -6,6 +6,7 @@ import * as sqliteSchema from '../db/schema/sqlite';
 import { type MediaDeps, deleteMediaOf } from '../media/service';
 import { deleteMailOf } from '../mail/outbox';
 import { deleteNoticesOf } from '../notices/notices';
+import { deletePrefsOf } from '../notices/prefs';
 import { deletePlacesOf } from '../places/places';
 
 /**
@@ -61,6 +62,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     await deletePlacesOf(tx, accountId);
     // What they were told.
     await deleteNoticesOf(tx, accountId);
+    await deletePrefsOf(tx, accountId);
     // And the mail queued to them.
     await deleteMailOf(tx, accountId);
     await dbAll(

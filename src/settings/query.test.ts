@@ -12,7 +12,7 @@ describe('which section of Settings an address asks for', () => {
       '__proto__',
       'security ',
       '../data',
-      'notifications',
+      'trips',
       'device ',
     ])
       expect(sectionOf(asked), String(asked)).toBe('profile');

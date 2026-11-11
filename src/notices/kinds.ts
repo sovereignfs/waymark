@@ -1,0 +1,6 @@
+/**
+ * The kinds of notice there are (DESIGN.md §17.1), in a file of their own so that the notices and the preferences about them can both name them. Phase 1 has one; the kinds of phases 2 and 3 are added by the
+ * tasks that raise them, here, with the sentence a person reads for each in `prefs.ts`.
+ */
+export const KINDS = ['import_finished'] as const;
+export type NoticeKind = (typeof KINDS)[number];

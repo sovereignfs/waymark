@@ -1,0 +1,91 @@
+import { sql } from 'drizzle-orm';
+import type { Database } from '../db/client';
+import { dbAll } from '../db/exec';
+import * as postgresSchema from '../db/schema/postgres';
+import * as sqliteSchema from '../db/schema/sqlite';
+import { KINDS, type NoticeKind } from './kinds';
+
+/**
+ * Which notices a person wants by which channel (DESIGN.md §17.2, §21). **The bell is always on and is not a preference**: a notice is always in the app. Beyond it, a person chooses by kind and channel; today
+ * the one channel is `email`, and core's bell (14.1) and Web Push (12.4) join when those tasks make them. A kind and channel the person has not changed is at its default, here; a change is a row
+ * (`notice_pref`) and a row is the only thing that overrides a default, so a default can be changed in a later version for everyone who never chose.
+ */
+export const CHANNELS = ['email'] as const;
+export type Channel = (typeof CHANNELS)[number];
+
+/** What a person is told of, in words, for Settings (the sentence a notice itself says is its own). */
+export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
+  import_finished: 'An import from Swarm has finished',
+};
+
+/** The default for each kind and channel. An import takes a while and people leave: email is on. */
+export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, boolean>>>> = {
+  import_finished: { email: true },
+};
+
+export const isChannel = (value: unknown): value is Channel =>
+  typeof value === 'string' && (CHANNELS as readonly string[]).includes(value);
+export const isKind = (value: unknown): value is NoticeKind =>
+  typeof value === 'string' && (KINDS as readonly string[]).includes(value);
+
+const table = (database: Database) =>
+  database.dialect === 'postgres' ? postgresSchema.noticePref : sqliteSchema.noticePref;
+
+export type Prefs = Record<NoticeKind, Record<Channel, boolean>>;
+
+/** Every kind and channel for a person, the default where they have not chosen. */
+export async function listPrefs(database: Database, accountId: string): Promise<Prefs> {
+  const rows = await dbAll<{ kind: string; channel: string; enabled: number | string }>(
+    database,
+    sql`SELECT kind, channel, enabled FROM ${table(database)} WHERE account_id = ${accountId}`,
+  );
+  const out = Object.fromEntries(
+    KINDS.map((kind) => [kind, { ...DEFAULTS[kind] }]),
+  ) as unknown as Prefs;
+  for (const row of rows)
+    if (isKind(row.kind) && isChannel(row.channel))
+      out[row.kind][row.channel] = Number(row.enabled) === 1;
+  return out;
+}
+
+/** Whether a person wants this kind by this channel: their choice, or the default. One statement, so it can be asked inside the transaction of the change that raises the notice. */
+export async function wants(
+  database: Database,
+  accountId: string,
+  kind: NoticeKind,
+  channel: Channel,
+): Promise<boolean> {
+  const rows = await dbAll<{ enabled: number | string }>(
+    database,
+    sql`SELECT enabled FROM ${table(database)}
+        WHERE account_id = ${accountId} AND kind = ${kind} AND channel = ${channel}`,
+  );
+  return rows[0] ? Number(rows[0].enabled) === 1 : DEFAULTS[kind][channel];
+}
+
+/** Records a person's choice. Choosing again replaces it; choosing what the default is keeps a row (the default may change, the choice should not). */
+export async function setPref(
+  database: Database,
+  accountId: string,
+  kind: NoticeKind,
+  channel: Channel,
+  on: boolean,
+  now: number,
+): Promise<void> {
+  await dbAll(
+    database,
+    sql`INSERT INTO ${table(database)} (account_id, kind, channel, enabled, updated_at)
+        VALUES (${accountId}, ${kind}, ${channel}, ${on ? 1 : 0}, ${now})
+        ON CONFLICT (account_id, kind, channel) DO UPDATE SET enabled = ${on ? 1 : 0}, updated_at = ${now}
+        RETURNING kind`,
+  );
+}
+
+/** Deletes a person's choices (`People.deletePerson`, in its transaction). Returns how many. */
+export async function deletePrefsOf(database: Database, accountId: string): Promise<number> {
+  const rows = await dbAll<{ kind: string }>(
+    database,
+    sql`DELETE FROM ${table(database)} WHERE account_id = ${accountId} RETURNING kind`,
+  );
+  return rows.length;
+}

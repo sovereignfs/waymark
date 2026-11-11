@@ -53,8 +53,8 @@ export function resetMessage(app: string, to: string, link: string): Message {
 }
 
 /**
- * A notice, by email (DESIGN.md §25.2): its title and what it says, one link to where it goes, and one to Settings, where the person turns email off. The title is
- * a card's or a board's, as the person wrote it, and so is in the message; Settings says so before it is turned on.
+ * A notice, by email (DESIGN.md §17.2): its title and what it says, one link to where it goes, and one to Settings, where the person chooses what is emailed. It is Waymark's own words, and names no place
+ * or person that the reader may not see (a notice never does).
  */
 export function notificationMessage(
   app: string,
@@ -64,9 +64,10 @@ export function notificationMessage(
   link: string,
   settingsLink: string,
 ): Message {
-  return {
+  return withHtml({
+    kind: 'notice',
     to,
     subject: title,
-    text: `${title}\n\n${body ? `${body}\n\n` : ''}${link}\n\nYou get this because you turned on email from ${app}. To stop it: ${settingsLink}\n`,
-  };
+    text: `${title}\n\n${body ? `${body}\n\n` : ''}${link}\n\nYou get this because ${app} emails you what it tells you. To choose what, or to stop it: ${settingsLink}\n`,
+  });
 }

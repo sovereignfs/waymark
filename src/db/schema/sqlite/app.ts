@@ -243,3 +243,19 @@ export const mailOutbox = sqliteTable(
     index('mail_outbox_account_idx').on(table.accountId),
   ],
 );
+
+/**
+ * Which notices a person wants by which channel (DESIGN.md §17.2, §21): a row for each kind and channel they have **changed**; a kind and channel with no row is at its default (`src/notices/prefs.ts`).
+ * `enabled` is 0 or 1 (a whole number, so that a statement means the same on both dialects). Written from Settings only, and removed with the person.
+ */
+export const noticePref = sqliteTable(
+  'notice_pref',
+  {
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    channel: text('channel').notNull(),
+    enabled: counter('enabled').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.kind, table.channel] })],
+);

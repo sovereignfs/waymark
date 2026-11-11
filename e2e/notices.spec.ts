@@ -135,3 +135,16 @@ test('with no network the bell and the page say nothing of it, and show what the
   await expect(page.getByRole('button', { name: /^Notifications/ })).toHaveAccessibleName(/1/);
   await context.setOffline(false);
 });
+
+test('Settings, Notifications: with no mail set up it says the bell is the only channel and the switches are off', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto('/settings?section=notifications');
+  const section = page.getByRole('region', { name: 'Notifications' });
+  await expect(section.getByText(/Email is not set up on this server/)).toBeVisible();
+  const toggle = section.getByRole('switch', { name: /Email me when: An import from Swarm/ });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toBeDisabled();
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+});

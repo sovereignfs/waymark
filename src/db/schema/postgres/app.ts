@@ -192,3 +192,16 @@ export const mailOutbox = app.table(
     index('mail_outbox_account_idx').on(table.accountId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const noticePref = app.table(
+  'notice_pref',
+  {
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    channel: text('channel').notNull(),
+    enabled: counter('enabled').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.kind, table.channel] })],
+);
