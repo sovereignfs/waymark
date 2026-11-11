@@ -4,6 +4,7 @@ import { RateLimiter } from '../limits/rate';
 import { serverMedia } from '../media/server';
 import { sweepOrphans } from '../media/service';
 import { sweepUnattachedPhotos } from '../checkins/photos';
+import { pruneNotices } from '../notices/notices';
 import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
 import { nameWaitingPlaces } from '../places/naming';
@@ -92,6 +93,19 @@ export const jobs: readonly JobDefinition[] = [
         console.info(
           `[waymark] sync: pruned ${pruned.tombstones} tombstones and ${pruned.mutations} mutation records`,
         );
+    },
+  },
+  {
+    // Notices are kept 90 days and at most 500 a person (DESIGN.md §17.1). Under a lease, so that one process of several prunes each six hours; removing what is already gone changes nothing.
+    name: 'prune-notices',
+    everyMs: 6 * 60 * 60 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const database = await getDatabase();
+      if (!(await claimJob(database, 'prune-notices', 5 * 60 * 60 * 1000, now.getTime()))) return;
+      const pruned = await pruneNotices({ database, now: () => now.getTime() });
+      if (pruned.old + pruned.over > 0)
+        console.info(`[waymark] notices: pruned ${pruned.old + pruned.over}`);
     },
   },
 ];

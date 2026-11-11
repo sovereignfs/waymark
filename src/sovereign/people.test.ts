@@ -15,6 +15,7 @@ import * as sqliteSchema from '../db/schema/sqlite';
 import { openAppBesideAuth, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { type MediaDeps, putMedia, readMedia, usageOf } from '../media/service';
+import { raiseNotice } from '../notices/notices';
 import { listPlaces, makePlace } from '../places/places';
 import { applyMutation } from '../sync/apply';
 import { createProfile, getProfile } from '../profile/profile';
@@ -39,6 +40,7 @@ const GOES = [
   'account_stream',
   'applied_mutation',
   'tombstone',
+  'notice',
   'media',
   'rate_bucket',
   // The sign-in store.
@@ -150,6 +152,13 @@ describe(`deleting a person (${leg})`, () => {
       });
       if (!result.ok) throw new Error('could not seed a photo');
       made[who]?.push(result.id);
+      // What they were told, by someone else's change.
+      await raiseNotice(database, sealer, NOW, {
+        to: who,
+        by: 'someone-else',
+        kind: 'import_finished',
+        content: { title: 'Your import finished' },
+      });
       await new RateLimiter(database).take(`media:upload:${who}`, { limit: 10, windowMs: 60_000 });
       for (const name of ['Tokyo Tower', 'Lisbon Cathedral'])
         await makePlace({ database, sealer, now: () => NOW }, who, { name, lat: 38.7, lng: -9.1 });
@@ -210,7 +219,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('profile', `account_id = '${ada}'`)).toBe(0);
     expect(await count('media', `account_id = '${ada}'`)).toBe(0);
     expect(await count('place', `account_id = '${ada}'`)).toBe(0);
-    for (const table of ['checkin', 'account_stream', 'applied_mutation', 'tombstone'])
+    for (const table of ['checkin', 'account_stream', 'applied_mutation', 'tombstone', 'notice'])
       expect(await count(table, `account_id = '${ada}'`), table).toBe(0);
     expect(await listPlaces({ database, sealer }, ada)).toEqual([]);
     expect(await count('rate_bucket', `"key" LIKE '%:${ada}'`)).toBe(0);
@@ -238,6 +247,7 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('account_stream', `account_id = '${grace}'`)).toBe(1);
     expect(await count('applied_mutation', `account_id = '${grace}'`)).toBe(3);
     expect(await count('tombstone', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
     expect(await count('rate_bucket', `"key" LIKE '%:${grace}'`)).toBe(1);
     expect(await readMedia(media, { accountId: grace, id: made[grace]?.[0] ?? '' })).toBeDefined();
     expect(await authCount('user', `id = '${grace}'`)).toBe(1);

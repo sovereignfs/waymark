@@ -8,8 +8,7 @@ import { authClient } from '../client';
 
 /**
  * The avatar menu at the right of the header: who the person is (name and address) and *Sign out*. **Signing out sends what can be sent first, asks before it throws away what cannot** (what is
- * waiting, or was refused, and is only on this device), ends the session, and then **deletes this account's database from the browser** (DESIGN.md §15.8). The rest of the menu (Places,
- * Notifications, Import, Couldn't sync) joins with the tasks that make them.
+ * waiting, or was refused, and is only on this device), ends the session, and then **deletes this account's database from the browser** (DESIGN.md §15.8). The rest of the menu (Import, a way back to core) joins with the tasks that make them.
  */
 export function AccountMenu({ name, email }: { name: string; email: string }) {
   const router = useRouter();
@@ -68,6 +67,11 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                 },
               ]
             : []),
+          {
+            label: 'Notifications',
+            icon: 'bell',
+            onSelect: () => router.push('/notifications'),
+          },
           { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
           {
             label: leaving ? 'Signing out…' : 'Sign out',

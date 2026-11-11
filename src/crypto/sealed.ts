@@ -67,6 +67,7 @@ export const SEALED = {
   notice: {
     design: 'addresses and content',
     phase: 1,
+    // What a notice says: `{ title, detail?, href? }` (`src/notices/notices.ts`), made only by the server's own words, never by what a person typed into another person's screen.
     fields: { content: required('json') },
   },
   mail_outbox: {

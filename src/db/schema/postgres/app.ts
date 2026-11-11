@@ -158,3 +158,18 @@ export const checkinPhoto = app.table(
     index('checkin_photo_account_idx').on(table.accountId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const notice = app.table(
+  'notice',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    tripId: ref('trip_id'),
+    readAt: epochMs('read_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [index('notice_account_idx').on(table.accountId, table.createdAt)],
+);

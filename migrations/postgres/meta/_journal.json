@@ -57,6 +57,13 @@
       "when": 1794309855359,
       "tag": "0007_stream_floor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794430790610,
+      "tag": "0008_notices",
+      "breakpoints": true
     }
   ]
 }

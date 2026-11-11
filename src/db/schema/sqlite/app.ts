@@ -199,3 +199,23 @@ export const checkinPhoto = sqliteTable(
     index('checkin_photo_account_idx').on(table.accountId),
   ],
 );
+
+/**
+ * A notice (DESIGN.md §17.1, §24.3): one row for each person told, **raised in the transaction of the change that caused it and never for the person who made the change**
+ * (`src/notices/notices.ts`). What is plain is what the database orders and counts by: the person told, the `kind`, when (`created_at`), whether it was read (`read_at`, null while
+ * unread) and the trip it is about, for the kinds of phase 2 (a notice about a trip the person left is not shown). **What it says is sealed** (`SEALED.notice`): its title, its detail and
+ * where it opens. Kept 90 days and at most 500 a person (a job prunes).
+ */
+export const notice = sqliteTable(
+  'notice',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    tripId: ref('trip_id'),
+    readAt: epochMs('read_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [index('notice_account_idx').on(table.accountId, table.createdAt)],
+);

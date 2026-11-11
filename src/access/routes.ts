@@ -38,6 +38,8 @@ export const ROUTES: RouteRule[] = [
   // One check-in (DESIGN.md §20.6): the timeline with it open, which is the same page as `/checkins`.
   { route: '/c/[id]', page: { kind: 'account' } },
   { route: '/map', page: { kind: 'account' } },
+  // The whole list of what a person was told, by day (DESIGN.md §17.1).
+  { route: '/notifications', page: { kind: 'account' } },
   { route: '/places', page: { kind: 'account' } },
   // One place (DESIGN.md §20.8): the places with it open, which is the same page as `/places`.
   { route: '/places/[id]', page: { kind: 'account' } },
@@ -56,6 +58,8 @@ export const ROUTES: RouteRule[] = [
     route: '/api/media/[id]',
     methods: { GET: { kind: 'account' }, PUT: { kind: 'account' }, DELETE: { kind: 'account' } },
   },
+  // Notices (DESIGN.md §17.1): the account's own, listed and marked read; every statement names the account, so another person's are not found.
+  { route: '/api/notices', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   // Finding a place (DESIGN.md §7.2): the account's own places, opened for it alone, and then the operator's place search, which only the server reaches.
   { route: '/api/places', methods: { GET: { kind: 'account' } } },
   // The device's sync (DESIGN.md §15.3): its outbox in, what was applied, refused and changed out, for the session's account alone; `Origin` is checked.
