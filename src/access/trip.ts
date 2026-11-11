@@ -16,6 +16,12 @@ export const EDITORS: readonly Role[] = ['organizer', 'traveler'];
 /** Who may read a trip: every member. */
 export const MEMBERS: readonly Role[] = ['organizer', 'traveler', 'follower'];
 
+/**
+ * Who may see and add **attachments** (DESIGN.md §10.6, §11.1): Organizers and Travelers, **never Followers**, since bookings carry names, numbers and addresses. A Follower's statement for an attachment is `EDITORS`, so the row is
+ * not there for them, and nothing that names an attachment (a row, a file, a count) may be sent to one. 9.5 writes the statements and 6.6 the pull; both use this set.
+ */
+export const ATTACHMENT_READERS: readonly Role[] = EDITORS;
+
 const memberTable = (database: Database) =>
   sql.raw(database.dialect === 'postgres' ? 'waymark.trip_member' : 'trip_member');
 

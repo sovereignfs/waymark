@@ -44,3 +44,28 @@ export async function notifyMembers(
   }
   return told;
 }
+
+/** The same for people chosen by the change, not all the members: a person whose role changed. Still never the actor, and still in the caller's transaction. */
+export async function notifyMembersOf(
+  tx: Database,
+  deps: NotifyDeps,
+  to: readonly string[],
+  tripId: string,
+  by: string,
+  kind: NoticeKind,
+  content: { title: string; detail?: string },
+): Promise<number> {
+  const delivery = deps.delivery?.() ?? {};
+  let told = 0;
+  for (const account of to) {
+    const id = await raiseNotice(
+      tx,
+      deps.sealer,
+      deps.now(),
+      { to: account, by, kind, tripId, content: { ...content, href: `/trips/${tripId}` } },
+      delivery,
+    );
+    if (id !== undefined) told += 1;
+  }
+  return told;
+}

@@ -20,6 +20,7 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   organizer_passed: 'A trip has passed to you because its last Organizer deleted their account',
   trip_ready: 'A trip you are in is marked ready, or moved back to planning',
   trip_dates: 'The dates of a ready trip you are in change',
+  role_changed: 'Your part in a trip is changed by an Organizer',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
@@ -30,6 +31,7 @@ export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, bool
   // The bell and core's bell, not mail: a trip changes often and its people are in it.
   trip_ready: { email: false, core: true },
   trip_dates: { email: false, core: true },
+  role_changed: { email: false, core: true },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

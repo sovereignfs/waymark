@@ -16,7 +16,7 @@ placeholders here.
 
 ## Tasks
 
-#### 📋 10.1 — Roles
+#### ✅ 10.1 — Roles
 
 **Goal:** what each role may do, in every statement. **Design:** §11.1, §5.2. **Depends on:** 9.1.
 
@@ -24,6 +24,8 @@ placeholders here.
 change a role, a person's "going"; the last Organizer held; `role_changed` raised once 12.1 is in; the test calling every trip operation as each lower role.
 
 **Accepts when:** a Traveler cannot invite or delete; a Follower cannot edit anything or see an attachment; a trip never has no Organizer.
+
+**Done as:** **The role sets** are in `src/access/trip.ts`, one place for every statement: `ORGANIZERS`, `EDITORS` (Organizers and Travelers) and `MEMBERS`, and now **`ATTACHMENT_READERS` (= `EDITORS`: never Followers)**, which 9.5's statements and 6.6's pull must use; `OPERATIONS` in `src/trips/ops.ts` says which set each operation needs, and the test that calls every operation as a stranger and as each lower role is driven by it (it fails to compile for an operation with no request, and now covers 21). **`src/trips/members.ts`:** **`setRole`** (`member.role`: an Organizer makes another member, or themselves, an Organizer, a Traveler or a Follower; **who goes follows the role** (Organizers and Travelers go, a Follower does not) and asking for the role they have changes and says nothing, advancing no counter) and **`setGoing`** (`member.going`: an Organizer's own "Not going" switch; a Traveler goes and a Follower does not, so they have no switch, and it is only ever one's own). **The last Organizer is held in the statement that changes the role** (`role <> 'organizer' OR another active Organizer exists`), after a guarded `UPDATE trip` that shows the caller is an Organizer and takes the trip's row, so that two Organizers demoting themselves, or each other, at the same moment leave one (tested both ways; with the clause taken out the sequential test and the concurrent self-demotion test fail); the refusal says so in a sentence. **A person who is not in the trip or has left it, a Traveler, a Follower and a stranger are all told it is not there**, the same words. **`role_changed`** (a new kind: the bell and core's bell by default) tells the person whose role changed, in a sentence that names the trip and the role, never the Organizer who changed it, and nothing when they changed their own; what it says is sealed. A role change takes effect at once for every statement (a Follower made a Traveler edits the plan, and one made a Follower stops; tested). **Seen**, on a `file:` database, sqld and PostgreSQL (the whole suite, 1345 tests, on each): every role and who goes, the counter, the last Organizer, concurrency, who may and who is told it is not there, the notice, the switch and the reset by a change of role. **Left out:** nothing adds a person to a trip yet (invitations, 10.2) or lets one leave or be removed (10.4, which hold the same last-Organizer rule), so a trip still has the people a test puts in it; "Ask an Organizer to invite" is a screen (11.7); sync's role checks per mutation are 6.6 and media's are 9.5, both using the sets above; and a Traveler lowered to Follower between syncs, whose item edit goes to Couldn't sync, is 6.6's.
 
 #### 📋 10.2 — Invitations
 

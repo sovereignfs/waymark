@@ -1,4 +1,5 @@
 import { TRIP_ID, TripError } from './format';
+import { setGoing, setRole } from './members';
 import {
   type Plan,
   PlanRefused,
@@ -51,6 +52,8 @@ export type Op =
   | { op: 'trip.plan'; tripId: string }
   | { op: 'trip.ready'; tripId: string }
   | { op: 'trip.planning'; tripId: string }
+  | { op: 'member.role'; tripId: string; accountId: string; role: string }
+  | { op: 'member.going'; tripId: string; going: boolean }
   | {
       op: 'stop.add';
       tripId: string;
@@ -91,6 +94,9 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   // Marking ready, and back to planning, is the owner's decision (DESIGN.md §10.2): Organizers.
   'trip.ready': 'organizer',
   'trip.planning': 'organizer',
+  // Roles are changed by Organizers, and only an Organizer has a "Not going" switch (DESIGN.md §11.1).
+  'member.role': 'organizer',
+  'member.going': 'organizer',
   'trip.update': 'organizer',
   // Organizers and Travelers edit the plan (DESIGN.md §10.3, §11.1).
   'stop.add': 'editor',
@@ -120,6 +126,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'trip.plan': ['op', 'tripId'],
   'trip.ready': ['op', 'tripId'],
   'trip.planning': ['op', 'tripId'],
+  'member.role': ['op', 'tripId', 'accountId', 'role'],
+  'member.going': ['op', 'tripId', 'going'],
   'stop.add': ['op', 'tripId', 'place', 'arrive', 'depart', 'note'],
   'stop.update': ['op', 'tripId', 'stopId', 'arrive', 'depart', 'note'],
   'stop.move': ['op', 'tripId', 'stopId', 'before'],
@@ -208,6 +216,12 @@ export function parseOp(request: unknown): { ok: true; value: Op } | { ok: false
     )
   )
     return { ok: false };
+  if (
+    name === 'member.role' &&
+    (typeof request.accountId !== 'string' || typeof request.role !== 'string')
+  )
+    return { ok: false };
+  if (name === 'member.going' && typeof request.going !== 'boolean') return { ok: false };
   if (name === 'stop.add' && !isObject(request.place)) return { ok: false };
   if (name === 'stop.update' && !['arrive', 'depart', 'note'].some((key) => key in request))
     return { ok: false };
@@ -279,6 +293,14 @@ export async function applyOp(deps: TripDeps, accountId: string, op: Op): Promis
       case 'trip.ready':
       case 'trip.planning': {
         const trip = await setReady(deps, accountId, op.tripId, op.op === 'trip.ready');
+        return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'member.role': {
+        const trip = await setRole(deps, accountId, op.tripId, op.accountId, op.role);
+        return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'member.going': {
+        const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
       }
       case 'trip.delete.preview': {
