@@ -7,6 +7,7 @@ import { sweepUnattachedPhotos } from '../checkins/photos';
 import { serverImport } from '../import/server';
 import { sweepImports } from '../import/service';
 import { workOnImports } from '../import/job';
+import { forgetSeen } from '../sovereign/verifiers';
 import { dropStale, sendDue } from '../mail/outbox';
 import { serverMailer, serverOutbox } from '../mail/server';
 import { pruneNotices } from '../notices/notices';
@@ -32,6 +33,8 @@ export const jobs: readonly JobDefinition[] = [
       const database = await getDatabase();
       if (!(await claimJob(database, 'sweep-rate-buckets', 55 * 60 * 1000, now.getTime()))) return;
       await new RateLimiter(database, () => now.getTime()).sweep();
+      // The `jti` of core's notices that could no longer be replayed (DESIGN.md §19.2).
+      await forgetSeen(database, now.getTime());
     },
   },
   {

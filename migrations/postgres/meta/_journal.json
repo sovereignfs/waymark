@@ -85,6 +85,13 @@
       "when": 1794433278426,
       "tag": "0011_import_job",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794435623455,
+      "tag": "0012_notice_seen",
+      "breakpoints": true
     }
   ]
 }

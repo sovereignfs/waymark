@@ -7,7 +7,7 @@ import { SOVEREIGN_PROVIDER_ID } from '../auth/config';
 
 /**
  * A Sovereign identity is its `sub`, kept as the `account_id` of a sign-in row whose provider is Sovereign (DESIGN.md §19.1): it is looked up only for what needs
- * it, which is a notice from core (§22). The account it belongs to is the row's `user_id`, which is what everything of a person is owned by.
+ * it, which is a notice from core (§19.2). The account it belongs to is the row's `user_id`, which is what everything of a person is owned by.
  */
 const tables = (database: Database) =>
   database.dialect === 'postgres' ? postgresAuth : sqliteAuth;

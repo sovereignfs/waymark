@@ -233,3 +233,13 @@ export const importJob = app.table(
     index('import_job_status_idx').on(table.status, table.claimedUntil),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const noticeSeen = app.table(
+  'notice_seen',
+  {
+    jti: id('jti'),
+    expiresAt: epochMs('expires_at').notNull(),
+  },
+  (table) => [index('notice_seen_expires_idx').on(table.expiresAt)],
+);

@@ -292,3 +292,17 @@ export const importJob = sqliteTable(
     index('import_job_status_idx').on(table.status, table.claimedUntil),
   ],
 );
+
+/**
+ * The notices from a Sovereign core that have been acted on (DESIGN.md §19.2): the `jti` of each signed token, kept until it could no longer be accepted, so that **a notice sent twice is acted on once**,
+ * by any process and across a restart (the SDK asks `seen` last, of a notice that has met every other rule, so a forged one fills nothing). The first to record a `jti` wins; every later one is a replay. A
+ * `jti` is a random id and says nothing of a person. Swept shortly after it expires.
+ */
+export const noticeSeen = sqliteTable(
+  'notice_seen',
+  {
+    jti: id('jti'),
+    expiresAt: epochMs('expires_at').notNull(),
+  },
+  (table) => [index('notice_seen_expires_idx').on(table.expiresAt)],
+);

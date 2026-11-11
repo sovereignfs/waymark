@@ -65,6 +65,26 @@ export const ROUTES: RouteRule[] = [
   // Imports (DESIGN.md §16): the account's own, listed, uploaded (limited for each account) and cancelled; every statement names the account, so another person's are not found.
   { route: '/api/imports', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   { route: '/api/imports/[id]', methods: { DELETE: { kind: 'account' } } },
+  // Sovereign's notices to the app (DESIGN.md §19.2): the signed token in the body is the credential. There is no session, cookie or Origin, since core's server sends them; each is verified by the SDK
+  // against core's keys, its audience and its age, a replay is refused (`notice_seen`), the number of requests is capped, and where no core is set up they are not found.
+  {
+    route: '/api/sovereign/backchannel-logout',
+    methods: {
+      POST: {
+        kind: 'public',
+        because: 'a signed token from core, verified by the SDK, and a replay refused',
+      },
+    },
+  },
+  {
+    route: '/api/sovereign/account-deleted',
+    methods: {
+      POST: {
+        kind: 'public',
+        because: 'a signed token from core, verified by the SDK, and a replay refused',
+      },
+    },
+  },
   // Finding a place (DESIGN.md §7.2): the account's own places, opened for it alone, and then the operator's place search, which only the server reaches.
   { route: '/api/places', methods: { GET: { kind: 'account' } } },
   // The device's sync (DESIGN.md §15.3): its outbox in, what was applied, refused and changed out, for the session's account alone; `Origin` is checked.

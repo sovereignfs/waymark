@@ -114,6 +114,116 @@ test.describe('an instance that signs in through Sovereign only', () => {
     await expect(page.getByText('only way you can sign in')).toBeVisible();
     await signOut(page);
   });
+
+  // What Sovereign tells the app when a person's session there ends, or they delete their account (task 2.4). The fake signs the notice with the key it publishes, as Sovereign does, and the
+  // test posts it where the manifest says to.
+  type Wrong = 'signature' | 'audience' | 'expired' | 'type';
+  async function noticeFrom(
+    page: Page,
+    kind: 'logout' | 'account-deleted',
+    sub: string,
+    wrong?: Wrong,
+  ): Promise<string> {
+    const reply = await page.request.post(`http://localhost:${PORTS.coreControl}/notice`, {
+      data: { kind, sub, sid: 'core-session-1', wrong },
+    });
+    expect(reply.ok()).toBe(true);
+    return reply.text();
+  }
+  const sendLogout = (page: Page, token: string) =>
+    page.request.post('/api/sovereign/backchannel-logout', { form: { logout_token: token } });
+  const sendDeletion = (page: Page, token: string) =>
+    page.request.post('/api/sovereign/account-deleted', { form: { account_deleted_token: token } });
+  async function signInAs(page: Page, who: { sub: string; email: string; name?: string }) {
+    await nextPersonIs(page, who);
+    await page.goto('/sign-in');
+    await throughSovereign(page);
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+  }
+
+  test('signing out at Sovereign signs the person out here, wherever they are signed in', async ({
+    page,
+    browser,
+  }) => {
+    await signInAs(page, FIRST);
+    const other = await browser.newContext({ baseURL: SOVEREIGN });
+    const elsewhere = await other.newPage();
+    await signInAs(elsewhere, FIRST);
+
+    const reply = await sendLogout(page, await noticeFrom(page, 'logout', FIRST.sub));
+    expect(reply.status()).toBe(200);
+    for (const tab of [page, elsewhere]) {
+      await tab.goto('/checkins');
+      await expect(tab).toHaveURL(/\/sign-in/);
+    }
+    await other.close();
+    // And they can sign in again: the account is theirs still.
+    await signInAs(page, FIRST);
+    await signOut(page);
+  });
+
+  test('a notice that is wrong, or is sent twice, is refused and ends nothing', async ({
+    page,
+  }) => {
+    await signInAs(page, FIRST);
+    for (const wrong of ['signature', 'audience', 'expired', 'type'] as const) {
+      const reply = await sendLogout(page, await noticeFrom(page, 'logout', FIRST.sub, wrong));
+      expect(reply.status(), wrong).toBe(400);
+      expect(await reply.json()).toEqual({ error: 'invalid_request' });
+    }
+    // A deletion token is not a logout token, nor the reverse.
+    expect(
+      (await sendLogout(page, await noticeFrom(page, 'account-deleted', FIRST.sub))).status(),
+    ).toBe(400);
+    expect((await sendDeletion(page, await noticeFrom(page, 'logout', FIRST.sub))).status()).toBe(
+      400,
+    );
+    // Nothing at all, and not a form.
+    expect(
+      (await page.request.post('/api/sovereign/backchannel-logout', { form: {} })).status(),
+    ).toBe(400);
+    expect(
+      (
+        await page.request.post('/api/sovereign/account-deleted', {
+          data: { account_deleted_token: 'x.y.z' },
+        })
+      ).status(),
+    ).toBe(400);
+    // They are still signed in.
+    await page.goto('/checkins');
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+
+    // The same good notice twice: the first ends the session, the second is a replay.
+    const token = await noticeFrom(page, 'logout', FIRST.sub);
+    expect((await sendLogout(page, token)).status()).toBe(200);
+    expect((await sendLogout(page, token)).status()).toBe(400);
+  });
+
+  test('these addresses answer only a POST, and no one who asks for them is shown anything', async ({
+    page,
+  }) => {
+    for (const path of ['/api/sovereign/backchannel-logout', '/api/sovereign/account-deleted']) {
+      expect((await page.request.get(path)).status(), path).toBe(405);
+    }
+  });
+
+  test('a person who deletes their account at Sovereign is deleted here, and a replayed deletion is refused', async ({
+    page,
+  }) => {
+    await signInAs(page, FIRST);
+    const token = await noticeFrom(page, 'account-deleted', FIRST.sub);
+    expect((await sendDeletion(page, token)).status()).toBe(200);
+    await page.goto('/checkins');
+    await expect(page).toHaveURL(/\/sign-in/);
+    // The very same token again is a replay; core's retry carries a new one, which is answered 200 for a person nobody here knows.
+    expect((await sendDeletion(page, token)).status()).toBe(400);
+    expect(
+      (await sendDeletion(page, await noticeFrom(page, 'account-deleted', FIRST.sub))).status(),
+    ).toBe(200);
+    // They can come back, as a new account: core signs in anyone.
+    await signInAs(page, FIRST);
+    await signOut(page);
+  });
 });
 
 /** A local account made on the instance that offers both ways, signed in. */
