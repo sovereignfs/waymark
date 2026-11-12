@@ -178,7 +178,7 @@ their role allows and nothing more, and a check-in reaches the trip only when sh
 
 | #   | ID                             | Task                                                  | Priority | Depends on       | Status |
 | --- | ------------------------------ | ----------------------------------------------------- | -------- | ---------------- | ------ |
-| 70  | [17.2](docs/epics/upstream.md) | `AUTH_SIGNUP` by invitation (`sovereign`, with Tally) | P1       | —                | 📋     |
+| 70  | [17.2](docs/epics/upstream.md) | `AUTH_SIGNUP` by invitation (`sovereign`, with Tally) | P1       | —                | ⏳     |
 | 71  | [10.1](docs/epics/sharing.md)  | Roles                                                 | P0       | 9.1              | ✅     |
 | 72  | [10.2](docs/epics/sharing.md)  | Invitations                                           | P1       | 10.1, 12.2, 17.2 | ⏳     |
 | 73  | [10.3](docs/epics/sharing.md)  | Sharing check-ins with a trip                         | P1       | 10.1, 6.6, 9.7   | ✅     |
@@ -191,7 +191,7 @@ The trip page the plugin deferred. **Done when** a trip goes from a name to a co
 
 | #   | ID                                 | Task                              | Priority | Depends on       | Status |
 | --- | ---------------------------------- | --------------------------------- | -------- | ---------------- | ------ |
-| 76  | [17.7](docs/epics/upstream.md)     | A date range picker (`sovereign`) | P1       | —                | 📋     |
+| 76  | [17.7](docs/epics/upstream.md)     | A date range picker (`sovereign`) | P1       | —                | ⏳     |
 | 77  | [11.1](docs/epics/trip-screens.md) | Trips                             | P1       | 9.4, 6.6, 7.1    | 📋     |
 | 78  | [11.2](docs/epics/trip-screens.md) | A trip and its overview           | P1       | 11.1, 17.4       | 📋     |
 | 79  | [11.3](docs/epics/trip-screens.md) | The plan                          | P1       | 11.2, 9.3, 17.7  | 📋     |
