@@ -1,6 +1,6 @@
 import { index, pgSchema, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { APP_STORE } from '../../config';
-import { counter, epochMs, id, ref, sealed } from './columns';
+import { bool, counter, epochMs, id, isoDate, ref, sealed } from './columns';
 
 /** The app's schema; better-auth's is `waymark_auth` (DESIGN.md §24.1). */
 export const app = pgSchema(APP_STORE);
@@ -293,5 +293,44 @@ export const coreOutbox = app.table(
   (table) => [
     index('core_outbox_due_idx').on(table.nextAttemptAt),
     index('core_outbox_account_idx').on(table.accountId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const trip = app.table(
+  'trip',
+  {
+    id: id('id'),
+    color: text('color').notNull(),
+    startDate: isoDate('start_date'),
+    endDate: isoDate('end_date'),
+    readyAt: epochMs('ready_at'),
+    coverPlaceId: ref('cover_place_id'),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [index('trip_dates_idx').on(table.startDate, table.id)],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const tripMember = app.table(
+  'trip_member',
+  {
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    role: text('role').notNull(),
+    going: bool('going').notNull().default(true),
+    shareCheckins: text('share_checkins').notNull().default('ask'),
+    addedBy: ref('added_by'),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.accountId] }),
+    index('trip_member_account_idx').on(table.accountId),
   ],
 );

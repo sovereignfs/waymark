@@ -113,6 +113,13 @@
       "when": 1794441453571,
       "tag": "0015_core_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794477215344,
+      "tag": "0016_trips",
+      "breakpoints": true
     }
   ]
 }

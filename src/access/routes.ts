@@ -58,6 +58,9 @@ export const ROUTES: RouteRule[] = [
     route: '/api/media/[id]',
     methods: { GET: { kind: 'account' }, PUT: { kind: 'account' }, DELETE: { kind: 'account' } },
   },
+  // The online operations on trips (DESIGN.md §15.7), one door: the account is the session's, and **each operation names the membership and the role it needs in its statement** (`src/access/trip.ts`; who may do which is
+  // `OPERATIONS` in `src/trips/ops.ts`, which `trips-access.test.ts` calls as a stranger and as each role).
+  { route: '/api/ops', methods: { POST: { kind: 'account' } } },
   // Notices (DESIGN.md §17.1): the account's own, listed and marked read; every statement names the account, so another person's are not found.
   { route: '/api/notices', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   // What is emailed (DESIGN.md §17.2, §21): the account's own choices, read and changed; every statement names the account.

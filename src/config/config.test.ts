@@ -286,6 +286,51 @@ describe('files', () => {
   });
 });
 
+describe('the limits of trips (DESIGN.md §10.8)', () => {
+  it('are 30 members, 50 stops, 200 items a day, 100 attachments and 300 trips an account, unless told otherwise', () => {
+    expect(load({})).toMatchObject({
+      ok: true,
+      config: {
+        limits: {
+          tripMembers: 30,
+          tripStops: 50,
+          dayItems: 200,
+          tripAttachments: 100,
+          accountTrips: 300,
+        },
+      },
+    });
+    expect(
+      load({ WAYMARK_LIMIT_TRIP_MEMBERS: '5', WAYMARK_LIMIT_ACCOUNT_TRIPS: '1000000' }),
+    ).toMatchObject({
+      config: {
+        limits: {
+          tripMembers: 5,
+          tripStops: 50,
+          dayItems: 200,
+          tripAttachments: 100,
+          accountTrips: 1_000_000,
+        },
+      },
+    });
+  });
+
+  it('stop the server for a value that is not a whole number of 1 to 1,000,000, naming the setting and not the value', () => {
+    for (const name of [
+      'WAYMARK_LIMIT_TRIP_MEMBERS',
+      'WAYMARK_LIMIT_TRIP_STOPS',
+      'WAYMARK_LIMIT_DAY_ITEMS',
+      'WAYMARK_LIMIT_TRIP_ATTACHMENTS',
+      'WAYMARK_LIMIT_ACCOUNT_TRIPS',
+    ])
+      for (const value of ['0', '-5', 'lots', '1.5', '1e3', '1000001', '5 6']) {
+        const found = problems(load({ [name]: value })).join(' ');
+        expect(found, `${name}=${value}`).toContain(name);
+        expect(found).not.toContain(value === '5 6' ? '5 6' : `=${value}`);
+      }
+  });
+});
+
 describe('reading the environment', () => {
   const read = (env: Record<string, string | undefined>, name: string, readFile?: () => string) => {
     const reading = readEnvironment(env, readFile);

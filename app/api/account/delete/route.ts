@@ -30,6 +30,8 @@ async function deps(): Promise<DeleteDeps> {
       : {}),
     limiter: new RateLimiter(database),
     now: Date.now,
+    // A member who takes over a trip is told, as notices are told here (DESIGN.md §23).
+    notices: { sealer: serverSealer(), delivery: noticeDelivery },
     verify: async (request, password) => {
       const auth = await getAuth();
       if (!auth) return false;

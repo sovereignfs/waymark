@@ -25,9 +25,36 @@ export interface Config {
   readonly places: PlacesSettings;
   /** The map: where its tiles come from, or `off` (DESIGN.md §8.1). */
   readonly map: MapSettings;
+  /** What a trip and an account may hold (DESIGN.md §10.8). */
+  readonly limits: LimitSettings;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either (DESIGN.md §19.1). */
   readonly mail: MailSettings | undefined;
 }
+
+/**
+ * How much a trip and an account may hold (DESIGN.md §10.8): **every limit is a setting**, the owner's decision. The server checks them and says so in a sentence when one is reached. **Lowering a limit never deletes
+ * anything**: what is over it stays, and only adding more is refused. (The files an account holds, the sixth, is `media.maxAccountBytes`.)
+ */
+export interface LimitSettings {
+  /** Members of a trip. */
+  readonly tripMembers: number;
+  /** Stops of a trip. */
+  readonly tripStops: number;
+  /** Items on a day. */
+  readonly dayItems: number;
+  /** Attachments of a trip. */
+  readonly tripAttachments: number;
+  /** Trips an account is in. */
+  readonly accountTrips: number;
+}
+
+export const DEFAULT_LIMITS: LimitSettings = {
+  tripMembers: 30,
+  tripStops: 50,
+  dayItems: 200,
+  tripAttachments: 100,
+  accountTrips: 300,
+};
 
 /** The directory everything the app writes beside the database is under (`/data` in the image), and the most one account may keep in files. */
 export interface MediaSettings {
@@ -178,6 +205,9 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
     else limitMb = parsed;
   }
 
+  // The limits of trips (DESIGN.md §10.8): each a setting, a whole number of 1 or more.
+  const limits = resolveLimits(read, problems);
+
   // Mail is optional, but a host with no sender would send nothing anyone could answer, so it stops here rather than at the first message.
   const mail = resolveMail(read, problems);
 
@@ -212,9 +242,40 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
       database,
       encryption,
       media: { dataDir, maxAccountBytes: limitMb * 1024 * 1024 },
+      limits,
       mail,
       places,
       map,
     },
   };
+}
+
+const LIMIT_SETTINGS: readonly [keyof LimitSettings, string][] = [
+  ['tripMembers', 'WAYMARK_LIMIT_TRIP_MEMBERS'],
+  ['tripStops', 'WAYMARK_LIMIT_TRIP_STOPS'],
+  ['dayItems', 'WAYMARK_LIMIT_DAY_ITEMS'],
+  ['tripAttachments', 'WAYMARK_LIMIT_TRIP_ATTACHMENTS'],
+  ['accountTrips', 'WAYMARK_LIMIT_ACCOUNT_TRIPS'],
+];
+
+/** Reads the limits: the default for one that is not given, and a problem (naming the setting, never the value) for one that is not a whole number of 1 to 1,000,000. */
+function resolveLimits(
+  read: (name: string) => string | undefined,
+  problems: Problem[],
+): LimitSettings {
+  const limits = { ...DEFAULT_LIMITS };
+  for (const [key, name] of LIMIT_SETTINGS) {
+    const raw = read(name);
+    if (raw === undefined) continue;
+    const parsed = Number(raw);
+    if (
+      !/^[0-9]+$/.test(raw.trim()) ||
+      !Number.isInteger(parsed) ||
+      parsed < 1 ||
+      parsed > 1_000_000
+    )
+      problems.push(`${name} is a whole number, 1 or more (and at most 1,000,000).`);
+    else limits[key] = parsed;
+  }
+  return limits;
 }

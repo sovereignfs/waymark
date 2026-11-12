@@ -41,6 +41,8 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'profile', key: 'account_id', guard: 'updated_at' },
   { table: 'place', key: 'id', guard: 'version' },
   { table: 'checkin', key: 'id', guard: 'version' },
+  // A trip's envelope is rewritten by every change to it, each of which advances `seq`.
+  { table: 'trip', key: 'id', guard: 'seq' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },

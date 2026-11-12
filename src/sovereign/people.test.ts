@@ -26,6 +26,8 @@ import { setPref } from '../notices/prefs';
 import { listPlaces, makePlace } from '../places/places';
 import { applyMutation } from '../sync/apply';
 import { createProfile, getProfile } from '../profile/profile';
+import { DEFAULT_LIMITS } from '../config';
+import { createTrip } from '../trips/trips';
 import { deletePerson } from './people';
 
 /**
@@ -44,6 +46,7 @@ const GOES = [
   'place',
   'checkin',
   'checkin_photo',
+  'trip_member',
   'account_stream',
   'applied_mutation',
   'tombstone',
@@ -63,8 +66,8 @@ const GOES = [
   'account',
   'verification',
 ];
-/** Tables of shared work: their rows stay when the person goes. (Trips, from phase 2.) */
-const STAYS: string[] = [];
+/** Tables of shared work: their rows stay when the person goes (a trip with nobody else in it is deleted, and one they alone organized passes on: `src/trips/people.ts`). */
+const STAYS: string[] = ['trip'];
 /** Tables that are about something else than a person. */
 const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen', 'key_rotation'];
 
@@ -250,6 +253,27 @@ describe(`deleting a person (${leg})`, () => {
           ).status,
         ).toBe('applied');
     }
+    // Trips: one Ada alone organizes with Grace going (it passes to Grace), one that is only Ada's (it goes), and one that is only Grace's (it stays).
+    const tripDeps = { database, sealer, now: () => NOW, limits: DEFAULT_LIMITS };
+    const shared = await createTrip(tripDeps, ada, { name: 'Shared trip' });
+    const soloAda = await createTrip(tripDeps, ada, { name: 'Ada only' });
+    const soloGrace = await createTrip(tripDeps, grace, { name: 'Grace only' });
+    await dbAll(
+      database,
+      sql`INSERT INTO ${sql.raw(app('trip_member'))} (trip_id, account_id, role, going, share_checkins, added_by, joined_at, seq)
+          VALUES (${shared.id}, ${grace}, 'traveler', ${true}, 'ask', ${ada}, ${NOW}, 2) RETURNING trip_id`,
+    );
+    // A check-in of Grace's linked to the shared trip (it stays linked), and one of hers linked to Ada's own trip, as a stale link would be (it is unlinked when the trip goes).
+    for (const [checkin, tripId] of [
+      ['g-shared', shared.id],
+      ['g-stale', soloAda.id],
+    ] as const)
+      await dbAll(
+        database,
+        sql`INSERT INTO ${sql.raw(app('checkin'))} (id, account_id, place_id, at, tz, offset_min, trip_id, link_source, share, source, version, seq, sealed, created_at, updated_at)
+            VALUES (${checkin}, ${grace}, 'p', ${NOW}, 'Europe/Lisbon', 60, ${tripId}, 'manual', 'trip', 'live', 1, 50, ${sealer.seal('checkin', checkin, {})}, ${NOW}, ${NOW}) RETURNING id`,
+      );
+
     // The sign-in store: a pending verification named by the address, a second factor and a passkey.
     await dbAll(
       t.auth.database,
@@ -275,6 +299,8 @@ describe(`deleting a person (${leg})`, () => {
       authDatabase: t.auth.database,
       media,
       now: () => NOW,
+      // The member who takes over a trip is told.
+      notices: { sealer, delivery: () => ({}) },
       // Deleted from Waymark, by a person who signs in through a core.
       core: {
         sealer,
@@ -318,14 +344,33 @@ describe(`deleting a person (${leg})`, () => {
     ).toBe(0);
 
     // Grace, whole.
+
+    // Ada's part in trips: no membership, no trip of her own, the shared one passed to Grace (who is told), nothing names her, and Grace's own trip and check-ins stand.
+    expect(await count('trip_member', `account_id = '${ada}'`)).toBe(0);
+    expect(await count('trip', `id = '${soloAda.id}'`)).toBe(0);
+    expect(await count('trip_member', `trip_id = '${soloAda.id}'`)).toBe(0);
+    expect(await count('trip', `id = '${shared.id}'`)).toBe(1);
+    expect(
+      await count(
+        'trip_member',
+        `trip_id = '${shared.id}' AND account_id = '${grace}' AND role = 'organizer'`,
+      ),
+    ).toBe(1);
+    expect(await count('trip', `created_by = '${ada}'`)).toBe(0);
+    expect(await count('trip_member', `added_by = '${ada}'`)).toBe(0);
+    expect(await count('trip', `id = '${soloGrace.id}'`)).toBe(1);
+    expect(await count('checkin', `id = 'g-shared' AND trip_id = '${shared.id}'`)).toBe(1);
+    expect(await count('checkin', `id = 'g-stale' AND trip_id IS NULL`)).toBe(1);
     expect(await getProfile(database, sealer, grace)).toMatchObject({ name: 'Grace Hopper' });
     expect(await count('media', `account_id = '${grace}'`)).toBe(2);
     expect(await count('place', `account_id = '${grace}'`)).toBe(2);
-    expect(await count('checkin', `account_id = '${grace}'`)).toBe(1);
+    // Her own, and the two linked to trips.
+    expect(await count('checkin', `account_id = '${grace}'`)).toBe(3);
     expect(await count('account_stream', `account_id = '${grace}'`)).toBe(1);
     expect(await count('applied_mutation', `account_id = '${grace}'`)).toBe(3);
     expect(await count('tombstone', `account_id = '${grace}'`)).toBe(1);
-    expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
+    // The notice she had, and the one that told her a trip passed to her.
+    expect(await count('notice', `account_id = '${grace}'`)).toBe(2);
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
     expect(await count('core_outbox', `account_id = '${grace}'`)).toBe(1);
@@ -344,6 +389,7 @@ describe(`deleting a person (${leg})`, () => {
     // Again: safe to run twice, and there is nothing left to do.
     expect(await deletePerson(deps, ada)).toEqual({ files: 0 });
     expect(await count('media', `account_id = '${grace}'`)).toBe(2);
+    expect(await count('notice', `account_id = '${grace}'`)).toBe(2);
   });
 
   it('finishes what a run that stopped part way left: the files are removed first, so the rows that name them are found again', async () => {

@@ -1,5 +1,5 @@
 import { index, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { counter, epochMs, id, ref, sealed } from './columns';
+import { bool, counter, epochMs, id, isoDate, ref, sealed } from './columns';
 
 /**
  * What the server holds that is not better-auth's (DESIGN.md §24.3). The account itself is better-auth's, in the other store, so an `account_id` is a
@@ -369,5 +369,53 @@ export const coreOutbox = sqliteTable(
   (table) => [
     index('core_outbox_due_idx').on(table.nextAttemptAt),
     index('core_outbox_account_idx').on(table.accountId),
+  ],
+);
+
+/**
+ * A trip (DESIGN.md §10.1, §24.3), phase 2. **Its name and description are sealed** (`SEALED.trip`); what is plain is what the database orders and finds by: the colour (one of the design system's accent tokens, `src/trips/format.ts`),
+ * the dates (derived from the trip's stops by 9.2, in the same transaction as the change that moves them, and cached here so that lists sort without joining: both null until it has a stop), `ready_at` (the Organizers'
+ * decision, 9.4; **status is computed and never stored**), the cover place (9.2), `created_by` (cleared when its creator's account goes, so nothing points at them) and `seq`, the counter of the trip's own stream
+ * (15.3), increased by every change to the trip and stamped on the rows it changes. Written only by `src/trips/`; **every statement that reads or writes a trip names the caller's membership and role** (`src/access/trip.ts`).
+ */
+export const trip = sqliteTable(
+  'trip',
+  {
+    id: id('id'),
+    color: text('color').notNull(),
+    startDate: isoDate('start_date'),
+    endDate: isoDate('end_date'),
+    readyAt: epochMs('ready_at'),
+    coverPlaceId: ref('cover_place_id'),
+    seq: counter('seq').notNull().default(0),
+    createdBy: ref('created_by'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [index('trip_dates_idx').on(table.startDate, table.id)],
+);
+
+/**
+ * A person's part in a trip (DESIGN.md §10.1, §11.1, §24.3): the role (`organizer`, `traveler` or `follower`), whether they are going (an Organizer who only organizes is not), how their check-ins are shared with the
+ * trip (`ask`, `on`, `off`, 10.3), who added them and when they joined, and `left_at` once they have left or been removed (the row stays, so the trip can still say who was there; every statement asks for
+ * `left_at IS NULL`). Plain throughout: a role and a date say nothing of where anyone was. **The permission to do anything on a trip is this row**, named in the statement that does it.
+ */
+export const tripMember = sqliteTable(
+  'trip_member',
+  {
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    role: text('role').notNull(),
+    going: bool('going').notNull().default(true),
+    shareCheckins: text('share_checkins').notNull().default('ask'),
+    addedBy: ref('added_by'),
+    joinedAt: epochMs('joined_at').notNull(),
+    leftAt: epochMs('left_at'),
+    seq: counter('seq').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.accountId] }),
+    index('trip_member_account_idx').on(table.accountId),
   ],
 );

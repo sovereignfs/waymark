@@ -12,6 +12,8 @@ import type { Sealer } from '../crypto/sealed';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
 import { deletePlacesOf } from '../places/places';
+import { type Delivery } from '../notices/notices';
+import { endMembershipsOf } from '../trips/people';
 
 /**
  * **Everything of an account is deleted by this, and only this** (DESIGN.md §23). One routine, in a fixed order, **safe to run again**: the two stores (the app's and the
@@ -20,8 +22,7 @@ import { deletePlacesOf } from '../places/places';
  *
  *  1. Their files: every file under `/data/media`, and then its row (`deleteMediaOf`: the files first, so that rows that name a file still there are found again); and their uploaded imports under `/data/imports`.
  *  2. What the app keeps of them in its store, in one transaction: their profile, their check-ins and places, what orders them (the stream's counter, the mutations applied and the
- *     tombstones), and their rate counters. (Import jobs, notices, settings, mail queued to them and the rest join here with the tasks that make their tables; the trip rules, handing a trip
- *     on or deleting an empty one and clearing `created_by`, with 10.4.)
+ *     tombstones), and their rate counters, and their part in trips (`endMembershipsOf`: handing a trip on, deleting an empty one, clearing what names them).
  *  3. The sign-in store: sessions, sign-ins (password, passkeys, second factors and later a Sovereign identity), pending verifications, and then the account.
  *
  * `people.test.ts` seeds a row in every table for the person and for a second person, finds nothing of the first after, and the second's intact, and **fails for a table that is in
@@ -35,6 +36,8 @@ export interface PeopleDeps {
   /** The media store, whose files go with the person. */
   readonly media: MediaDeps;
   readonly now: () => number;
+  /** To tell a member that a trip has passed to them (`organizer_passed`, DESIGN.md §23): the instance key and how notices reach people here. Without it a trip still passes, and nobody is told. */
+  readonly notices?: { readonly sealer: Sealer; readonly delivery: () => Delivery } | undefined;
   /**
    * Present where the person deleted their account **from Waymark** and the people here sign in through a core: a line about it is left on their activity page there (DESIGN.md §19.4). It names the `sub` and no
    * account, since the account is going, so it is made after they are gone. Absent when the deletion came from the core, which knows.
@@ -71,6 +74,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       tx,
       sql`DELETE FROM ${app.profile} WHERE account_id = ${accountId} RETURNING account_id`,
     );
+    // Their part in trips (DESIGN.md §11.4, §23): a trip with nobody else is deleted, one they alone organized passes on, and nothing keeps pointing at them. Before their own rows, so that what a deleted trip held is gone first.
+    await endMembershipsOf(tx, { now: deps.now, notices: deps.notices }, accountId);
     // Their check-ins and places (a trip's places are the trip's, and go with it, §23), and what orders them: the stream, the mutations applied and the tombstones.
     await dbAll(tx, sql`DELETE FROM ${app.checkin} WHERE account_id = ${accountId} RETURNING id`);
     await dbAll(

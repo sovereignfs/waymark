@@ -185,7 +185,10 @@ describe(`the choices over HTTP (${leg})`, () => {
     ).json();
     expect(changed).toMatchObject({
       mail: true,
-      kinds: [{ kind: 'import_finished', email: false }],
+      kinds: [
+        expect.objectContaining({ kind: 'import_finished', email: false }),
+        expect.objectContaining({ kind: 'organizer_passed' }),
+      ],
     });
     expect((await (await get(t.grace)).json()).kinds[0].email).toBe(true);
     expect((await (await get(t.ada)).json()).kinds[0].email).toBe(false);

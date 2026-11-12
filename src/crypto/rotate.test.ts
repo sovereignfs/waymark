@@ -354,6 +354,7 @@ describe('the phases', () => {
       'profile',
       'place',
       'checkin',
+      'trip',
       'notice',
       'mail_outbox',
       'core_outbox',

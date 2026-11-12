@@ -17,11 +17,14 @@ export type Channel = (typeof CHANNELS)[number];
 /** What a person is told of, in words, for Settings (the sentence a notice itself says is its own). */
 export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   import_finished: 'An import from Swarm has finished',
+  organizer_passed: 'A trip has passed to you because its last Organizer deleted their account',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
 export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, boolean>>>> = {
   import_finished: { email: true, core: true },
+  // Said in the bell and by core's bell: not worth a mail of its own.
+  organizer_passed: { email: false, core: true },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

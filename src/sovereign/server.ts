@@ -6,6 +6,9 @@ import type { Database } from '../db/client';
 import type { MediaDeps } from '../media/service';
 import type { NoticeDeps, PeopleActions } from './http';
 import { accountOfSub, endSessionsOf } from './identity';
+import { serverSealer } from '../crypto/server';
+import { noticeDelivery } from '../notices/server';
+import type { PeopleDeps } from './people';
 import { deletePerson } from './people';
 import { sdkVerifiers, seenBy } from './verifiers';
 
@@ -36,7 +39,13 @@ async function make(): Promise<NoticeDeps | undefined> {
       clientId: sovereign.clientId,
       seen: seenBy(database),
     }),
-    people: peopleFor({ database, authDatabase, media: serverMedia }),
+    people: peopleFor({
+      database,
+      authDatabase,
+      media: serverMedia,
+      // A member who takes over a trip is told, as notices are told here (DESIGN.md §23).
+      notices: () => ({ sealer: serverSealer(), delivery: noticeDelivery }),
+    }),
     limiter,
     log: (line) => console.error(line),
   };
@@ -51,6 +60,8 @@ export function peopleFor(deps: {
   database: Database;
   authDatabase: Database;
   media: () => Promise<MediaDeps>;
+  /** What tells a member that a trip has passed to them; absent in a test that does not look. */
+  notices?: () => NonNullable<PeopleDeps['notices']>;
 }): PeopleActions {
   const { database, authDatabase } = deps;
   return {
@@ -62,7 +73,13 @@ export function peopleFor(deps: {
       const accountId = await accountOfSub(authDatabase, sub);
       if (accountId !== null)
         await deletePerson(
-          { database, authDatabase, media: await deps.media(), now: Date.now },
+          {
+            database,
+            authDatabase,
+            media: await deps.media(),
+            now: Date.now,
+            ...(deps.notices ? { notices: deps.notices() } : {}),
+          },
           accountId,
         );
     },
