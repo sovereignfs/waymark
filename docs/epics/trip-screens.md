@@ -2,7 +2,7 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress: 11.1 is done.
 
 ## Overview
 
@@ -15,7 +15,7 @@ plugin's Planner is the trip's Plan view. Everything paints from the device's tr
 
 ## Tasks
 
-#### 📋 11.1 — Trips
+#### ✅ 11.1 — Trips
 
 **Goal:** `/trips` and the sidebar's Trips. **Design:** §20.9, §20.2. **Depends on:** 9.4, 6.6, 7.1.
 
@@ -24,6 +24,9 @@ action by status; _New trip_ dialog (name, colour, optionally the first stop); t
 three completed); the timeline's trip filter and dot.
 
 **Accepts when:** a seeded trip of each status shows in the right group with the right action, and a new trip appears in the sidebar at once.
+
+**Done as:** **`/trips` is one page drawn from the device** (`TripsView`, `app/(app)/trips/page.tsx`): it reads the trips the store holds (`LocalContext.trips`, new, from `LocalStore.trips()`), so it opens with no network, and is also a screen of the offline shell (`/trips` in `src/sw/addresses.ts`, `OfflineApp`). **`src/screens/trips.ts`, pure and tested:** a card per trip with its **status worked out on the device** by 9.4's `statusOf`, **in the first stop's zone**, with the device's clock (re-read each minute, `useTrips.ts`), because the status the server last said can be a day old (a trip that begins in Auckland begins at Auckland's midnight, tested for Auckland and Lisbon at the same instant); the dates, the days, the stops in order, the members for their initials, and **one action by status and role** (_Open journal_ when completed, _Open Trip Mode_ when ongoing for an Organizer or Traveler who is going, _Continue planning_ when planning for an editor, else _View plan_; a Follower, and a member who is not going, never get Trip Mode); the groups in §20.9's order (ongoing, upcoming by date, planning by latest change, completed newest first, the same whatever order the rows are held in); the chips with their counts; the search over the name and the stops (every word, any order, no case or accents); the sidebar's list (ongoing, upcoming, planning and the latest three completed); and the dot's token for each colour, which a test holds to the design system's own tokens. **The chip, the search and the open dialog are in the address** (`?status=`, `?q=`, `?new=1`), so a link to _New trip_ is a link and a reload keeps them. **_New trip_** (`NewTripDialog`): a name, a colour from the six roles, and optionally the first stop found by the place search; **an online operation** (`trip.create`, then `stop.add`), then `syncNow()`, so the card and the sidebar show it at once; with no connection it says in a sentence that a trip is made on the server, and a first stop that fails leaves the trip made and says so. A place search that is off, not answering or offline says so in the dialog and does not hide the name and colour. **The sidebar's Trips section** (`AppSidebar`, in the drawer too): full, each trip with its dot, name and status, then _All trips_ and _New trip_; **as a rail, each trip is its dot with the name as its label and tooltip**, and one icon for the list. **`/t/<id>` exists as a placeholder** (`TripPlaceholder`: the trip's name, status and dates from the device, or "This trip is not here" for one it does not hold) so the links go somewhere until 11.2. **The timeline's trip filter and dot** (`?trip=<id>`, a _Trip_ select once the device holds a trip, a dot with the trip's name on a check-in linked to one; `parseFilters` accepts only a trip id). Both routes are in `src/access/routes.ts`.
+**Seen:** 14 unit tests for the model (above) and one for the timeline filter (and the hostile queries); the status in two zones, the action by role, the groups, the chips and the sidebar's three completed each failed when the rule was taken out (the first stop's zone, and "an editor" for Trip Mode, were broken in turn and seen to fail); **in Chromium (`e2e/trips.spec.ts`):** a trip of each status (made through the operations, with dates around today) is in its own group with the right action and address, the groups are in order, a chip narrows to its status and is in the address, a search narrows by name and says when nothing matches, a trip made in the dialog with a first stop is in the list and the sidebar at once, and the sidebar links go to the list and the dialog (full on Home, as dots on any other page). The unit suite passed on a `file:` database, sqld and PostgreSQL; the whole Chromium suite passed (95). **Found on the way, and fixed:** five browser specs still posted `protocol: 1` to `/api/sync` (6.6 made it 2) and the export spec expected format version 1 (15.3 made it 2), so seventeen of them had been failing unseen; and the push test's `json()` returned a rejected promise where the browser's throws, which left an unhandled rejection that made `pnpm test` exit with an error. **Left out:** the trip page itself (11.2); the timeline's trip dot has no browser test (it needs a check-in linked to a trip, which waits for auto-link to be reached from a screen); the phone's footer still names Map and Places (7.7 settles it); WebKit was not run.
 
 #### 📋 11.2 — A trip and its overview
 

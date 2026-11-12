@@ -138,7 +138,7 @@ const at = (placeId: string, checkinId: string, note: string) => ({
 const serverCheckins = async (page: Page) => {
   const reply = await page.request.post('/api/sync', {
     headers: { origin: ORIGIN, 'content-type': 'application/json' },
-    data: { protocol: 1, outbox: [], cursor: 0, limit: 500 },
+    data: { protocol: 2, outbox: [], cursor: 0, trips: {}, limit: 500 },
   });
   return ((await reply.json()).account.checkins as { id: string }[]).map((c) => c.id);
 };

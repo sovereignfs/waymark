@@ -13,7 +13,7 @@ import {
 import { editCheckin } from '../actions/checkins';
 import type { CheckinView, PlaceView } from '../actions/types';
 import { LIMITS, type Mutation } from '../sync/format';
-import { type Refused, deleteLocal, openLocal } from './db';
+import { type Refused, type TripEntry, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
 import { requestPersistence } from './persist';
 import { LocalStore } from './store';
@@ -29,6 +29,8 @@ export interface LocalContext {
   readonly ready: boolean;
   readonly places: readonly PlaceView[];
   readonly checkins: readonly CheckinView[];
+  /** The trips the account is in, as the device last had them (DESIGN.md §15.3): the streams the Trips screen and the sidebar are drawn from. */
+  readonly trips: readonly TripEntry[];
   readonly state: SyncState | 'starting';
   /** What the server refused, with the reason in a sentence, kept until the person sends it again or discards it (Couldn't sync, §15.5). */
   readonly refused: readonly Refused[];
@@ -65,6 +67,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     places: [],
     checkins: [],
   });
+  const [trips, setTrips] = useState<TripEntry[]>([]);
   const [state, setState] = useState<SyncState | 'starting'>('starting');
   const [refused, setRefused] = useState<Refused[]>([]);
   const store = useRef<LocalStore | undefined>(undefined);
@@ -77,6 +80,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     if (!current) return;
     try {
       setRows(await current.view());
+      setTrips(await current.trips());
       setRefused(await current.refused());
       setReady(true);
     } catch {
@@ -125,6 +129,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       ready,
       places: rows.places,
       checkins: rows.checkins,
+      trips,
       state,
       refused,
       async retry(mutationId) {
@@ -203,7 +208,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         await deleteLocal(accountId);
       },
     }),
-    [accountId, ready, rows, state, refused, read],
+    [accountId, ready, rows, trips, state, refused, read],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

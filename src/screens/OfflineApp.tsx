@@ -9,6 +9,7 @@ import { HomeScreen } from './HomeScreen';
 import { MapScreen } from './MapScreen';
 import { PlacesView } from './PlacesView';
 import { SignedInArea } from './SignedInArea';
+import { TripsView } from './TripsView';
 import { usePageLocation } from './useLocation';
 
 /**
@@ -23,6 +24,8 @@ function Screen() {
       return <CheckinsView />;
     case 'places':
       return <PlacesView />;
+    case 'trips':
+      return <TripsView />;
     case 'map':
       return <MapScreen />;
     default:

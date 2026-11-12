@@ -32,7 +32,7 @@ test('asking for an export makes a ZIP of the person’s check-ins, which downlo
     .poll(async () => {
       const reply = await page.request.post('/api/sync', {
         headers: { origin: new URL(page.url()).origin, 'content-type': 'application/json' },
-        data: { protocol: 1, outbox: [], cursor: 0, limit: 500 },
+        data: { protocol: 2, outbox: [], cursor: 0, trips: {}, limit: 500 },
       });
       return JSON.stringify(await reply.json()).includes(tag);
     })
@@ -53,7 +53,7 @@ test('asking for an export makes a ZIP of the person’s check-ins, which downlo
   await download.saveAs(saved);
   const zip = unzipSync(new Uint8Array(readFileSync(saved)));
   const document = JSON.parse(Buffer.from(zip['waymark.json'] as Uint8Array).toString('utf8'));
-  expect(document).toMatchObject({ format: 'waymark-export', version: 1 });
+  expect(document).toMatchObject({ format: 'waymark-export', version: 2 });
   expect(document.places.some((p: { name: string }) => p.name === place)).toBe(true);
   expect(document.checkins.some((c: { note?: string }) => c.note === `exported ${tag}`)).toBe(true);
   // No address anywhere in it, the person’s own included.

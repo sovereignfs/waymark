@@ -39,7 +39,7 @@ interface Checkin {
 async function server(page: Page): Promise<{ places: Place[]; checkins: Checkin[] }> {
   const reply = await page.request.post('/api/sync', {
     headers: { origin: ORIGIN, 'content-type': 'application/json' },
-    data: { protocol: 1, outbox: [], cursor: 0, limit: 500 },
+    data: { protocol: 2, outbox: [], cursor: 0, trips: {}, limit: 500 },
   });
   const body = (await reply.json()).account;
   return { places: body.places, checkins: body.checkins };

@@ -3,7 +3,7 @@ import { OFFLINE_ADDRESSES, offlineAddressSources, offlineScreenOf } from './add
 
 /** The addresses the worker answers with the shell, and the screen the shell draws for each: one list (DESIGN.md §20.12; 6.4). */
 describe('the addresses the offline shell answers', () => {
-  it('is Home, Check-ins, a check-in, Map, Places and a place, each its screen', () => {
+  it('is Home, Check-ins, a check-in, Map, Places, a place and Trips, each its screen', () => {
     expect(offlineScreenOf('/')).toBe('home');
     expect(offlineScreenOf('/home')).toBe('home');
     expect(offlineScreenOf('/checkins')).toBe('checkins');
@@ -11,6 +11,7 @@ describe('the addresses the offline shell answers', () => {
     expect(offlineScreenOf('/map')).toBe('map');
     expect(offlineScreenOf('/places')).toBe('places');
     expect(offlineScreenOf('/places/p_1-A')).toBe('places');
+    expect(offlineScreenOf('/trips')).toBe('trips');
   });
 
   it('is nothing else: not Settings, notices, sign-in, the API, or a longer path', () => {
@@ -21,6 +22,8 @@ describe('the addresses the offline shell answers', () => {
       '/api/health',
       '/shell',
       '/places/',
+      '/trips/',
+      '/trips/x',
       '/checkins/',
       '/checkins/x',
       '/c',

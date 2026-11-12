@@ -271,3 +271,13 @@
   outline: 2px solid var(--sv-color-focus-ring);
   outline-offset: 2px;
 }
+
+/* The dot of the trip a check-in is part of (DESIGN.md §20.6). */
+.tripDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--sv-space-2);
+  vertical-align: middle;
+  border-radius: var(--sv-radius-full);
+}

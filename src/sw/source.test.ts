@@ -296,7 +296,13 @@ describe('a push', () => {
   const push = async (w: ReturnType<typeof load>, data: unknown) => {
     let waiting: Promise<unknown> = Promise.resolve();
     w.listeners.push?.({
-      data: { json: () => (data instanceof Error ? Promise.reject(data) : data) },
+      // `PushMessageData.json()` is synchronous and throws for text that is not JSON.
+      data: {
+        json: () => {
+          if (data instanceof Error) throw data;
+          return data;
+        },
+      },
       waitUntil: (p: Promise<unknown>) => (waiting = p),
     });
     await waiting;

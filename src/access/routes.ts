@@ -43,6 +43,9 @@ export const ROUTES: RouteRule[] = [
   { route: '/places', page: { kind: 'account' } },
   // One place (DESIGN.md §20.8): the places with it open, which is the same page as `/places`.
   { route: '/places/[id]', page: { kind: 'account' } },
+  // The trips (DESIGN.md §20.9): the list, drawn on the device. One trip (§20.10) is the page at /t/<id>; what a person may see of it is decided by their role in the statements that fetch it (`/api/ops`), not by this page.
+  { route: '/trips', page: { kind: 'account' } },
+  { route: '/t/[id]', page: { kind: 'account' } },
   // Settings (DESIGN.md §21): the profile, sign-in and data, for the signed-in account only.
   { route: '/settings', page: { kind: 'account' } },
 

@@ -222,7 +222,7 @@ const serverCheckins = async (page: Page) =>
     await (
       await page.request.post('/api/sync', {
         headers: { origin: ORIGIN, 'content-type': 'application/json' },
-        data: { protocol: 1, outbox: [], cursor: 0, limit: 500 },
+        data: { protocol: 2, outbox: [], cursor: 0, trips: {}, limit: 500 },
       })
     ).json()
   ).account.checkins as { id: string; note?: string }[];

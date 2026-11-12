@@ -1,6 +1,7 @@
 import type { CheckinView, PlaceView } from '../actions/types';
 import { yearOf } from '../figures/figures';
 import { normalizeName } from '../places/match';
+import { TRIP_ID } from '../trips/format';
 
 /**
  * The timeline (DESIGN.md §20.6), apart from how it looks: **every check-in, newest first, grouped by the day it was in its own zone**, each row the place, the time in its zone, the note's first line and the
@@ -14,6 +15,8 @@ export interface Filters {
   readonly category?: string | undefined;
   /** A country code, upper case. */
   readonly country?: string | undefined;
+  /** A trip's id: only the check-ins linked to that trip (DESIGN.md §20.6). */
+  readonly trip?: string | undefined;
   /** What was typed in the search: words that all must be in a place's name or a note, in any order. */
   readonly q: string;
 }
@@ -28,8 +31,9 @@ export function parseFilters(search: string | URLSearchParams): Filters {
   const country = /^[A-Za-z]{2}$/.test(params.get('country') ?? '')
     ? (params.get('country') as string).toUpperCase()
     : undefined;
+  const trip = TRIP_ID.test(params.get('trip') ?? '') ? (params.get('trip') as string) : undefined;
   const q = (params.get('q') ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  return { year, category, country, q };
+  return { year, category, country, trip, q };
 }
 
 /** The query that says these filters, to be put with the rest of an address (`checkin` and the like are kept by the caller). */
@@ -38,12 +42,17 @@ export function filterParams(filters: Filters): Record<string, string> {
   if (filters.year !== undefined) out.year = String(filters.year);
   if (filters.category) out.category = filters.category;
   if (filters.country) out.country = filters.country;
+  if (filters.trip) out.trip = filters.trip;
   if (filters.q) out.q = filters.q;
   return out;
 }
 
 export const isFiltered = (filters: Filters): boolean =>
-  filters.year !== undefined || !!filters.category || !!filters.country || filters.q !== '';
+  filters.year !== undefined ||
+  !!filters.category ||
+  !!filters.country ||
+  !!filters.trip ||
+  filters.q !== '';
 
 /** The check-in's own local date, `YYYY-MM-DD`: its moment on the clock where it was made. */
 export const localDateOf = (checkin: Pick<CheckinView, 'at' | 'offsetMin'>): string =>
@@ -74,6 +83,7 @@ export function filterCheckins(
       return false;
     if (filters.category && (place?.category ?? '') !== filters.category) return false;
     if (filters.country && countryOf(place) !== filters.country) return false;
+    if (filters.trip && checkin.tripId !== filters.trip) return false;
     if (words.length > 0) {
       const text = haystack(checkin, place);
       if (!words.every((word) => text.includes(word))) return false;

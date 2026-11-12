@@ -1,0 +1,305 @@
+/* The trips list and its dialog (DESIGN.md §20.9). */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-5);
+  box-sizing: border-box;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: var(--sv-space-5) var(--sv-space-4);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.head h1 {
+  margin: 0;
+  font-size: var(--sv-font-size-xl);
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-3);
+}
+
+.search {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  min-height: 32px;
+  padding: 0 var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-full);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.chip[aria-pressed='true'] {
+  color: var(--sv-color-text-on-accent);
+  background: var(--sv-color-accent);
+  border-color: var(--sv-color-accent);
+}
+
+.chip:focus-visible,
+.card a:focus-visible,
+.swatch:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.count {
+  color: var(--sv-color-text-muted);
+}
+
+.chip[aria-pressed='true'] .count {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.group h2 {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--sv-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--sv-space-4);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  min-width: 0;
+}
+
+.title a {
+  overflow: hidden;
+  color: var(--sv-color-text-primary);
+  font-weight: var(--sv-font-weight-semibold);
+  text-overflow: ellipsis;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.title a:hover {
+  text-decoration: underline;
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--sv-radius-full);
+}
+
+.meta {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.route {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--sv-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  margin-top: auto;
+  padding-top: var(--sv-space-2);
+}
+
+.action {
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.swatches {
+  display: flex;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--sv-radius-full);
+  cursor: pointer;
+}
+
+.swatch[aria-checked='true'] {
+  border-color: var(--sv-color-text-primary);
+}
+
+.swatch .dot {
+  width: 16px;
+  height: 16px;
+}
+
+.found {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.found button {
+  display: block;
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.found button:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.chosen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.hint {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.problem {
+  margin: 0;
+  color: var(--sv-color-error-text);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sv-space-3);
+}
+
+/* The sidebar's Trips section (DESIGN.md §20.2). */
+.section {
+  margin: var(--sv-space-3) 0 0;
+  padding: 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sv-space-2) var(--sv-space-3) var(--sv-space-1);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sectionHead a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sectionHead a:hover {
+  color: var(--sv-color-text-primary);
+}
+
+.sectionHead {
+  margin: 0;
+}
+
+.status {
+  margin-left: auto;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+}

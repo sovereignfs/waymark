@@ -117,3 +117,9 @@
 .drawerNav .row {
   min-height: 48px;
 }
+
+/* The places and the Trips section under them: one block, with the collapse button kept at the bottom. */
+.groups {
+  display: flex;
+  flex-direction: column;
+}

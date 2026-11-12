@@ -131,6 +131,24 @@ describe('days, in each check-in’s own zone', () => {
 });
 
 describe('the filters of the query', () => {
+  it('include a trip, by its id, and only the check-ins linked to it', () => {
+    const trip = '0a1b2c3d-1111-4222-8333-444455556666';
+    const linked = [
+      checkin('t1', 'flore', at('2026-03-10T10:00'), 60, { tripId: trip, linkSource: 'auto' }),
+      checkin('t2', 'eiffel', at('2026-03-10T15:00'), 60, { tripId: 'other' }),
+      checkin('t3', 'se', at('2026-03-11T15:00'), 60),
+    ];
+    const filters = parseFilters(`trip=${trip}`);
+    expect(filters.trip).toBe(trip);
+    expect(filterParams(filters)).toEqual({ trip });
+    expect(isFiltered(filters)).toBe(true);
+    expect(filterCheckins(linked, MAP, filters).map((c) => c.id)).toEqual(['t1']);
+    // Anything that is not a trip's id is no filter.
+    for (const hostile of ['trip=1', 'trip=%3Cscript%3E', `trip=${trip}x`, 'trip[]=a'])
+      expect(parseFilters(hostile).trip, hostile).toBeUndefined();
+    expect(filterCheckins(linked, MAP, parseFilters('trip=nope')).length).toBe(3);
+  });
+
   it('are read from it, and anything that is not one is no filter', () => {
     expect(parseFilters('year=2026&category=Cafe&country=fr&q=%20the%20%20view%20')).toEqual({
       year: 2026,

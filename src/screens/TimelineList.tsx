@@ -20,7 +20,9 @@ import {
   parseFilters,
   windowOf,
 } from './timeline';
+import { DOT } from './trips';
 import { usePageLocation } from './useLocation';
+import { useTripCards } from './useTrips';
 
 /**
  * The timeline (DESIGN.md §20.6): every check-in on the device, newest first, grouped by the day it was in its own zone, with the filters in the query. **Only the rows in view are drawn** (`timeline.ts`'s window,
@@ -48,6 +50,9 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
   );
   const all = local?.checkins ?? [];
   const options = useMemo(() => filterOptions(all, placeMap), [all, placeMap]);
+  // The trips the device holds, for the filter and for the dot on a linked check-in.
+  const { cards: trips } = useTripCards();
+  const tripMap = useMemo(() => new Map(trips.map((trip) => [trip.id, trip])), [trips]);
   const shown = useMemo(() => filterCheckins(all, placeMap, filters), [all, placeMap, filters]);
   const items = useMemo(() => buildItems(shown, placeMap), [shown, placeMap]);
   const { offsets, total } = useMemo(() => layout(items), [items]);
@@ -88,7 +93,13 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
 
   const set = (patch: Record<string, string | undefined>) => loc.setQuery(patch);
   const clear = () =>
-    set({ year: undefined, category: undefined, country: undefined, q: undefined });
+    set({
+      year: undefined,
+      category: undefined,
+      country: undefined,
+      trip: undefined,
+      q: undefined,
+    });
   const open = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (
       event.defaultPrevented ||
@@ -120,6 +131,7 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
       );
     }
     const href = `/c/${item.checkin.id}${carried}`;
+    const linked = item.checkin.tripId ? tripMap.get(item.checkin.tripId) : undefined;
     return (
       <div key={item.checkin.id} className={styles.item} style={style} role="listitem">
         <a
@@ -131,7 +143,18 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
           <span className={styles.time}>{item.time}</span>
           <Icon name={categoryIcon(item.place?.category)} aria-hidden />
           <span className={styles.main}>
-            <span className={styles.name}>{item.place?.name ?? 'A place'}</span>
+            <span className={styles.name}>
+              {item.place?.name ?? 'A place'}
+              {linked ? (
+                <span
+                  className={styles.tripDot}
+                  style={{ background: DOT[linked.color] }}
+                  role="img"
+                  aria-label={`Part of ${linked.name}`}
+                  title={linked.name}
+                />
+              ) : null}
+            </span>
             {item.line ? <span className={styles.line}>{item.line}</span> : null}
           </span>
           {item.photo ? (
@@ -211,6 +234,25 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
             </Select>
           )}
         </FormField>
+        {trips.length > 0 ? (
+          <FormField label="Trip">
+            {(field) => (
+              <Select
+                {...field}
+                name="trip"
+                value={filters.trip ?? ''}
+                onChange={(event) => set({ trip: event.target.value })}
+              >
+                <option value="">All</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+        ) : null}
         {isFiltered(filters) ? (
           <Button type="button" variant="secondary" onClick={clear}>
             Clear
