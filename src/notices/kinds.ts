@@ -1,5 +1,5 @@
 /**
- * The kinds of notice there are (DESIGN.md §17.1), in a file of their own so that the notices and the preferences about them can both name them. Phase 1 has one, and phase 2 adds `organizer_passed` (9.1), `trip_ready` and `trip_dates` (9.4), `role_changed` (10.1), `checkin_shared` (10.3), `edit_replaced` (6.6), `trip_starts`, `item_soon` and `day_plan` (13.4); the rest of phases 2 and 3 are added by the
+ * The kinds of notice there are (DESIGN.md §17.1), in a file of their own so that the notices and the preferences about them can both name them. Phase 1 has one, and phase 2 adds `organizer_passed` (9.1), `trip_ready` and `trip_dates` (9.4), `role_changed` (10.1), `checkin_shared` (10.3), `edit_replaced` (6.6), `trip_starts`, `item_soon` and `day_plan` (13.4), `invited` and `invite_accepted` (10.2); the rest of phases 2 and 3 are added by the
  * tasks that raise them, here, with the sentence a person reads for each in `prefs.ts`.
  */
 export const KINDS = [
@@ -13,5 +13,7 @@ export const KINDS = [
   'trip_starts',
   'item_soon',
   'day_plan',
+  'invited',
+  'invite_accepted',
 ] as const;
 export type NoticeKind = (typeof KINDS)[number];

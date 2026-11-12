@@ -53,6 +53,25 @@ export function resetMessage(app: string, to: string, link: string): Message {
 }
 
 /**
+ * An invitation to a trip, by email (DESIGN.md §11.2) to an address that may have no account: who invited, the trip's name, one link, and that nothing happens until the link is used. It names the trip and the inviter, which the person
+ * invited is meant to be told, and nothing else of the trip.
+ */
+export function invitationMessage(
+  app: string,
+  to: string,
+  inviter: string,
+  trip: string,
+  link: string,
+): Message {
+  return withHtml({
+    kind: 'notice',
+    to,
+    subject: `${inviter} invited you to “${trip}” on ${app}`,
+    text: `${inviter} invited you to “${trip}” on ${app}.\n\nTo see it and join, open:\n\n${link}\n\nThe link can be used once and ends in 14 days. If you do not know ${inviter}, ignore this: nothing happens until the link is used.\n`,
+  });
+}
+
+/**
  * A notice, by email (DESIGN.md §17.2): its title and what it says, one link to where it goes, and one to Settings, where the person chooses what is emailed. It is Waymark's own words, and names no place
  * or person that the reader may not see (a notice never does).
  */

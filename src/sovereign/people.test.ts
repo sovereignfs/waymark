@@ -82,6 +82,7 @@ const STAYS: string[] = [
   'attachment',
   'trip_link',
   'trip_tombstone',
+  'invitation',
 ];
 /** Tables that are about something else than a person. */
 const NOT_A_PERSON = ['job_claim', 'rate_limit', 'notice_seen', 'key_rotation', 'relink'];
@@ -311,6 +312,19 @@ describe(`deleting a person (${leg})`, () => {
         sql`INSERT INTO ${sql.raw(app('item_done'))} (trip_id, item_id, account_id, done_at) VALUES (${shared.id}, ${`item-${owner}`}, ${owner}, ${NOW}) RETURNING item_id`,
       );
 
+    // Invitations to the shared trip: one Ada made, one Grace made that Ada accepted, one Grace made for Ada by name, and one Grace made for nobody. Ada's own and the one for her go; the others stay, with no name of Ada's on them.
+    for (const [key, by, target, acceptedBy] of [
+      ['inv-by-ada', ada, null, null],
+      ['inv-ada-accepted', grace, null, ada],
+      ['inv-for-ada', grace, ada, null],
+      ['inv-link', grace, null, null],
+    ] as const)
+      await dbAll(
+        database,
+        sql`INSERT INTO ${sql.raw(app('invitation'))} (id, trip_id, role, via, invited_by, target_account_id, token_hash, last_sent_at, expires_at, accepted_by, accepted_at, revoked_at, sealed, created_at)
+            VALUES (${key}, ${shared.id}, 'traveler', 'link', ${by}, ${target}, ${`hash-${key}`}, ${NOW}, ${NOW + 1000}, ${acceptedBy}, ${acceptedBy ? NOW : null}, NULL, ${sealer.seal('invitation', key, {})}, ${NOW}) RETURNING id`,
+      );
+
     // A device each can be pushed to, with a push waiting for it: Ada’s go with her.
     for (const owner of [ada, grace]) {
       const device = `device-${owner}`;
@@ -360,6 +374,20 @@ describe(`deleting a person (${leg})`, () => {
       },
     };
     expect(await deletePerson(deps, ada)).toEqual({ files: 2 });
+    expect(
+      (
+        await dbAll<{ id: string }>(
+          database,
+          sql.raw(`SELECT id FROM ${app('invitation')} ORDER BY id`),
+        )
+      ).map((r) => r.id),
+    ).toEqual(['inv-ada-accepted', 'inv-link']);
+    expect(
+      await count(
+        'invitation',
+        `accepted_by = '${ada}' OR invited_by = '${ada}' OR target_account_id = '${ada}'`,
+      ),
+    ).toBe(0);
     for (const table of ['push_subscription', 'push_outbox']) {
       expect(await count(table, `account_id = '${ada}'`), table).toBe(0);
       expect(await count(table, `account_id = '${grace}'`), table).toBe(1);

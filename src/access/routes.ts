@@ -67,6 +67,18 @@ export const ROUTES: RouteRule[] = [
   { route: '/api/notices', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   // What is emailed (DESIGN.md §17.2, §21): the account's own choices, read and changed; every statement names the account.
   { route: '/api/notices/prefs', methods: { GET: { kind: 'account' }, PUT: { kind: 'account' } } },
+  // Invitations (DESIGN.md §11.2): what a link shows is public to whoever holds it and says the same for every link that cannot be used; accepting is an account's.
+  {
+    route: '/api/invitations/[token]',
+    methods: {
+      GET: {
+        kind: 'public',
+        because:
+          'the page at /invite/<token> shows the trip’s name, dates and inviter to whoever holds the link, before they sign in',
+      },
+    },
+  },
+  { route: '/api/invitations/accept', methods: { POST: { kind: 'account' } } },
   // Web Push (DESIGN.md §17.3): the account's own devices, listed, turned on and turned off; every statement names the account.
   {
     route: '/api/push',

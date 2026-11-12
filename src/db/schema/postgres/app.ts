@@ -579,3 +579,30 @@ export const reminderSent = app.table(
     index('reminder_sent_at_idx').on(table.sentAt),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const invitation = app.table(
+  'invitation',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    role: text('role').notNull(),
+    via: text('via').notNull(),
+    invitedBy: ref('invited_by'),
+    targetAccountId: ref('target_account_id'),
+    tokenHash: text('token_hash').notNull(),
+    lastSentAt: epochMs('last_sent_at').notNull(),
+    expiresAt: epochMs('expires_at').notNull(),
+    acceptedBy: ref('accepted_by'),
+    acceptedAt: epochMs('accepted_at'),
+    revokedAt: epochMs('revoked_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('invitation_token_idx').on(table.tokenHash),
+    index('invitation_trip_idx').on(table.tripId),
+    index('invitation_invited_by_idx').on(table.invitedBy),
+    index('invitation_target_idx').on(table.targetAccountId),
+  ],
+);

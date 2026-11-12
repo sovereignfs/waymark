@@ -196,6 +196,8 @@ describe(`the choices over HTTP (${leg})`, () => {
         expect.objectContaining({ kind: 'trip_starts' }),
         expect.objectContaining({ kind: 'item_soon' }),
         expect.objectContaining({ kind: 'day_plan' }),
+        expect.objectContaining({ kind: 'invited' }),
+        expect.objectContaining({ kind: 'invite_accepted' }),
       ],
     });
     expect((await (await get(t.grace)).json()).kinds[0].email).toBe(true);

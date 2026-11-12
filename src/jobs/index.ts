@@ -21,6 +21,7 @@ import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
 import { dropStale as dropStalePush, sendDue as sendPushDue } from '../push/outbox';
 import { serverPush } from '../push/server';
+import { pruneInvitations } from '../invitations/service';
 import { pruneSent, sendReminders } from '../reminders/server';
 import { noticeDelivery } from '../notices/server';
 import { getConfig } from '../config/current';
@@ -135,6 +136,8 @@ export const jobs: readonly JobDefinition[] = [
       const pruned = await pruneNotices({ database, now: () => now.getTime() });
       if (pruned.old + pruned.over > 0)
         console.info(`[waymark] notices: pruned ${pruned.old + pruned.over}`);
+      // Invitations used, revoked or run out a month ago go with them.
+      await pruneInvitations(database, now.getTime());
     },
   },
   {

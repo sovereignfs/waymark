@@ -16,6 +16,14 @@ import {
   removeLink,
   updateLink,
 } from './links';
+import {
+  createInvitation,
+  listInvitations,
+  resendInvitation,
+  revokeInvitation,
+  type InvitationView,
+  type Sent,
+} from '../invitations/service';
 import { readPrefs, setPrefs, type PrefsPatch } from '../reminders/prefs';
 import type { ReminderPrefs } from '../reminders/due';
 import { leaveTrip, removeMember } from './leaving';
@@ -81,6 +89,10 @@ export type Op =
   | { op: 'member.going'; tripId: string; going: boolean }
   | { op: 'member.share'; tripId: string; choice: string }
   | { op: 'member.leave'; tripId: string; successor?: string }
+  | { op: 'invite.create'; tripId: string; role: unknown; accountId?: unknown; email?: unknown }
+  | { op: 'invite.list'; tripId: string }
+  | { op: 'invite.revoke'; tripId: string; invitationId: string }
+  | { op: 'invite.resend'; tripId: string; invitationId: string }
   | { op: 'reminder.get'; tripId: string }
   | ({ op: 'reminder.set'; tripId: string } & PrefsPatch)
   | { op: 'member.remove'; tripId: string; accountId: string }
@@ -162,6 +174,11 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   // Anyone in the trip leaves it; only an Organizer removes someone else (DESIGN.md §11.4).
   'member.leave': 'member',
   // A member's own reminder settings for the trip: Organizers and Travelers, who go (DESIGN.md §14.4).
+  // Only an Organizer invites, and only an Organizer sees who is waiting (DESIGN.md §11.1, §11.2).
+  'invite.create': 'organizer',
+  'invite.list': 'organizer',
+  'invite.revoke': 'organizer',
+  'invite.resend': 'organizer',
   'reminder.get': 'editor',
   'reminder.set': 'editor',
   'member.remove': 'organizer',
@@ -209,6 +226,10 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'member.going': ['op', 'tripId', 'going'],
   'member.share': ['op', 'tripId', 'choice'],
   'member.leave': ['op', 'tripId', 'successor'],
+  'invite.create': ['op', 'tripId', 'role', 'accountId', 'email'],
+  'invite.list': ['op', 'tripId'],
+  'invite.revoke': ['op', 'tripId', 'invitationId'],
+  'invite.resend': ['op', 'tripId', 'invitationId'],
   'reminder.get': ['op', 'tripId'],
   'reminder.set': ['op', 'tripId', 'tripStarts', 'itemSoon', 'leadMin', 'flexible', 'dayPlan'],
   'member.remove': ['op', 'tripId', 'accountId'],
@@ -268,6 +289,8 @@ const NAMES: Partial<Record<OpName, readonly string[]>> = {
   'item.delete': ['itemId'],
   'day.moveItems': ['fromDayId', 'toDayId'],
   'day.clearItems': ['dayId'],
+  'invite.revoke': ['invitationId'],
+  'invite.resend': ['invitationId'],
   'link.update': ['linkId'],
   'link.move': ['linkId'],
   'link.remove': ['linkId'],
@@ -369,6 +392,9 @@ export type OpResult =
   | { ok: true; links: LinkView[] }
   | { ok: true; choice: ShareChoice }
   | { ok: true; left: true }
+  | { ok: true; invitation: Sent }
+  | { ok: true; invitations: InvitationView[] }
+  | { ok: true; revoked: true }
   | { ok: true; reminders: ReminderPrefs }
   | { ok: true; checkins: SharedCheckin[] }
   | { ok: true; attachments: AttachmentView[] }
@@ -441,6 +467,22 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       case 'member.going': {
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'invite.create': {
+        const invitation = await createInvitation(deps, accountId, op.tripId, op);
+        return invitation ? { ok: true, invitation } : NOT_FOUND;
+      }
+      case 'invite.list': {
+        const invitations = await listInvitations(deps, accountId, op.tripId);
+        return invitations ? { ok: true, invitations } : NOT_FOUND;
+      }
+      case 'invite.revoke':
+        return (await revokeInvitation(deps, accountId, op.tripId, op.invitationId))
+          ? { ok: true, revoked: true }
+          : NOT_FOUND;
+      case 'invite.resend': {
+        const invitation = await resendInvitation(deps, accountId, op.tripId, op.invitationId);
+        return invitation ? { ok: true, invitation } : NOT_FOUND;
       }
       case 'reminder.get':
       case 'reminder.set': {

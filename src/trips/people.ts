@@ -36,6 +36,16 @@ export async function endMembershipsOf(
   const memberTable = tableOf(tx, 'trip_member');
   // Nothing of theirs stays in any trip: their copies of shared check-ins go first (a trip they were alone in goes below, with the rest of its rows).
   await dropCopiesOf(tx, accountId, undefined, now);
+  // Invitations they made are revoked (removed, links and all), invitations to them go, and the record of who accepted forgets them: nothing names them.
+  for (const column of ['invited_by', 'target_account_id'])
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${tableOf(tx, 'invitation')} WHERE ${sql.raw(column)} = ${accountId} RETURNING id`,
+    );
+  await dbAll(
+    tx,
+    sql`UPDATE ${tableOf(tx, 'invitation')} SET accepted_by = NULL WHERE accepted_by = ${accountId} RETURNING id`,
+  );
   // Their reminder settings and what was sent them, in every trip.
   for (const name of ['reminder_pref', 'reminder_sent'])
     await dbAll(

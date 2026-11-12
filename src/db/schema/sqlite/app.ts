@@ -706,3 +706,34 @@ export const reminderSent = sqliteTable(
     index('reminder_sent_at_idx').on(table.sentAt),
   ],
 );
+
+/**
+ * An invitation to a trip (DESIGN.md §11.2, §24.3): **one trip, one role**, made by an Organizer. Its token is 32 random bytes shown once (in the link) and **kept only as its hash** (`token_hash`), compared in constant time; it is valid 14 days
+ * (`expires_at`), **single-use** (`accepted_at`) and revocable (`revoked_at`). It is for a person the Organizer shares a trip with (`target_account_id`, told by a notice), for an email address (the address is sealed, `SEALED.invitation`), or
+ * for nobody in particular (a link): whoever holds the link can accept it, once. Removed with the trip and with the people it names.
+ */
+export const invitation = sqliteTable(
+  'invitation',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    role: text('role').notNull(),
+    via: text('via').notNull(),
+    invitedBy: ref('invited_by'),
+    targetAccountId: ref('target_account_id'),
+    tokenHash: text('token_hash').notNull(),
+    lastSentAt: epochMs('last_sent_at').notNull(),
+    expiresAt: epochMs('expires_at').notNull(),
+    acceptedBy: ref('accepted_by'),
+    acceptedAt: epochMs('accepted_at'),
+    revokedAt: epochMs('revoked_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('invitation_token_idx').on(table.tokenHash),
+    index('invitation_trip_idx').on(table.tripId),
+    index('invitation_invited_by_idx').on(table.invitedBy),
+    index('invitation_target_idx').on(table.targetAccountId),
+  ],
+);

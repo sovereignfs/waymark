@@ -1,8 +1,8 @@
+import type { InviteDeps } from '../invitations/service';
 import { readCapped } from '../access/body';
 import type { Limiter, Rule } from '../limits/rate';
 import { type Op, applyOp, parseOp } from './ops';
 import type { MediaDeps } from '../media/service';
-import type { TripDeps } from './trips';
 
 /**
  * `POST /api/ops` (DESIGN.md §15.7): one operation on a trip, from a person who is signed in. The route (`app/api/ops/route.ts`) is wrapped in `accountRoute`, which has found the session and checked `Origin`; this is what
@@ -11,7 +11,7 @@ import type { TripDeps } from './trips';
  * **The status line is for the request, and the body for the operation.** A request is refused whole when it is not an operation (400), is too big (413) or comes too often (429). An operation that is refused is answered `200`
  * with its refusal, which says no more than `not_found` for what is not theirs.
  */
-export interface OpsDeps extends TripDeps {
+export interface OpsDeps extends InviteDeps {
   readonly limiter: Limiter;
   /** The media store, for the operations on attachments. */
   readonly media: MediaDeps;

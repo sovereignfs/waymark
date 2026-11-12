@@ -26,6 +26,8 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   trip_starts: 'A trip you are going on starts tomorrow',
   item_soon: 'A timed item on your trip is coming up',
   day_plan: 'The day’s plan, each morning of a trip',
+  invited: 'You are invited to a trip',
+  invite_accepted: 'Someone accepts an invitation you made',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
@@ -45,6 +47,9 @@ export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, bool
   trip_starts: { email: true, core: true, push: true },
   item_soon: { email: false, core: true, push: true },
   day_plan: { email: false, core: true, push: true },
+  // An invitation is worth an email as well as the bell; its acceptance is news for the bell.
+  invited: { email: true, core: true, push: true },
+  invite_accepted: { email: false, core: true, push: false },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

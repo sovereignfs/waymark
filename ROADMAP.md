@@ -180,7 +180,7 @@ their role allows and nothing more, and a check-in reaches the trip only when sh
 | --- | ------------------------------ | ----------------------------------------------------- | -------- | ---------------- | ------ |
 | 70  | [17.2](docs/epics/upstream.md) | `AUTH_SIGNUP` by invitation (`sovereign`, with Tally) | P1       | —                | 📋     |
 | 71  | [10.1](docs/epics/sharing.md)  | Roles                                                 | P0       | 9.1              | ✅     |
-| 72  | [10.2](docs/epics/sharing.md)  | Invitations                                           | P1       | 10.1, 12.2, 17.2 | 📋     |
+| 72  | [10.2](docs/epics/sharing.md)  | Invitations                                           | P1       | 10.1, 12.2, 17.2 | ⏳     |
 | 73  | [10.3](docs/epics/sharing.md)  | Sharing check-ins with a trip                         | P1       | 10.1, 6.6, 9.7   | ✅     |
 | 74  | [10.4](docs/epics/sharing.md)  | Leaving, removing and handing over                    | P1       | 10.1, 10.3       | ✅     |
 | 75  | [14.2](docs/epics/suite.md)    | Core's directory                                      | P2       | 2.3, 10.2        | 📋     |

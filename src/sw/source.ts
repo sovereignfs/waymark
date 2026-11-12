@@ -94,6 +94,8 @@ const PUSH_WORDS = {
   trip_starts: 'Your trip starts soon.',
   item_soon: 'Something on your trip is coming up.',
   day_plan: 'Today’s plan is ready.',
+  invited: 'You are invited to a trip.',
+  invite_accepted: 'Someone joined your trip.',
 };
 const PUSH_FALLBACK = 'Waymark has something for you.';
 const isAppPath = (path) => typeof path === 'string' && /^\\/(?![/\\\\])/.test(path) && path.length < 500;

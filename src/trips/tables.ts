@@ -20,6 +20,8 @@ export const TRIP_TABLES: readonly {
   { table: 'item', action: 'delete' },
   // A person's Done marks on items (13.1): theirs alone, and no use once the trip is gone.
   { table: 'item_done', action: 'delete' },
+  // Invitations to the trip (10.2): they go with it, links and all.
+  { table: 'invitation', action: 'delete' },
   // A member's reminder settings and the record of what was sent (13.4): theirs, and no use once the trip is gone.
   { table: 'reminder_pref', action: 'delete' },
   { table: 'reminder_sent', action: 'delete' },
