@@ -39,6 +39,12 @@ async function endMembership(
 ): Promise<boolean> {
   await unlinkCheckins(tx, tripId, now, who);
   await dropCopiesOf(tx, who, tripId, now);
+  // Their reminder settings, and what was sent them, are theirs and of no use to a trip they are not in.
+  for (const name of ['reminder_pref', 'reminder_sent'])
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${tableOf(tx, name)} WHERE trip_id = ${tripId} AND account_id = ${who} RETURNING account_id`,
+    );
   // Their Done marks are theirs, and of no use to a trip they are not in.
   await dbAll(
     tx,

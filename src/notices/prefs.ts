@@ -23,6 +23,9 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
   role_changed: 'Your part in a trip is changed by an Organizer',
   checkin_shared: 'A Traveler shares a check-in with a trip you are in',
   edit_replaced: 'Someone else changed an item right after you, and their change stands',
+  trip_starts: 'A trip you are going on starts tomorrow',
+  item_soon: 'A timed item on your trip is coming up',
+  day_plan: 'The day’s plan, each morning of a trip',
 };
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
@@ -38,6 +41,10 @@ export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, bool
   checkin_shared: { email: false, core: false, push: false },
   // Said in the bell and by core's bell: your own words were replaced, which you should be able to find.
   edit_replaced: { email: false, core: true, push: false },
+  // Trip Mode's reminders (DESIGN.md §14.4). The bell always; a trip's start is also emailed; a reminder is worth little unless it reaches the device, so push is on for all three (it applies only to a person who turned push on).
+  trip_starts: { email: true, core: true, push: true },
+  item_soon: { email: false, core: true, push: true },
+  day_plan: { email: false, core: true, push: true },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

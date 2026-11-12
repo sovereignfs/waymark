@@ -49,6 +49,8 @@ const GOES = [
   'checkin_photo',
   'shared_checkin',
   'item_done',
+  'reminder_pref',
+  'reminder_sent',
   'push_subscription',
   'push_outbox',
   'trip_member',

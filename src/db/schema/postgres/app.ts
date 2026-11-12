@@ -539,3 +539,43 @@ export const pushOutbox = app.table(
     index('push_outbox_account_idx').on(table.accountId),
   ],
 );
+
+/**
+ * A member's settings for a trip's reminders (DESIGN.md §14.4): **theirs, for this trip** (the channels per kind are in Settings, `notice_pref`). A row only when they changed something; without one the defaults are `trip_starts` on,
+ * `item_soon` on for fixed items, 30 minutes before, and `day_plan` off. Made and changed by the member alone; removed with the trip, when they leave it and with their account.
+ */
+export const reminderPref = app.table(
+  'reminder_pref',
+  {
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    tripStarts: bool('trip_starts').notNull().default(true),
+    itemSoon: bool('item_soon').notNull().default(true),
+    leadMin: counter('lead_min').notNull().default(30),
+    flexible: bool('flexible').notNull().default(false),
+    dayPlan: bool('day_plan').notNull().default(false),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.accountId] }),
+    index('reminder_pref_account_idx').on(table.accountId),
+  ],
+);
+
+/**
+ * A reminder that was sent (DESIGN.md §14.4): **once for each person and `key`**, which names what it was about (the trip, a day, an item **and the time it was at**, so an item moved to a new time can remind again). The key is written
+ * in the same transaction as the notice and decides, by its primary key, which of two workers sends it. Kept a month for that, then pruned. Nothing in it says where anyone was.
+ */
+export const reminderSent = app.table(
+  'reminder_sent',
+  {
+    tripId: ref('trip_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    key: text('key').notNull(),
+    sentAt: epochMs('sent_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.accountId, table.key] }),
+    index('reminder_sent_at_idx').on(table.sentAt),
+  ],
+);

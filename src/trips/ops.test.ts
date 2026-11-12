@@ -104,6 +104,8 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   'member.going': (id) => ({ op: 'member.going', tripId: id, going: false }),
   'member.share': (id) => ({ op: 'member.share', tripId: id, choice: 'on' }),
   'member.leave': (id) => ({ op: 'member.leave', tripId: id }),
+  'reminder.get': (id) => ({ op: 'reminder.get', tripId: id }),
+  'reminder.set': (id) => ({ op: 'reminder.set', tripId: id, leadMin: 15 }),
   'member.remove': (id) => ({ op: 'member.remove', tripId: id, accountId: NOOR }),
   'checkin.shared': (id) => ({ op: 'checkin.shared', tripId: id }),
   'stop.add': (id) => ({

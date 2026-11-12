@@ -21,6 +21,9 @@ import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
 import { dropStale as dropStalePush, sendDue as sendPushDue } from '../push/outbox';
 import { serverPush } from '../push/server';
+import { pruneSent, sendReminders } from '../reminders/server';
+import { noticeDelivery } from '../notices/server';
+import { getConfig } from '../config/current';
 import { nameWaitingPlaces } from '../places/naming';
 import { serverFind } from '../places/server';
 import { workOnRelinks } from '../autolink/queue';
@@ -150,6 +153,28 @@ export const jobs: readonly JobDefinition[] = [
         console.info(
           `[waymark] mail: ${pass.sent} sent, ${pass.retry} to try again, ${pass.gaveUp + stale} given up on`,
         );
+    },
+  },
+  {
+    // Trip Mode's reminders (DESIGN.md §14.4): every minute, what is due for the members of trips that are on or about to be, each sent once (a key written with the notice decides which of two workers sends it). Under a lease as well, so that of several
+    // processes one looks. It logs a count, never an item, a place or a name.
+    name: 'reminders',
+    everyMs: 60 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const database = await getDatabase();
+      if (!(await claimJob(database, 'reminders', 45 * 1000, now.getTime()))) return;
+      const sealer = serverSealer();
+      const sent = await sendReminders({
+        database,
+        sealer,
+        now: () => now.getTime(),
+        limits: getConfig().limits,
+        delivery: noticeDelivery,
+      });
+      const pruned = await pruneSent(database, now.getTime());
+      if (sent.sent + pruned > 0)
+        console.info(`[waymark] reminders: ${sent.sent} sent, ${pruned} forgotten`);
     },
   },
   {

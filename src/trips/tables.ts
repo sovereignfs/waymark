@@ -20,6 +20,9 @@ export const TRIP_TABLES: readonly {
   { table: 'item', action: 'delete' },
   // A person's Done marks on items (13.1): theirs alone, and no use once the trip is gone.
   { table: 'item_done', action: 'delete' },
+  // A member's reminder settings and the record of what was sent (13.4): theirs, and no use once the trip is gone.
+  { table: 'reminder_pref', action: 'delete' },
+  { table: 'reminder_sent', action: 'delete' },
   // Files of the trip (9.5): the attachment rows and their `media` rows go with it, and **their files on disk after the transaction** (`removeTripRows` returns their ids).
   { table: 'attachment', action: 'delete' },
   // A trip's links (9.6): addresses it never fetches.

@@ -512,6 +512,14 @@ export async function removeTripRows(tx: Database, tripId: string, now: number):
   );
   await dbAll(
     tx,
+    sql`DELETE FROM ${tableOf(tx, 'reminder_pref')} WHERE trip_id = ${tripId} RETURNING account_id`,
+  );
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'reminder_sent')} WHERE trip_id = ${tripId} RETURNING key`,
+  );
+  await dbAll(
+    tx,
     sql`DELETE FROM ${tableOf(tx, 'trip_tombstone')} WHERE trip_id = ${tripId} RETURNING row_id`,
   );
   await dbAll(

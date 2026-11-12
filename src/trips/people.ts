@@ -36,6 +36,12 @@ export async function endMembershipsOf(
   const memberTable = tableOf(tx, 'trip_member');
   // Nothing of theirs stays in any trip: their copies of shared check-ins go first (a trip they were alone in goes below, with the rest of its rows).
   await dropCopiesOf(tx, accountId, undefined, now);
+  // Their reminder settings and what was sent them, in every trip.
+  for (const name of ['reminder_pref', 'reminder_sent'])
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${tableOf(tx, name)} WHERE account_id = ${accountId} RETURNING account_id`,
+    );
   // Their Done marks, in every trip.
   await dbAll(
     tx,

@@ -193,6 +193,9 @@ describe(`the choices over HTTP (${leg})`, () => {
         expect.objectContaining({ kind: 'role_changed' }),
         expect.objectContaining({ kind: 'checkin_shared', email: false }),
         expect.objectContaining({ kind: 'edit_replaced' }),
+        expect.objectContaining({ kind: 'trip_starts' }),
+        expect.objectContaining({ kind: 'item_soon' }),
+        expect.objectContaining({ kind: 'day_plan' }),
       ],
     });
     expect((await (await get(t.grace)).json()).kinds[0].email).toBe(true);
@@ -204,7 +207,7 @@ describe(`the choices over HTTP (${leg})`, () => {
 
   it('refuses a kind or channel that is not one, a choice that is not yes or no, and a field it does not know, naming nothing of it', async () => {
     for (const body of [
-      { kind: 'trip_starts', channel: 'email', on: true },
+      { kind: 'trip_teleports', channel: 'email', on: true },
       { kind: 'import_finished', channel: 'sms', on: true },
       { kind: 'import_finished', channel: 'email', on: 'yes' },
       { kind: 'import_finished', channel: 'email' },

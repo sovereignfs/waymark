@@ -200,6 +200,9 @@ describe(`an export (${leg})`, () => {
       role_changed: false,
       checkin_shared: false,
       edit_replaced: false,
+      trip_starts: true,
+      item_soon: false,
+      day_plan: false,
     });
     expect(file.places.map((p) => p.id).sort()).toEqual(['ada-p1', 'ada-p2', 'ada-p3']);
     expect(file.checkins.map((c) => c.id).sort()).toEqual([

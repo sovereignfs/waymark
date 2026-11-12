@@ -16,6 +16,8 @@ import {
   removeLink,
   updateLink,
 } from './links';
+import { readPrefs, setPrefs, type PrefsPatch } from '../reminders/prefs';
+import type { ReminderPrefs } from '../reminders/due';
 import { leaveTrip, removeMember } from './leaving';
 import { setGoing, setRole } from './members';
 import { setShareChoice } from '../sharing/choice';
@@ -79,6 +81,8 @@ export type Op =
   | { op: 'member.going'; tripId: string; going: boolean }
   | { op: 'member.share'; tripId: string; choice: string }
   | { op: 'member.leave'; tripId: string; successor?: string }
+  | { op: 'reminder.get'; tripId: string }
+  | ({ op: 'reminder.set'; tripId: string } & PrefsPatch)
   | { op: 'member.remove'; tripId: string; accountId: string }
   | { op: 'checkin.shared'; tripId: string; after?: number }
   | {
@@ -157,6 +161,9 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   'member.share': 'editor',
   // Anyone in the trip leaves it; only an Organizer removes someone else (DESIGN.md §11.4).
   'member.leave': 'member',
+  // A member's own reminder settings for the trip: Organizers and Travelers, who go (DESIGN.md §14.4).
+  'reminder.get': 'editor',
+  'reminder.set': 'editor',
   'member.remove': 'organizer',
   'checkin.shared': 'member',
   'trip.update': 'organizer',
@@ -202,6 +209,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'member.going': ['op', 'tripId', 'going'],
   'member.share': ['op', 'tripId', 'choice'],
   'member.leave': ['op', 'tripId', 'successor'],
+  'reminder.get': ['op', 'tripId'],
+  'reminder.set': ['op', 'tripId', 'tripStarts', 'itemSoon', 'leadMin', 'flexible', 'dayPlan'],
   'member.remove': ['op', 'tripId', 'accountId'],
   'checkin.shared': ['op', 'tripId', 'after'],
   'stop.add': ['op', 'tripId', 'place', 'arrive', 'depart', 'note'],
@@ -360,6 +369,7 @@ export type OpResult =
   | { ok: true; links: LinkView[] }
   | { ok: true; choice: ShareChoice }
   | { ok: true; left: true }
+  | { ok: true; reminders: ReminderPrefs }
   | { ok: true; checkins: SharedCheckin[] }
   | { ok: true; attachments: AttachmentView[] }
   | { ok: true; attachment: AttachmentView }
@@ -431,6 +441,14 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       case 'member.going': {
         const trip = await setGoing(deps, accountId, op.tripId, op.going);
         return trip ? { ok: true, trip } : NOT_FOUND;
+      }
+      case 'reminder.get':
+      case 'reminder.set': {
+        const reminders =
+          op.op === 'reminder.get'
+            ? await readPrefs(deps, accountId, op.tripId)
+            : await setPrefs(deps, accountId, op.tripId, op);
+        return reminders ? { ok: true, reminders } : NOT_FOUND;
       }
       case 'member.leave': {
         const left = await leaveTrip(deps, accountId, op.tripId, op.successor);
