@@ -1,8 +1,9 @@
 'use client';
 
-import { type ReactNode, Suspense } from 'react';
+import { type ReactNode, Suspense, useEffect } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import { AccountMenu } from '../auth/screens/AccountMenu';
+import { rememberIdentity } from '../identity';
 import { LocalProvider } from '../local/LocalProvider';
 import { site } from '../site';
 import { AppShell } from '../ui/AppShell';
@@ -34,6 +35,11 @@ export function SignedInArea({
   email?: string;
   children: ReactNode;
 }) {
+  // Who is signed in is kept on the device, so that the offline shell can open the app for them (6.4). It is removed at sign-out.
+  useEffect(() => {
+    if (accountId && name !== undefined && email !== undefined)
+      rememberIdentity({ id: accountId, name, email });
+  }, [accountId, name, email]);
   const area = (
     <MobileNavProvider>
       <RegisterWorker />

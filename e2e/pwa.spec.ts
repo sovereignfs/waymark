@@ -92,6 +92,7 @@ test('the worker installs, keeps the shell and the build’s files and nothing e
     );
 
   await goOffline(context);
-  await page.goto('/checkins');
+  // Settings is read from the server, so with no network it says so (the app's own screens open from the device: e2e/offline.spec.ts).
+  await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'This needs a connection' })).toBeVisible();
 });

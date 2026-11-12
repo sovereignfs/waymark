@@ -175,10 +175,10 @@ describe('the service worker', () => {
   it('answers a page from the network as it would without a worker, and with none, says that it needs a connection', async () => {
     const worker = load();
     await worker.lifecycle('install');
-    const online = await worker.ask('/checkins', { mode: 'navigate' });
+    const online = await worker.ask('/settings', { mode: 'navigate' });
     expect(await online?.text()).toContain('Ada Lovelace');
     worker.state.online = false;
-    const offline = await worker.ask('/checkins', { mode: 'navigate' });
+    const offline = await worker.ask('/settings', { mode: 'navigate' });
     const body = (await offline?.text()) ?? '';
     expect(body).toContain('This needs a connection');
     // The page it builds says nothing of anyone, and allows no script.
@@ -186,7 +186,64 @@ describe('the service worker', () => {
     expect(offline?.headers.get('content-security-policy')).toContain("default-src 'none'");
     expect(offline?.headers.get('cache-control')).toBe('no-store');
     // And it kept none of what it was asked for.
-    expect(worker.kept().some((each) => each.path === '/checkins')).toBe(false);
+    expect(worker.kept().some((each) => each.path === '/settings')).toBe(false);
+  });
+
+  it('with no network, answers each of the app’s screens with the kept shell, which is the same for everyone', async () => {
+    const worker = load();
+    await worker.lifecycle('install');
+    worker.state.online = false;
+    for (const path of [
+      '/',
+      '/home',
+      '/checkins',
+      '/c/0a1b2c3d-1111-2222-3333-444455556666',
+      '/map',
+      '/places',
+      '/places/p_1-A',
+    ]) {
+      const answer = await worker.ask(path, { mode: 'navigate' });
+      expect(await answer?.text(), path).toBe('<html>the shell, for everyone</html>');
+    }
+    // Asking for them kept nothing: the cache is still the allow-list.
+    expect(worker.kept().every((each) => ALLOWED.test(each.path))).toBe(true);
+  });
+
+  it('with no network, answers every other address with the page that needs a connection, never the shell', async () => {
+    const worker = load();
+    await worker.lifecycle('install');
+    worker.state.online = false;
+    for (const path of [
+      '/settings',
+      '/notifications',
+      '/places/',
+      '/checkins/extra',
+      '/c/',
+      '/c/a/b',
+      '/sign-in',
+      '/shell/x',
+      '/homes',
+      '/api/health',
+    ]) {
+      const answer = await worker.ask(path, { mode: 'navigate' });
+      const body = (await answer?.text()) ?? '';
+      expect(body, path).toContain('This needs a connection');
+      expect(body, path).not.toContain('the shell');
+    }
+  });
+
+  it('with no network and no shell kept, still says that it needs a connection', async () => {
+    const worker = load();
+    worker.state.online = false;
+    const answer = await worker.ask('/checkins', { mode: 'navigate' });
+    expect(await answer?.text()).toContain('This needs a connection');
+  });
+
+  it('with a network, answers a screen from the network as it would without a worker', async () => {
+    const worker = load();
+    await worker.lifecycle('install');
+    const answer = await worker.ask('/checkins', { mode: 'navigate' });
+    expect(await answer?.text()).toContain('Ada Lovelace');
   });
 
   it('removes the caches of older versions when a new one activates, and no cache that is not its own', async () => {

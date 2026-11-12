@@ -15,6 +15,7 @@ import type { CheckinView, PlaceView } from '../actions/types';
 import { LIMITS, type Mutation } from '../sync/format';
 import { type Refused, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
+import { requestPersistence } from './persist';
 import { LocalStore } from './store';
 import { type SyncState, fetchTransport } from './sync';
 
@@ -93,6 +94,8 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         // IndexedDB is not there (a private window of an old browser): the app still works online, with nothing kept on the device.
         return;
       }
+      // What is on this device and not yet sent is only here: ask the browser to keep it (DESIGN.md §15.7). The browser decides, and a refusal is no error.
+      void requestPersistence();
       if (cancelled) return opened.close();
       store.current = opened;
       await read();

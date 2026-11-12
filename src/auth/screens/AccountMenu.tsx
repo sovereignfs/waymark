@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ConfirmDialog, UserMenu } from '@sovereignfs/ui';
+import { forgetIdentity } from '../../identity';
 import { useLocal } from '../../local/LocalProvider';
 import { authClient } from '../client';
 
@@ -46,6 +47,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
     }
     // The session is over, and so is this account's copy on the device.
     await local?.destroy().catch(() => undefined);
+    forgetIdentity();
     window.location.assign('/');
   }
 

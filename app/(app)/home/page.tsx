@@ -1,5 +1,5 @@
 import { requireAccount } from '@/src/auth/session';
-import { Placeholder } from '@/src/screens/Placeholder';
+import { HomeScreen } from '@/src/screens/HomeScreen';
 
 export const metadata = { title: 'Home' };
 
@@ -7,11 +7,5 @@ export const metadata = { title: 'Home' };
 // is sent back to `/`, so that there is one. The summary and the latest check-ins are 7.6.
 export default async function HomePage() {
   await requireAccount();
-  return (
-    <Placeholder
-      icon="house"
-      heading="Home"
-      description="Your latest check-ins and a summary of where you have been will be here."
-    />
-  );
+  return <HomeScreen />;
 }

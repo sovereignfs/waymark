@@ -24,7 +24,7 @@ the most visited first, with how many times; open one to see its check-ins, rena
 ## Working offline
 
 Waymark installs as an app on your phone or computer (use your browser's _Install_ or _Add to Home Screen_). What you do while you have no connection (checking in, editing, deleting) is kept on your device and sent when you
-are back online. Searching for a new place and the map need a connection. Opening Waymark itself with no connection is still being built.
+are back online. Opening Waymark with no connection works for Home, Check-ins, a check-in, Places and a place, once you have used Waymark on that device; Settings, notices, importing and exporting need a connection, and so do searching for a new place and the map.
 
 ## Bringing your places in
 
