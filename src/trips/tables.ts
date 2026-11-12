@@ -18,6 +18,8 @@ export const TRIP_TABLES: readonly {
   { table: 'day', action: 'delete' },
   // Things planned on a day (9.3).
   { table: 'item', action: 'delete' },
+  // A person's Done marks on items (13.1): theirs alone, and no use once the trip is gone.
+  { table: 'item_done', action: 'delete' },
   // Files of the trip (9.5): the attachment rows and their `media` rows go with it, and **their files on disk after the transaction** (`removeTripRows` returns their ids).
   { table: 'attachment', action: 'delete' },
   // A trip's links (9.6): addresses it never fetches.

@@ -89,7 +89,8 @@ export async function applyTripMutation(
 
       let sweep = false;
       for (const change of mutation.changes) {
-        if (change.table === 'day') await putDay(tx, deps, tripId, change, seq);
+        if (change.table === 'item_done') await markDone(tx, accountId, tripId, change, now);
+        else if (change.table === 'day') await putDay(tx, deps, tripId, change, seq);
         else if (change.op === 'delete') {
           const gone = await dbAll<{ id: string }>(
             tx,
@@ -144,6 +145,36 @@ async function refusalFor(
     return new Refused('role', `You're now a Follower of “${name}”, so you can't change its plan.`);
   }
   return new Refused('not_in_trip', "That trip isn't one you can change any more.");
+}
+
+/** A person's own _Done_ mark: made for an item of this trip, or taken away. Theirs alone: the statement names the account. Marking twice is marking once. */
+async function markDone(
+  tx: Database,
+  accountId: string,
+  tripId: string,
+  change: Extract<TripChange, { table: 'item_done' }>,
+  now: number,
+): Promise<void> {
+  const t = (name: string) => tableOf(tx, name);
+  if (change.op === 'delete') {
+    await dbAll(
+      tx,
+      sql`DELETE FROM ${t('item_done')} WHERE trip_id = ${tripId} AND item_id = ${change.id} AND account_id = ${accountId} RETURNING item_id`,
+    );
+    return;
+  }
+  const item = await dbGet<{ id: string }>(
+    tx,
+    sql`SELECT id FROM ${t('item')} WHERE id = ${change.id} AND trip_id = ${tripId}`,
+  );
+  if (!item) throw new Refused('item_gone', 'That item was removed from the trip.');
+  await dbAll(
+    tx,
+    sql`INSERT INTO ${t('item_done')} (trip_id, item_id, account_id, done_at)
+        VALUES (${tripId}, ${change.id}, ${accountId}, ${now})
+        ON CONFLICT (trip_id, item_id, account_id) DO NOTHING
+        RETURNING item_id`,
+  );
 }
 
 async function putDay(

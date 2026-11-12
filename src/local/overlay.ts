@@ -45,6 +45,8 @@ export function overlay(rows: Rows, outbox: readonly AnyMutation[]): Rows {
 export interface TripRows {
   readonly items: ReadonlyMap<string, ItemRecord>;
   readonly days: ReadonlyMap<string, DayRecord>;
+  /** The items this account has marked done. */
+  readonly done: ReadonlySet<string>;
 }
 
 /**
@@ -65,6 +67,7 @@ export function overlayTrip(
   if (mine.length === 0) return rows;
   const items = new Map(rows.items);
   const days = new Map(rows.days);
+  const done = new Set(rows.done);
   for (const mutation of mine) {
     for (const change of mutation.changes) {
       if (change.table === 'item' && change.op === 'put') {
@@ -81,13 +84,18 @@ export function overlayTrip(
           version: before?.version ?? 1,
           seq: before?.seq ?? 0,
         });
-      } else if (change.table === 'item') items.delete(change.id);
-      else {
+      } else if (change.table === 'item_done') {
+        if (change.op === 'put') done.add(change.id);
+        else done.delete(change.id);
+      } else if (change.table === 'item') {
+        items.delete(change.id);
+        done.delete(change.id);
+      } else {
         const before = days.get(change.id);
         if (before)
           days.set(change.id, { ...before, title: change.row.title, notes: change.row.notes });
       }
     }
   }
-  return { items, days };
+  return { items, days, done };
 }

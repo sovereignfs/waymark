@@ -33,6 +33,8 @@ export interface TripSets {
   readonly stops: StopRecord[];
   readonly days: DayRecord[];
   readonly links: LinkView[];
+  /** The ids of the items **this account** has marked done (13.1): theirs alone, never another member's. */
+  readonly done: string[];
   /** Absent for a Follower. */
   readonly attachments?: AttachmentView[];
 }

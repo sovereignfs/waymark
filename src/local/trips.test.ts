@@ -4,7 +4,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { tableOf } from '../access/trip';
-import { createItem, deleteItem, editDay, editItem, moveItem } from '../actions/items';
+import { createItem, deleteItem, editDay, editItem, markDone, moveItem } from '../actions/items';
 import type { Context } from '../actions/types';
 import { DEFAULT_LIMITS } from '../config';
 import { ringOf } from '../crypto/keys';
@@ -22,6 +22,7 @@ import { createTrip, deleteTrip } from '../trips/trips';
 import { openDB } from 'idb';
 import { dbName, deleteLocal, openLocal } from './db';
 import { describeMutation } from './describe';
+import { todayOfTrip } from '../today';
 import { LocalStore } from './store';
 import { type Transport, syncOnce } from './sync';
 
@@ -107,6 +108,7 @@ beforeAll(async () => {
 afterAll(async () => close());
 beforeEach(async () => {
   for (const table of [
+    'item_done',
     'trip_tombstone',
     'shared_checkin',
     'notice',
@@ -476,5 +478,57 @@ describe(`a trip on the device (${leg})`, () => {
     expect(await store.cursor()).toBe(7);
     expect(await store.trips()).toEqual([]);
     expect(await store.tripAsks()).toEqual({});
+  });
+
+  it('shows Today from the rows the device holds, and a Done mark made offline moves next at once, belongs to the person and reaches their other device', async () => {
+    const { tripId, days } = await trip();
+    const sam = await device(SAM);
+    const grace = await device(GRACE);
+    let among: { id: string; position: string }[] = [];
+    const ids: string[] = [];
+    for (const [title, start] of [
+      ['Breakfast', '08:30'],
+      ['Museum', '11:00'],
+      ['Dinner', '19:00'],
+    ] as const) {
+      const made = must(
+        createItem(tripId, days[1], { title, start, fixed: start === '19:00' }, among, null, ctx()),
+      );
+      await sam.store.record(made.mutation);
+      const change = made.mutation.changes[0];
+      if (change?.table === 'item' && change.op === 'put') {
+        among = [...among, { id: change.id, position: change.row.position }];
+        ids.push(change.id);
+      }
+    }
+    await sync(sam);
+    // 11 May 2026, 09:00 in Lisbon, from a phone still set to Tokyo.
+    const now = Date.parse('2026-05-11T09:00:00+01:00');
+    const view = async (d: Device) => {
+      const v = await d.store.tripView(tripId, d.accountId);
+      if (!v?.sets) throw new Error('no trip');
+      return todayOfTrip(
+        { stops: v.sets.stops, days: v.days, items: v.items, done: v.done },
+        now,
+        'Asia/Tokyo',
+      );
+    };
+    expect((await view(sam)).next?.item.title).toBe('Museum');
+    // Marked done with no network: next moves at once, and nothing leaves the device until there is one.
+    await sam.store.record(must(markDone(tripId, ids[1] as string, true, ctx())).mutation);
+    expect((await view(sam)).next?.item.title).toBe('Dinner');
+    expect((await sam.store.tripView(tripId, SAM))?.done.has(ids[1] as string)).toBe(true);
+    expect(await sync(sam)).toBe('ok');
+    expect(await sam.store.pendingCount()).toBe(0);
+    // It is the person’s: their other device has it, another member’s does not.
+    const samAgain = await device(SAM);
+    await sync(samAgain);
+    expect([...((await samAgain.store.tripView(tripId, SAM))?.done ?? [])]).toEqual([ids[1]]);
+    await sync(grace);
+    expect([...((await grace.store.tripView(tripId, GRACE))?.done ?? [])]).toEqual([]);
+    expect((await view(grace)).next?.item.title).toBe('Museum');
+    // And taken away again.
+    await sam.store.record(must(markDone(tripId, ids[1] as string, false, ctx())).mutation);
+    expect((await view(sam)).next?.item.title).toBe('Museum');
   });
 });

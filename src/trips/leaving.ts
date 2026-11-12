@@ -39,6 +39,11 @@ async function endMembership(
 ): Promise<boolean> {
   await unlinkCheckins(tx, tripId, now, who);
   await dropCopiesOf(tx, who, tripId, now);
+  // Their Done marks are theirs, and of no use to a trip they are not in.
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'item_done')} WHERE trip_id = ${tripId} AND account_id = ${who} RETURNING item_id`,
+  );
   const ended = await dbAll<{ accountId: string }>(
     tx,
     sql`UPDATE ${tableOf(tx, 'trip_member')} SET left_at = ${now}, seq = ${seq}

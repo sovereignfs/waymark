@@ -92,6 +92,8 @@ export class LocalStore {
         items: ItemRecord[];
         days: DayRecord[];
         shared: SharedCheckin[];
+        /** The items this account has marked done, with what is waiting in the outbox. */
+        done: Set<string>;
       }
     | undefined
   > {
@@ -112,6 +114,7 @@ export class LocalStore {
       {
         items: new Map(items.map((row) => [row.id, row])),
         days: new Map((entry.sets?.days ?? []).map((row) => [row.id, row])),
+        done: new Set(entry.sets?.done ?? []),
       },
       places,
       outbox.map((each) => each.mutation),
@@ -129,6 +132,7 @@ export class LocalStore {
       days: [...seen.days.values()].sort(
         (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
       ),
+      done: new Set(seen.done),
       shared: shared.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id)),
     };
   }

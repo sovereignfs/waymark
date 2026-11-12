@@ -36,6 +36,11 @@ export async function endMembershipsOf(
   const memberTable = tableOf(tx, 'trip_member');
   // Nothing of theirs stays in any trip: their copies of shared check-ins go first (a trip they were alone in goes below, with the rest of its rows).
   await dropCopiesOf(tx, accountId, undefined, now);
+  // Their Done marks, in every trip.
+  await dbAll(
+    tx,
+    sql`DELETE FROM ${tableOf(tx, 'item_done')} WHERE account_id = ${accountId} RETURNING item_id`,
+  );
   const mine = await dbAll<{ tripId: string; role: string }>(
     tx,
     sql`SELECT trip_id AS "tripId", role FROM ${memberTable} WHERE account_id = ${accountId} AND left_at IS NULL ORDER BY trip_id`,

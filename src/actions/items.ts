@@ -181,3 +181,18 @@ export function editDay(
     ]),
   };
 }
+
+/** Marks an item done for today without checking in (DESIGN.md §14.1), or takes the mark away: the person's own, in the trip's stream. */
+export function markDone(
+  tripId: string,
+  itemId: string,
+  done: boolean,
+  ctx: Context,
+): TripActionResult {
+  return {
+    ok: true,
+    mutation: mutation(ctx, tripId, [
+      { table: 'item_done', op: done ? 'put' : 'delete', id: itemId },
+    ]),
+  };
+}

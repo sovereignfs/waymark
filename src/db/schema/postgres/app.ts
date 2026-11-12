@@ -484,3 +484,18 @@ export const tripTombstone = app.table(
     index('trip_tombstone_seq_idx').on(table.tripId, table.seq),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const itemDone = app.table(
+  'item_done',
+  {
+    tripId: ref('trip_id').notNull(),
+    itemId: ref('item_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    doneAt: epochMs('done_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.itemId, table.accountId] }),
+    index('item_done_account_idx').on(table.accountId),
+  ],
+);

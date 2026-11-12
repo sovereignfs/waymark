@@ -191,12 +191,20 @@ async function setsOf(
       version: Number(row.version),
     };
   });
+  // The account's own Done marks, of items that are still there.
+  const marks = await dbAll<{ id: string }>(
+    deps.database,
+    sql`SELECT d.item_id AS id FROM ${tableOf(deps.database, 'item_done')} d
+        JOIN ${tableOf(deps.database, 'item')} i ON i.id = d.item_id AND i.trip_id = d.trip_id
+        WHERE d.trip_id = ${tripId} AND d.account_id = ${accountId} ORDER BY d.item_id`,
+  );
   return {
     trip: detail.trip,
     members: detail.members,
     stops: (plan?.stops ?? []).map(({ days: _days, ...stop }) => stop),
     days,
     links,
+    done: marks.map((mark) => mark.id),
     ...(attachments ? { attachments } : {}),
   };
 }

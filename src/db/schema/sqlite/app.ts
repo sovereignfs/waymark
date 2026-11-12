@@ -601,3 +601,22 @@ export const tripTombstone = sqliteTable(
     index('trip_tombstone_seq_idx').on(table.tripId, table.seq),
   ],
 );
+
+/**
+ * A person's _Done_ mark on an item (DESIGN.md §14.1): "I did this" without checking in, **theirs alone** (`account_id`), in the trip's stream and read by nobody else. Made and taken away by the person's own mutation in the trip's stream
+ * (`src/trips/sync.ts`), by an Organizer or a Traveler; a mark of an item that was deleted is not shown (the pull joins to the item) and goes with the trip, with the person (`People.deletePerson`) and when they leave. Holds nothing but the
+ * three ids and a time: nothing sealed.
+ */
+export const itemDone = sqliteTable(
+  'item_done',
+  {
+    tripId: ref('trip_id').notNull(),
+    itemId: ref('item_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    doneAt: epochMs('done_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tripId, table.itemId, table.accountId] }),
+    index('item_done_account_idx').on(table.accountId),
+  ],
+);

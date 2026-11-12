@@ -4,7 +4,7 @@ import { TRIP_ID } from './format';
 
 /**
  * What a device may send into a **trip's stream** (DESIGN.md §15.2), and the one set of rules for it, **run by the device before it queues a change and by the server before it applies one**: pure, no database, no clock. What syncs offline in a
- * trip is small and exact: for Organizers and Travelers, **creating, editing, moving and deleting items, and editing a day's title and notes**. Everything else in a trip (stops, ready, members, roles, invitations, attachments, links, a trip's
+ * trip is small and exact: for Organizers and Travelers, **creating, editing, moving and deleting items, editing a day's title and notes, and marking an item done** (a person's own _Done_, 13.1). Everything else in a trip (stops, ready, members, roles, invitations, attachments, links, a trip's
  * own places) is an online operation (§15.7).
  *
  * A mutation belongs to one trip (`stream: "trip:<id>"`) and holds changes to its items and days, each a whole-row put (the edit that reaches the server later stands, §15.4; one for a row that was deleted restores it) or a delete. An item
@@ -37,7 +37,13 @@ export interface DayWrite {
   readonly notes?: string;
 }
 
+/** A person's _Done_ mark on an item (13.1): theirs alone; made by a put and taken away by a delete, both naming the item. */
+export type DoneChange =
+  | { readonly table: 'item_done'; readonly op: 'put'; readonly id: string }
+  | { readonly table: 'item_done'; readonly op: 'delete'; readonly id: string };
+
 export type TripChange =
+  | DoneChange
   | {
       readonly table: 'item';
       readonly op: 'put';
@@ -177,12 +183,21 @@ export function parseTripMutation(
   const changes: TripChange[] = [];
   const seen = new Set<string>();
   for (const each of input.changes as unknown[]) {
-    if (!isObject(each) || (each.table !== 'item' && each.table !== 'day'))
+    if (
+      !isObject(each) ||
+      (each.table !== 'item' && each.table !== 'day' && each.table !== 'item_done')
+    )
       return refuse('bad_mutation');
     if (!isId(each.id)) return refuse('bad_id');
     const key = `${each.table}/${each.id}`;
     if (seen.has(key)) return refuse('duplicate_change');
     seen.add(key);
+    if (each.table === 'item_done') {
+      if ((each.op !== 'put' && each.op !== 'delete') || !onlyKeys(each, ['table', 'op', 'id']))
+        return refuse('bad_mutation');
+      changes.push({ table: 'item_done', op: each.op, id: each.id });
+      continue;
+    }
     if (each.op === 'delete') {
       if (each.table !== 'item' || !onlyKeys(each, ['table', 'op', 'id']))
         return refuse('bad_mutation');

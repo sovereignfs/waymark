@@ -109,6 +109,7 @@ beforeAll(async () => {
 afterAll(async () => close());
 beforeEach(async () => {
   for (const table of [
+    'item_done',
     'trip_tombstone',
     'shared_checkin',
     'notice',
@@ -599,5 +600,79 @@ describe(`items and days a Traveler makes offline (${leg})`, () => {
       status: 'refused',
       reason: 'day_text',
     });
+  });
+});
+
+describe(`a person’s Done marks (${leg})`, () => {
+  const done = (id: string, op: 'put' | 'delete' = 'put') => ({ table: 'item_done', op, id });
+  const marks = async (who: string, tripId: string) => (await page(who, tripId)).sets?.done ?? [];
+
+  it('are the person’s own: made and taken away by them, seen by them on every device, and by no one else', async () => {
+    const { tripId, days } = await trip();
+    const id = randomUUID();
+    await send(SAM, tripId, [put(id, item(days[0]))]);
+    expect((await send(SAM, tripId, [done(id)])).status).toBe('applied');
+    expect(await marks(SAM, tripId)).toEqual([id]);
+    for (const who of [GRACE, ADA, NOOR]) expect(await marks(who, tripId), who).toEqual([]);
+    // Twice is once; taking it away is the person’s, and doing it for what is not marked is nothing.
+    await send(SAM, tripId, [done(id)]);
+    expect(await marks(SAM, tripId)).toEqual([id]);
+    await send(GRACE, tripId, [done(id, 'delete')]);
+    expect(await marks(SAM, tripId)).toEqual([id]);
+    await send(SAM, tripId, [done(id, 'delete')]);
+    expect(await marks(SAM, tripId)).toEqual([]);
+    expect((await send(SAM, tripId, [done(id, 'delete')])).status).toBe('applied');
+  });
+
+  it('are for an item of this trip, by an Organizer or a Traveler; and an item deleted takes its mark out of sight', async () => {
+    const { tripId, days } = await trip();
+    const other = await trip();
+    const id = randomUUID();
+    await send(SAM, tripId, [put(id, item(days[0]))]);
+    expect(await send(NOOR, tripId, [done(id)])).toMatchObject({
+      status: 'refused',
+      reason: 'role',
+    });
+    expect(await send(STRANGER, tripId, [done(id)])).toMatchObject({
+      status: 'refused',
+      reason: 'not_in_trip',
+    });
+    expect(await send(SAM, tripId, [done(randomUUID())])).toMatchObject({
+      status: 'refused',
+      reason: 'item_gone',
+    });
+    // An item of another trip is not this trip’s to mark.
+    const theirs = randomUUID();
+    await send(ADA, other.tripId, [put(theirs, item(other.days[0]))]);
+    expect(await send(SAM, tripId, [done(theirs)])).toMatchObject({
+      status: 'refused',
+      reason: 'item_gone',
+    });
+    await send(SAM, tripId, [done(id)]);
+    await deleteItem(deps, ADA, tripId, id);
+    expect(await marks(SAM, tripId)).toEqual([]);
+  });
+
+  it('go with the trip, with the person who leaves it, and with the account', async () => {
+    const { tripId, days } = await trip();
+    const id = randomUUID();
+    await send(GRACE, tripId, [put(id, item(days[0]))]);
+    await send(SAM, tripId, [done(id)]);
+    await send(GRACE, tripId, [done(id)]);
+    const count = async () =>
+      Number(
+        (
+          await dbGet<{ n: number | string }>(
+            database,
+            sql`SELECT COUNT(*) AS n FROM ${t('item_done')}`,
+          )
+        )?.n,
+      );
+    expect(await count()).toBe(2);
+    const { leaveTrip } = await import('../trips/leaving');
+    await leaveTrip(deps, SAM, tripId);
+    expect(await count()).toBe(1);
+    await deleteTrip(deps, ADA, tripId);
+    expect(await count()).toBe(0);
   });
 });

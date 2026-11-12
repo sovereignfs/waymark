@@ -36,6 +36,8 @@ function describeTrip(mutation: Extract<AnyMutation, { stream: `trip:${string}` 
   const parts: string[] = [];
   for (const change of mutation.changes) {
     if (change.table === 'day') parts.push('A day’s notes');
+    else if (change.table === 'item_done')
+      parts.push(change.op === 'put' ? 'Marked an item done' : 'Marked an item not done');
     else if (change.op === 'delete') parts.push('Delete of an item');
     else parts.push(`Item ${change.row.title ?? 'at a place'}`);
   }
