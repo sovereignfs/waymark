@@ -281,6 +281,7 @@ export const importJob = sqliteTable(
     placesMade: counter('places_made').notNull().default(0),
     photosDone: counter('photos_done').notNull().default(0),
     photosFailed: counter('photos_failed').notNull().default(0),
+    tripsMade: counter('trips_made').notNull().default(0),
     claimedUntil: epochMs('claimed_until').notNull().default(0),
     sealed: sealed('sealed'),
     createdAt: epochMs('created_at').notNull(),

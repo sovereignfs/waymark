@@ -1,0 +1,1 @@
+ALTER TABLE `import_job` ADD `trips_made` integer DEFAULT 0 NOT NULL;

@@ -81,6 +81,8 @@ export interface ImportView {
   readonly placesMade: number;
   readonly photosDone: number;
   readonly photosFailed: number;
+  /** Trips a Waymark file brought (15.3). */
+  readonly tripsMade: number;
   /** What went wrong, in sentences of ours with how many; never a line of the file. */
   readonly errors: readonly { sentence: string; count: number }[];
 }
@@ -97,11 +99,12 @@ interface Row {
   placesMade: number | string;
   photosDone: number | string;
   photosFailed: number | string;
+  tripsMade: number | string;
   sealed: ArrayBuffer | Uint8Array | null;
 }
 const COLUMNS = sql`id, source, status, created_at AS "createdAt", finished_at AS "finishedAt", file_bytes AS "fileBytes",
   checkins_done AS "checkinsDone", checkins_skipped AS "checkinsSkipped", places_made AS "placesMade", photos_done AS "photosDone",
-  photos_failed AS "photosFailed", sealed`;
+  photos_failed AS "photosFailed", trips_made AS "tripsMade", sealed`;
 
 /** A person's imports, newest first: what is running and what was done, with their counts. */
 export async function listImportsOf(
@@ -139,6 +142,7 @@ export async function listImportsOf(
       placesMade: Number(row.placesMade),
       photosDone: Number(row.photosDone),
       photosFailed: Number(row.photosFailed),
+      tripsMade: Number(row.tripsMade),
       errors,
     };
   });

@@ -1,5 +1,6 @@
 import { isId, validateCheckinRow, validatePlaceRow } from '../checkins/validate';
 import { FILE_ID, type CheckinRow, type PlaceRow } from '../sync/format';
+import { type ExportedTrip, parseTrips } from './trips-format';
 
 /**
  * **The file a person takes with them** (DESIGN.md §22): one ZIP, `waymark.json` at the top and the photos beside it under `photos/`. This is the app's own format, apart from the Swarm import (epic 8). The JSON
@@ -8,7 +9,7 @@ import { FILE_ID, type CheckinRow, type PlaceRow } from '../sync/format';
  *
  * ```json
  * {
- *   "format": "waymark-export", "version": 1, "exportedAt": "2026-11-12T08:00:00.000Z",
+ *   "format": "waymark-export", "version": 2, "exportedAt": "2026-11-12T08:00:00.000Z",
  *   "profile": { "name": "Ada", "units": "km", "weekStart": 1, "shareDefault": "ask" },
  *   "settings": { "email": { "import_finished": true } },
  *   "places":   [ { "id": "…", "name": "Café de Flore", "lat": 48.854, "lng": 2.3326, "source": "osm", "tz": "Europe/Paris", "countryCode": "FR" } ],
@@ -17,12 +18,12 @@ import { FILE_ID, type CheckinRow, type PlaceRow } from '../sync/format';
  * }
  * ```
  *
- * **What is not in it:** anyone's email address (the person's own is the account's, and the one who imports has theirs), another person's anything, a check-in shared with a trip as a copy (phase 2 puts trips
- * in, 15.3), and thumbnails (made again on import).
+ * **What is not in it:** anyone's email address (the person's own is the account's, and the one who imports has theirs), another person's anything but their name and part in a trip and the check-ins they shared with it as text
+ * (`trips-format.ts`), and thumbnails (made again on import). Version 2 adds `trips`; a version 1 file is still read.
  */
 export const FORMAT = 'waymark-export';
 /** Bumped when a reader of the older would misread the newer. A file with a higher version is refused. */
-export const VERSION = 1;
+export const VERSION = 2;
 /** The JSON's name in the ZIP, and the folder the photos are in. */
 export const JSON_NAME = 'waymark.json';
 export const PHOTO_DIR = 'photos/';
@@ -55,6 +56,8 @@ export interface Export {
   readonly places: readonly ExportedPlace[];
   readonly checkins: readonly ExportedCheckin[];
   readonly photos: readonly ExportedPhoto[];
+  /** Every trip where the person is an Organizer or a Traveler, whole (version 2; a version 1 file has none). */
+  readonly trips: readonly ExportedTrip[];
 }
 
 export type Parsed = { ok: true; value: Export } | { ok: false; sentence: string };
@@ -172,6 +175,12 @@ export function parseExport(input: unknown, now: number): Parsed {
   // A photo in the list that no check-in names is a file with no home.
   for (const photo of photos) if (!used.has(photo.id)) return fail(SENTENCES.broken);
 
+  // The trips (version 2): each checked by the rules the server applies, and hanging together; the check-ins they name are the file's.
+  const trips = parseTrips(input.trips, checkinIds);
+  if (!trips) return fail(SENTENCES.broken);
+  if (trips.reduce((n, trip) => n + trip.places.length + trip.items.length, 0) > MAX_ROWS)
+    return fail(SENTENCES.tooMany);
+
   return {
     ok: true,
     value: {
@@ -183,6 +192,7 @@ export function parseExport(input: unknown, now: number): Parsed {
       places,
       checkins,
       photos,
+      trips,
     },
   };
 }

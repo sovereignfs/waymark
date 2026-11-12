@@ -1,0 +1,1 @@
+ALTER TABLE "waymark"."import_job" ADD COLUMN "trips_made" bigint DEFAULT 0 NOT NULL;

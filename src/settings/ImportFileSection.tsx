@@ -13,6 +13,7 @@ interface Job {
   placesMade: number;
   photosDone: number;
   photosFailed: number;
+  tripsMade?: number;
   errors: { sentence: string; count: number }[];
 }
 
@@ -83,6 +84,9 @@ export function ImportFileSection() {
   const counts = job
     ? `${job.checkinsDone.toLocaleString('en-GB')} check-ins and ${job.placesMade.toLocaleString('en-GB')} places` +
       (job.photosDone > 0 ? `, ${job.photosDone.toLocaleString('en-GB')} photos` : '') +
+      ((job.tripsMade ?? 0) > 0
+        ? `, ${(job.tripsMade ?? 0).toLocaleString('en-GB')} ${job.tripsMade === 1 ? 'trip' : 'trips'}`
+        : '') +
       (job.checkinsSkipped > 0
         ? `, ${job.checkinsSkipped.toLocaleString('en-GB')} already here`
         : '') +

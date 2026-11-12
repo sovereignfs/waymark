@@ -12,6 +12,7 @@ import { ZipError, openZip } from './zip';
  *    newer version, or is damaged is refused with a sentence of ours (`ImportRefusal`) and nothing has been made.
  *  - **New rows for the importer, once.** The job gives a place, a check-in and a photo ids made from the importer's account and the file's own ids, so the ids here are not the ones in the file, a second import of the same file
  *    makes the same ids and so creates nothing, and a check-in the importer deleted since stays deleted. What the importer already has is left as it is, not overwritten.
+ *  - **Trips** (version 2) are made after the check-ins, each as a new trip with the importer as its only Organizer (`import/trips.ts`).
  *  - **The importer's profile and settings are not touched:** a file brings places, check-ins and photos, and an account keeps the name and choices it has.
  *  - **A photo is read from the ZIP only when its check-in is going to be made**, one at a time (`load`), and the job stores it through the media store, which judges it by its bytes and re-encodes it.
  */
@@ -51,6 +52,13 @@ export const waymarkReader: ImportReader = {
         if (!isPhotoFile(photo.file) || size === undefined || size > MAX_FILE_BYTES)
           throw new ImportRefusal(SENTENCES.broken);
       }
+      // The same for every attachment of a trip: a file of the ZIP, within a file's bound.
+      for (const trip of document.trips)
+        for (const attachment of trip.attachments) {
+          const size = sizes.get(attachment.file);
+          if (size === undefined || size > MAX_FILE_BYTES)
+            throw new ImportRefusal(SENTENCES.broken);
+        }
     } catch (error) {
       await zip.close().catch(() => undefined);
       await cleanup();
@@ -113,6 +121,12 @@ export const waymarkReader: ImportReader = {
             : [];
         const next = cursor + batch.length + lone.length;
         return { items, places: lone, cursor: next, done: next >= total };
+      },
+      // The trips come after the check-ins (the job asks once they are in), each made whole, once.
+      async trips() {
+        return document.trips.length === 0
+          ? undefined
+          : { trips: document.trips, load: (file: string) => opened.read(file, MAX_FILE_BYTES) };
       },
       async close() {
         await opened.close().catch(() => undefined);

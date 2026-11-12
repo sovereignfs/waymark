@@ -169,6 +169,13 @@
       "when": 1794497018504,
       "tag": "0023_tripstream",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794500965427,
+      "tag": "0024_importtrips",
+      "breakpoints": true
     }
   ]
 }

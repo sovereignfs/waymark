@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { placeRowOf } from '../actions/places';
 import { validateCheckinRow } from '../checkins/validate';
@@ -16,6 +15,8 @@ import type { Address, PlaceSource } from '../places/clean';
 import { offsetMinutes } from '../places/tz';
 import { type ApplyDeps, applyMutation } from '../sync/apply';
 import { type Change, type CheckinSource, type Mutation, ACCOUNT_STREAM } from '../sync/format';
+import { idFor } from './ids';
+import { type TripSource, importTrips } from './trips';
 import { type PlainFile, materializeImport, readImport, removeImport } from './files';
 
 /**
@@ -111,6 +112,8 @@ export class ImportRefusal extends Error {
 
 /** A reader's hold on one file for one run of the job: opened once, so that a format that must be opened whole (a ZIP's directory) is not opened for every step. */
 export interface ReaderSession {
+  /** The trips a file also holds (a Waymark file's, 15.3), once the check-ins are in: made whole or not at all, once. A format with none has no such method. */
+  trips?(): Promise<TripSource | undefined>;
   /** The check-ins after `cursor`, at most `limit`. Throws for a file that cannot be read, and an `ImportRefusal` for one it will not take. */
   checkins(input: { cursor: number; limit: number }): Promise<CheckinsRead>;
   close(): Promise<void>;
@@ -145,15 +148,7 @@ const table = (database: Database) =>
 const named = (database: Database, name: string) =>
   sql.raw(database.dialect === 'postgres' ? `waymark.${name}` : name);
 
-/** A UUID made from what a thing is, so that making it again makes the same id (and the id is a valid one for a row and a file name). */
-export function idFor(kind: 'place' | 'checkin' | 'photo', accountId: string, key: string): string {
-  const hash = createHash('sha256').update(`waymark:import:${kind}:${accountId}:${key}`).digest();
-  const hex = hash.subarray(0, 16).toString('hex').split('');
-  hex[12] = '8';
-  hex[16] = ['8', '9', 'a', 'b'][(hash[8] ?? 0) & 3] ?? '8';
-  const h = hex.join('');
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
-}
+export { idFor, type IdKind } from './ids';
 
 export interface Claimed {
   readonly id: string;
@@ -510,15 +505,20 @@ async function fail(deps: ImportDeps, job: Claimed, sentence: string): Promise<v
 async function finish(deps: ImportDeps, job: Claimed): Promise<void> {
   const now = deps.now();
   await transaction(deps.database, async (tx) => {
-    const rows = await dbAll<{ done: number | string; skipped: number | string }>(
+    const rows = await dbAll<{
+      done: number | string;
+      skipped: number | string;
+      trips: number | string;
+    }>(
       tx,
       sql`UPDATE ${table(tx)} SET status = 'done', finished_at = ${now}, claimed_until = 0, updated_at = ${now}
-          WHERE id = ${job.id} AND status = 'running' RETURNING checkins_done AS done, checkins_skipped AS skipped`,
+          WHERE id = ${job.id} AND status = 'running' RETURNING checkins_done AS done, checkins_skipped AS skipped, trips_made AS trips`,
     );
     const row = rows[0];
     if (!row) return;
     const done = Number(row.done);
     const skipped = Number(row.skipped);
+    const trips = Number(row.trips);
     await raiseNotice(
       tx,
       deps.sealer,
@@ -529,7 +529,7 @@ async function finish(deps: ImportDeps, job: Claimed): Promise<void> {
         kind: 'import_finished',
         content: {
           title: 'Your import has finished',
-          detail: `${done.toLocaleString('en-GB')} ${done === 1 ? 'check-in was' : 'check-ins were'} added${skipped > 0 ? `, and ${skipped.toLocaleString('en-GB')} ${skipped === 1 ? 'was' : 'were'} already here or could not be read` : ''}.`,
+          detail: `${done.toLocaleString('en-GB')} ${done === 1 ? 'check-in was' : 'check-ins were'} added${trips > 0 ? `, with ${trips.toLocaleString('en-GB')} ${trips === 1 ? 'trip' : 'trips'}` : ''}${skipped > 0 ? `, and ${skipped.toLocaleString('en-GB')} ${skipped === 1 ? 'was' : 'were'} already here or could not be read` : ''}.`,
           href: '/checkins',
         },
       },
@@ -605,6 +605,26 @@ async function work(
       );
       if (rows.length === 0) return true;
       if (read.done) {
+        // The trips a file also holds, once the check-ins are in so that they fall into them: made whole or not at all, and only once, so a restart here makes none twice.
+        if (session.trips) {
+          try {
+            const source = await session.trips();
+            if (source) {
+              const done = await importTrips(
+                { database: deps.database, sealer: deps.sealer, now: deps.now, media: deps.media },
+                job.accountId,
+                source,
+              );
+              await dbAll(
+                deps.database,
+                sql`UPDATE ${table(deps.database)} SET trips_made = trips_made + ${done.made}, photos_failed = photos_failed + ${done.attachmentsFailed}, updated_at = ${deps.now()}
+                    WHERE id = ${job.id} AND status = 'running' RETURNING id`,
+              );
+            }
+          } catch (error) {
+            return await failed(error);
+          }
+        }
         await finish(deps, job);
         return true;
       }

@@ -150,9 +150,13 @@ export async function putMedia(
  */
 export async function putTripMedia(
   deps: MediaDeps,
-  input: { tripId: string; bytes: Uint8Array },
+  input: { tripId: string; bytes: Uint8Array; id?: string },
 ): Promise<PutResult> {
-  return storeMedia(deps, { tripId: input.tripId }, { kind: 'attachment', bytes: input.bytes });
+  return storeMedia(
+    deps,
+    { tripId: input.tripId },
+    { kind: 'attachment', bytes: input.bytes, ...(input.id ? { id: input.id } : {}) },
+  );
 }
 
 async function storeMedia(

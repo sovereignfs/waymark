@@ -13,8 +13,17 @@ import { type MediaDeps, readMedia } from '../media/service';
 import { listPrefs } from '../notices/prefs';
 import { getProfile } from '../profile/profile';
 import { enqueueCore } from '../sovereign/outbox';
+import { DEFAULT_LIMITS } from '../config';
+import { readSealed } from '../media/files';
 import { pullAccount } from '../sync/pull';
+import { pullTrips } from '../sync/trips';
 import { ZipWriter } from './zip';
+import {
+  ATTACHMENT_DIR,
+  type ExportedTrip,
+  attachmentExtension,
+  isAttachmentFile,
+} from './trips-format';
 import {
   type Export,
   type ExportedCheckin,
@@ -121,13 +130,137 @@ async function gather(deps: ExportDeps, accountId: string) {
     }
     for (const checkin of page.checkins) {
       const { version: _version, seq: _seq, ...row } = checkin;
-      // A phase 1 check-in has no trip; the link is not exported until trips are (15.3).
-      checkins.push({ ...row, tripId: null, linkSource: null });
+      checkins.push(row);
     }
     cursor = page.cursor;
     if (!page.more) break;
   }
-  return { profile, prefs, places, checkins };
+  // The trips (15.3), and with them which of the check-ins keep their link: one to a trip that is not in the file would name nothing.
+  const { trips, files } = await gatherTrips(deps, accountId, checkins);
+  const exported = new Set(trips.map((trip) => trip.id));
+  for (const [index, checkin] of checkins.entries())
+    if (checkin.tripId !== null && !exported.has(checkin.tripId))
+      checkins[index] = { ...checkin, tripId: null, linkSource: null };
+  return { profile, prefs, places, checkins, trips, files };
+}
+
+/** An attachment's file to be written into the ZIP: the name it has there, and the id of the stored file. */
+interface AttachmentFile {
+  readonly name: string;
+  readonly fileId: string;
+}
+
+/**
+ * Every trip where the person is an Organizer or a Traveler, whole, read **as that person sees it**: the same snapshot a device is given (`pullTrips`: the trip, its members, stops, days, links and attachments for those who may see them, and
+ * the items and the check-ins others shared), with each reader naming the account in its statement, so nothing of a trip they are not in, and no attachment of a trip they may not see them in, is here. **Members by name and part only**, never an
+ * address; **another member's check-in only if they shared it with the trip, and as text**. A Follower's trips are not in the file: they are not the person's to take.
+ */
+async function gatherTrips(
+  deps: ExportDeps,
+  accountId: string,
+  checkins: readonly ExportedCheckin[],
+): Promise<{ trips: ExportedTrip[]; files: AttachmentFile[] }> {
+  const { trips: pages } = await pullTrips(
+    { database: deps.database, sealer: deps.sealer, now: deps.now, limits: DEFAULT_LIMITS },
+    accountId,
+    {},
+    1_000_000,
+  );
+  const trips: ExportedTrip[] = [];
+  const files: AttachmentFile[] = [];
+  for (const page of pages) {
+    const sets = page.sets;
+    if (!sets || (page.role !== 'organizer' && page.role !== 'traveler')) continue;
+    const places = new Map<string, ExportedTrip['places'][number]>();
+    const remember = (place: (typeof sets.stops)[number]['place'] | undefined) => {
+      if (!place || places.has(place.id)) return;
+      places.set(place.id, {
+        id: place.id,
+        name: place.name,
+        lat: place.lat,
+        lng: place.lng,
+        ...(place.address ? { address: place.address } : {}),
+        ...(place.category ? { category: place.category } : {}),
+        source: 'manual',
+        tz: place.tz,
+        countryCode: place.countryCode,
+      });
+    };
+    for (const stop of sets.stops) remember(stop.place);
+    for (const item of page.items) remember(item.place);
+    const names = new Map(sets.members.map((member) => [member.accountId, member.name]));
+    const attachments: ExportedTrip['attachments'][number][] = [];
+    for (const attachment of sets.attachments ?? []) {
+      const extension = attachmentExtension(attachment.type);
+      const name = `${ATTACHMENT_DIR}${attachment.id}.${extension}`;
+      // A type this version does not write is left out, not guessed at.
+      if (!isAttachmentFile(name)) continue;
+      attachments.push({
+        id: attachment.id,
+        dayId: attachment.dayId,
+        kind: attachment.kind,
+        title: attachment.title,
+        file: name,
+        type: attachment.type,
+      });
+      files.push({ name, fileId: attachment.fileId });
+    }
+    trips.push({
+      id: sets.trip.id,
+      name: sets.trip.name,
+      ...(sets.trip.description ? { description: sets.trip.description } : {}),
+      color: sets.trip.color,
+      ready: sets.trip.readyAt !== null,
+      members: sets.members.map((member) => ({ name: member.name, role: member.role })),
+      places: [...places.values()],
+      stops: sets.stops.map((stop) => ({
+        id: stop.id,
+        placeId: stop.place.id,
+        arrive: stop.arrive,
+        depart: stop.depart,
+        position: stop.position,
+        ...(stop.note ? { note: stop.note } : {}),
+      })),
+      days: sets.days.map((day) => ({
+        id: day.id,
+        stopId: day.stopId,
+        date: day.date,
+        ...(day.title ? { title: day.title } : {}),
+        ...(day.notes ? { notes: day.notes } : {}),
+      })),
+      items: page.items.map((item) => ({
+        id: item.id,
+        dayId: item.dayId,
+        placeId: item.place?.id ?? null,
+        ...(item.title ? { title: item.title } : {}),
+        ...(item.notes ? { notes: item.notes } : {}),
+        kind: item.kind,
+        start: item.start,
+        end: item.end,
+        fixed: item.fixed,
+        position: item.position,
+      })),
+      links: sets.links.map((link) => ({
+        id: link.id,
+        kind: link.kind,
+        title: link.title,
+        url: link.url,
+        position: link.position,
+      })),
+      attachments,
+      checkins: checkins.filter((checkin) => checkin.tripId === sets.trip.id).map((c) => c.id),
+      shared: page.shared.map((copy) => ({
+        author: names.get(copy.authorId) ?? 'A member',
+        place: copy.place,
+        at: copy.at,
+        tz: copy.tz,
+        offsetMin: copy.offsetMin,
+        ...(copy.note ? { note: copy.note } : {}),
+        companions: copy.companions,
+      })),
+    });
+  }
+  return { trips, files };
 }
 
 type Gathered = Awaited<ReturnType<typeof gather>>;
@@ -164,6 +297,17 @@ export async function* zipOf(
     }
   }
 
+  // The trips' attachments, each as the file it is, before the JSON that lists them.
+  const written = new Set<string>();
+  for (const file of data.files) {
+    const bytes = await readSealed(deps.media.dir, file.fileId, deps.media.ring);
+    if (!bytes) continue;
+    yield* zip.add(file.name, bytes);
+    written.add(file.name);
+    n += 1;
+    if (n % 25 === 0) await tick();
+  }
+
   const document: Export = {
     format: FORMAT,
     version: VERSION,
@@ -180,6 +324,11 @@ export async function* zipOf(
     places: data.places,
     checkins: data.checkins,
     photos,
+    // An attachment whose file went between the list and the file is not named: the same rule as a photo's.
+    trips: data.trips.map((trip) => ({
+      ...trip,
+      attachments: trip.attachments.filter((attachment) => written.has(attachment.file)),
+    })),
   };
   yield* zip.add(JSON_NAME, Buffer.from(JSON.stringify(document), 'utf8'), { deflate: true });
   yield* zip.finish();

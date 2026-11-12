@@ -1049,7 +1049,7 @@ Available and used: layouts, `Header`, `UserMenu`, `NotificationsPanel`, `Sheet`
 
 - **Export:** one ZIP: a JSON file of the person's places, check-ins with companions and links, settings, and every trip where they are an Organizer or
   Traveler whole (stops, days, items, trip places, links; members by name only; their own and shared check-ins as the journal shows them), with the photos
-  and attachments they may see as files beside it. A `format` and `version` at the top. Built by a job, downloaded from Settings > Data within a day, then
+  and attachments they may see as files beside it. A `format` and `version` (2 with trips) at the top. Built by a job, downloaded from Settings > Data within a day, then
   deleted. Other people's emails are never in it. Noted on core's activity page when hosted.
 - **Import** makes **new rows** for the importer: places and check-ins (skipping ones already there by id), and trips as new trips with the importer as
   sole Organizer, without the other members (their names kept in the trip's description). Validated whole before anything is written; a file from a
