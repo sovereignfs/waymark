@@ -43,6 +43,9 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'checkin', key: 'id', guard: 'version' },
   // A trip's envelope is rewritten by every change to it, each of which advances `seq`.
   { table: 'trip', key: 'id', guard: 'seq' },
+  // A stop's note, and a day's title and notes: each change to a row advances its `version`.
+  { table: 'stop', key: 'id', guard: 'version' },
+  { table: 'day', key: 'id', guard: 'version' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },

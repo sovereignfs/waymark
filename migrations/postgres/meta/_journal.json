@@ -120,6 +120,13 @@
       "when": 1794477215344,
       "tag": "0016_trips",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794478751703,
+      "tag": "0017_stops_and_days",
+      "breakpoints": true
     }
   ]
 }

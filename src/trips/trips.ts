@@ -11,6 +11,7 @@ import {
   type Role,
   type TripColor,
   TRIP_ID,
+  TripError,
   cleanTripColor,
   cleanTripDescription,
   cleanTripName,
@@ -244,6 +245,8 @@ export interface TripPatch {
   /** `null` or an empty text takes the description away. */
   readonly description?: unknown;
   readonly color?: unknown;
+  /** One of the trip's own places (a stop's), or `null` for none: shown as the trip's map thumbnail (DESIGN.md §10.1). */
+  readonly coverPlaceId?: unknown;
 }
 
 /**
@@ -262,6 +265,13 @@ export async function updateTrip(
   const description =
     patch.description === undefined ? undefined : (cleanTripDescription(patch.description) ?? null);
   const color = patch.color === undefined ? undefined : cleanTripColor(patch.color);
+  const cover = patch.coverPlaceId;
+  if (
+    cover !== undefined &&
+    cover !== null &&
+    (typeof cover !== 'string' || cover === '' || cover.length > 64)
+  )
+    throw new TripError("a trip's cover is one of its own places, or none");
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const current = await dbGet<{
       seq: number | string;
@@ -284,9 +294,12 @@ export async function updateTrip(
     );
     const written = await dbAll<{ id: string }>(
       deps.database,
-      sql`UPDATE ${tableOf(deps.database, 'trip')} SET sealed = ${next}, color = ${color ?? current.color}, seq = seq + 1, updated_at = ${deps.now()}
+      sql`UPDATE ${tableOf(deps.database, 'trip')} SET sealed = ${next}, color = ${color ?? current.color},
+              cover_place_id = ${cover === undefined ? sql`cover_place_id` : cover},
+              seq = seq + 1, updated_at = ${deps.now()}
           WHERE id = ${tripId} AND seq = ${Number(current.seq)}
             AND ${memberOf(deps.database, sql`${tripId}`, accountId, ORGANIZERS)}
+            AND (${cover === undefined || cover === null ? sql`1 = 1` : sql`EXISTS (SELECT 1 FROM ${tableOf(deps.database, 'place')} p WHERE p.id = ${cover} AND p.trip_id = ${tripId})`})
           RETURNING id`,
     );
     if (written.length > 0) return (await getTrip(deps, accountId, tripId))?.trip;
@@ -298,6 +311,8 @@ export async function updateTrip(
 export interface TripDeletion {
   readonly name: string;
   readonly members: number;
+  /** The trip's stops (and with them its days and its own places). */
+  readonly stops: number;
   /** Check-ins, of anyone, that are linked to the trip: they stay their owners', and stop being linked. */
   readonly linkedCheckins: number;
 }
@@ -318,6 +333,10 @@ export async function previewDeletion(
     deps.database,
     sql`SELECT COUNT(*) AS n FROM ${tableOf(deps.database, 'trip_member')} WHERE trip_id = ${tripId} AND left_at IS NULL`,
   );
+  const stops = await dbGet<{ n: number | string }>(
+    deps.database,
+    sql`SELECT COUNT(*) AS n FROM ${tableOf(deps.database, 'stop')} WHERE trip_id = ${tripId}`,
+  );
   const linked = await dbGet<{ n: number | string }>(
     deps.database,
     sql`SELECT COUNT(*) AS n FROM ${tableOf(deps.database, 'checkin')} WHERE trip_id = ${tripId}`,
@@ -325,6 +344,7 @@ export async function previewDeletion(
   return {
     name: tripOf(deps, row).name,
     members: Number(members?.n ?? 0),
+    stops: Number(stops?.n ?? 0),
     linkedCheckins: Number(linked?.n ?? 0),
   };
 }
@@ -357,6 +377,8 @@ export async function deleteTrip(
  */
 export async function removeTripRows(tx: Database, tripId: string, now: number): Promise<void> {
   await unlinkCheckins(tx, tripId, now);
+  await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'day')} WHERE trip_id = ${tripId} RETURNING id`);
+  await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'stop')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(tx, sql`DELETE FROM ${tableOf(tx, 'place')} WHERE trip_id = ${tripId} RETURNING id`);
   await dbAll(
     tx,

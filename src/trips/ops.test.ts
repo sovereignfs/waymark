@@ -11,6 +11,7 @@ import { makeStore, testTarget } from '../db/test-support';
 import { RateLimiter } from '../limits/rate';
 import { OPS_BODY_BYTES, type OpsDeps, handleOp, opsResponse } from './endpoint';
 import { OPERATIONS, type Op, type OpName, applyOp, parseOp } from './ops';
+import { addStop } from './plan';
 import { createTrip } from './trips';
 
 /**
@@ -57,13 +58,30 @@ beforeAll(async () => {
 afterAll(async () => close());
 
 /** One request for each operation, against the trip above: written for every name, so that a new operation fails to compile here until it is. */
-const REQUESTS: Record<OpName, (id: string) => Op> = {
+const REQUESTS: Record<OpName, (id: string, stopId: string) => Op> = {
   'trip.list': () => ({ op: 'trip.list' }),
   'trip.get': (id) => ({ op: 'trip.get', tripId: id }),
   'trip.create': () => ({ op: 'trip.create', name: 'A new one' }),
   'trip.update': (id) => ({ op: 'trip.update', tripId: id, name: 'Changed' }),
+  'trip.plan': (id) => ({ op: 'trip.plan', tripId: id }),
+  'stop.add': (id) => ({
+    op: 'stop.add',
+    tripId: id,
+    place: { name: 'Lisbon', lat: 38.72, lng: -9.14 },
+  }),
+  'stop.update': (id, stopId) => ({ op: 'stop.update', tripId: id, stopId, note: 'A note' }),
+  'stop.move': (id, stopId) => ({ op: 'stop.move', tripId: id, stopId, before: null }),
+  'stop.remove': (id, stopId) => ({ op: 'stop.remove', tripId: id, stopId }),
   'trip.delete.preview': (id) => ({ op: 'trip.delete.preview', tripId: id }),
   'trip.delete': (id) => ({ op: 'trip.delete', tripId: id, confirm: true }),
+};
+
+/** A stop of the trip made by its Organizer, for an operation on a stop to be tried against: each test gets its own, since some remove it. */
+const freshStop = async (): Promise<string> => {
+  const plan = await addStop(deps, ADA, tripId, { place: { name: 'Somewhere', lat: 1, lng: 2 } });
+  const stop = plan?.stops.at(-1);
+  if (!stop) throw new Error('no stop was made');
+  return stop.id;
 };
 
 describe(`every operation, as a stranger and as each role (${leg})`, () => {
@@ -75,43 +93,65 @@ describe(`every operation, as a stranger and as each role (${leg})`, () => {
     const who = OPERATIONS[name];
     if (who === 'account') continue;
     it(`${name}: a stranger is told it is not there`, async () => {
-      const result = await applyOp(deps, STRANGER, REQUESTS[name](tripId));
+      const result = await applyOp(deps, STRANGER, REQUESTS[name](tripId, await freshStop()));
       expect(result).toEqual({ ok: false, reason: 'not_found' });
     });
     it(`${name}: a trip that is not an id's is told it is not there, as a stranger is`, async () => {
-      const result = await applyOp(deps, ADA, REQUESTS[name](randomUUID()));
+      const result = await applyOp(deps, ADA, REQUESTS[name](randomUUID(), randomUUID()));
       expect(result).toEqual({ ok: false, reason: 'not_found' });
     });
-    if (who === 'organizer') {
-      for (const [role, id] of [
-        ['Traveler', SAM],
-        ['Follower', NOOR],
-      ] as const)
-        it(`${name}: a ${role} is told it is not there`, async () => {
-          expect(await applyOp(deps, id, REQUESTS[name](tripId))).toEqual({
-            ok: false,
-            reason: 'not_found',
-          });
+    // Who may: Followers are refused what edits, Travelers what only an Organizer does.
+    const refused: [string, string][] =
+      who === 'organizer'
+        ? [
+            ['Traveler', SAM],
+            ['Follower', NOOR],
+          ]
+        : who === 'editor'
+          ? [['Follower', NOOR]]
+          : [];
+    const allowed: [string, string][] =
+      who === 'organizer'
+        ? []
+        : who === 'editor'
+          ? [['Traveler', SAM]]
+          : [
+              ['Traveler', SAM],
+              ['Follower', NOOR],
+            ];
+    for (const [role, id] of refused)
+      it(`${name}: a ${role} is told it is not there`, async () => {
+        expect(await applyOp(deps, id, REQUESTS[name](tripId, await freshStop()))).toEqual({
+          ok: false,
+          reason: 'not_found',
         });
-    } else {
-      for (const [role, id] of [
-        ['Traveler', SAM],
-        ['Follower', NOOR],
-      ] as const)
-        it(`${name}: a ${role} may`, async () => {
-          expect((await applyOp(deps, id, REQUESTS[name](tripId))).ok).toBe(true);
-        });
-    }
+      });
+    for (const [role, id] of allowed)
+      it(`${name}: a ${role} may`, async () => {
+        expect((await applyOp(deps, id, REQUESTS[name](tripId, await freshStop()))).ok).toBe(true);
+      });
   }
 
   it('lets the Organizer do each, last the one that deletes', async () => {
-    for (const name of ['trip.list', 'trip.get', 'trip.update', 'trip.delete.preview'] as OpName[])
-      expect((await applyOp(deps, ADA, REQUESTS[name](tripId))).ok, name).toBe(true);
-    expect((await applyOp(deps, ADA, REQUESTS['trip.create'](tripId))).ok).toBe(true);
+    for (const name of [
+      'trip.list',
+      'trip.get',
+      'trip.plan',
+      'trip.update',
+      'trip.delete.preview',
+      'stop.add',
+      'stop.update',
+      'stop.move',
+      'stop.remove',
+    ] as OpName[])
+      expect((await applyOp(deps, ADA, REQUESTS[name](tripId, await freshStop()))).ok, name).toBe(
+        true,
+      );
+    expect((await applyOp(deps, ADA, REQUESTS['trip.create'](tripId, ''))).ok).toBe(true);
     // The Organizer's changes were really made, and a stranger's were not.
     const got = await applyOp(deps, ADA, { op: 'trip.get', tripId });
     expect(got).toMatchObject({ ok: true, trip: { name: 'Changed' } });
-    expect(await applyOp(deps, ADA, REQUESTS['trip.delete'](tripId))).toEqual({
+    expect(await applyOp(deps, ADA, REQUESTS['trip.delete'](tripId, ''))).toEqual({
       ok: true,
       deleted: true,
     });
@@ -133,6 +173,20 @@ describe('a request is an operation', () => {
       { op: 'trip.update', tripId: id, color: 'info' },
       { op: 'trip.delete.preview', tripId: id },
       { op: 'trip.delete', tripId: id, confirm: true },
+      { op: 'trip.plan', tripId: id },
+      {
+        op: 'stop.add',
+        tripId: id,
+        place: { name: 'P', lat: 1, lng: 2 },
+        arrive: '2026-05-01',
+        depart: '2026-05-03',
+        note: 'n',
+      },
+      { op: 'stop.update', tripId: id, stopId: id, arrive: null, depart: null },
+      { op: 'stop.move', tripId: id, stopId: id, before: null },
+      { op: 'stop.move', tripId: id, stopId: id, before: id },
+      { op: 'stop.remove', tripId: id, stopId: id },
+      { op: 'trip.update', tripId: id, coverPlaceId: null },
     ])
       expect(parseOp(op).ok, JSON.stringify(op)).toBe(true);
   });
@@ -152,6 +206,14 @@ describe('a request is an operation', () => {
       { op: 'trip.update', tripId: id },
       { op: 'trip.delete', tripId: id },
       { op: 'trip.delete', tripId: id, confirm: 'yes' },
+      { op: 'stop.add', tripId: id },
+      { op: 'stop.add', tripId: id, place: 'Lisbon' },
+      { op: 'stop.update', tripId: id, stopId: id },
+      { op: 'stop.update', tripId: id, stopId: 'abc', note: 'x' },
+      { op: 'stop.move', tripId: id, stopId: id },
+      { op: 'stop.move', tripId: id, stopId: id, before: 'abc' },
+      { op: 'stop.remove', tripId: id },
+      { op: 'stop.remove', tripId: id, stopId: id, force: true },
       { op: 'constructor' },
       { op: '__proto__' },
     ])

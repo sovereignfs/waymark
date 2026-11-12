@@ -317,6 +317,7 @@ describe(`deleting a trip (${leg})`, () => {
     expect(await previewDeletion(deps, ADA, trip.id)).toEqual({
       name: 'Gone soon',
       members: 2,
+      stops: 0,
       linkedCheckins: 2,
     });
   });

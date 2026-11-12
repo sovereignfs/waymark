@@ -15,7 +15,7 @@ export interface OpsDeps extends TripDeps {
 }
 
 export const OPS_RATE: Rule = { limit: 240, windowMs: 60_000 };
-export const OPS_BODY_BYTES = 8 * 1024;
+export const OPS_BODY_BYTES = 16 * 1024;
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), {

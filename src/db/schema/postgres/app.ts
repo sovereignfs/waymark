@@ -1,6 +1,6 @@
 import { index, pgSchema, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { APP_STORE } from '../../config';
-import { bool, counter, epochMs, id, isoDate, ref, sealed } from './columns';
+import { bool, counter, epochMs, id, isoDate, position, ref, sealed } from './columns';
 
 /** The app's schema; better-auth's is `waymark_auth` (DESIGN.md §24.1). */
 export const app = pgSchema(APP_STORE);
@@ -332,5 +332,45 @@ export const tripMember = app.table(
   (table) => [
     primaryKey({ columns: [table.tripId, table.accountId] }),
     index('trip_member_account_idx').on(table.accountId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const stop = app.table(
+  'stop',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    placeId: ref('place_id').notNull(),
+    arrive: isoDate('arrive'),
+    depart: isoDate('depart'),
+    position: position('position').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('stop_trip_idx').on(table.tripId, table.seq),
+    index('stop_place_idx').on(table.placeId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const day = app.table(
+  'day',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    stopId: ref('stop_id').notNull(),
+    date: isoDate('date').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [
+    index('day_trip_idx').on(table.tripId, table.seq),
+    uniqueIndex('day_stop_date_idx').on(table.stopId, table.date),
   ],
 );

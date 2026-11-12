@@ -1,5 +1,5 @@
 import { index, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { bool, counter, epochMs, id, isoDate, ref, sealed } from './columns';
+import { bool, counter, epochMs, id, isoDate, position, ref, sealed } from './columns';
 
 /**
  * What the server holds that is not better-auth's (DESIGN.md §24.3). The account itself is better-auth's, in the other store, so an `account_id` is a
@@ -417,5 +417,52 @@ export const tripMember = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.tripId, table.accountId] }),
     index('trip_member_account_idx').on(table.accountId),
+  ],
+);
+
+/**
+ * A stop of a trip (DESIGN.md §10.3, §24.3): **a place of the trip's** (`place_id`, a `place` row with this `trip_id`), an arrival and a departure (`YYYY-MM-DD` in the place's zone, both or neither: a stop may have no dates while
+ * the trip is being planned), an order (`position`, which orders the undated ones; dated ones are in the order of their dates) and **a note, sealed** (`SEALED.stop`). `version` counts changes and `seq` is the trip's stream counter at
+ * the change (15.3). Written only by `src/trips/plan.ts`, whose every statement names the caller's membership and role; the trip's own dates are recomputed from its stops in the same transaction.
+ */
+export const stop = sqliteTable(
+  'stop',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    placeId: ref('place_id').notNull(),
+    arrive: isoDate('arrive'),
+    depart: isoDate('depart'),
+    position: position('position').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    index('stop_trip_idx').on(table.tripId, table.seq),
+    index('stop_place_idx').on(table.placeId),
+  ],
+);
+
+/**
+ * A day of a stop (DESIGN.md §10.4, §24.3): one for each date from the stop's arrival to its departure, **made and removed with those dates** (a day with items is never removed silently). **A travel day shared by two stops is
+ * two days, one in each.** Its title and notes are sealed (`SEALED.day`) and are set by the offline edit of 6.6.
+ */
+export const day = sqliteTable(
+  'day',
+  {
+    id: id('id'),
+    tripId: ref('trip_id').notNull(),
+    stopId: ref('stop_id').notNull(),
+    date: isoDate('date').notNull(),
+    version: counter('version').notNull().default(1),
+    seq: counter('seq').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+  },
+  (table) => [
+    index('day_trip_idx').on(table.tripId, table.seq),
+    uniqueIndex('day_stop_date_idx').on(table.stopId, table.date),
   ],
 );

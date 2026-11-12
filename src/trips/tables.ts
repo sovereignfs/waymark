@@ -13,6 +13,9 @@ export const TRIP_TABLES: readonly {
   readonly task?: string;
 }[] = [
   { table: 'trip_member', action: 'delete' },
+  // The plan (9.2): a trip's stops, and the days of each.
+  { table: 'stop', action: 'delete' },
+  { table: 'day', action: 'delete' },
   // A trip's own places (9.2): the owner is the trip, so they go with it.
   { table: 'place', action: 'delete' },
   { table: 'checkin', action: 'unlink' },
@@ -20,3 +23,13 @@ export const TRIP_TABLES: readonly {
   // A trip's files (attachments, 9.5): their files on disk go with them, which needs the media store's removal, added with the first writer.
   { table: 'media', action: 'later', task: '9.5' },
 ];
+
+/** A table that names a **day**: its rows are removed with the day (a stop removed, or a day's date taken away), and **a day that has any is never removed silently**: shrinking a stop over it is refused, naming the day (DESIGN.md §10.4). Items join with 9.3. */
+export interface DayReference {
+  readonly table: string;
+  readonly column: string;
+}
+export const DAY_REFERENCES: readonly DayReference[] = [];
+
+/** A table of a trip's that names one of the trip's places: a place is removed with its stop **unless one of these still names it** (items, 9.3, name a place too). */
+export const PLACE_USERS: readonly DayReference[] = [{ table: 'stop', column: 'place_id' }];
