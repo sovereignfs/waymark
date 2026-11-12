@@ -31,6 +31,8 @@ system's call.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
+**Built in `sovereign`, not yet published:** `@sovereignfs/ui/map` (`Map`, an entry of its own with `maplibre-gl` an optional peer, 6.17 or later), on the branch `feat/waymark-ui-parts`, in `ui-v0.93.0`. Markers are labelled buttons in token colours and cluster by the screen's pixels; a line; fit to points (at the start and when `fitKey` changes); the person's position; choosing a point by a click or by Enter on the focused map; attribution; light and dark by the style given. **No request to an address the app did not give** (`isAllowedRequest`: the page's origin and the style's, and `allowedOrigins`). The worker is served by the app (`workerUrl`, `worker-src 'self'`); `docs/design-system.md` says what the CSP needs. Tried in Storybook in Chromium (markers, line, cluster); choosing a point and the position dot only against a fake MapLibre. Not tried: dark style, touch, a style with real tiles. **Done when `ui-v0.93.0` is published.**
+
 #### 📋 17.2 — `AUTH_SIGNUP` by invitation
 
 **Goal:** `invite` as a value of the shared `AUTH_SIGNUP`. **Design:** §6.2. **Depends on:** nothing here.
@@ -40,6 +42,8 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 
 **Accepts when:** the contract change is merged and a `@sovereignfs/config` release accepting it is published.
 
+**Not started** (phase 2; it changes the contract and `@sovereignfs/config`, and Tally's 14.5 is the same change).
+
 #### 📋 17.3 — Waymark's port in the guide
 
 **Goal:** port 3005 recorded. **Design:** §27. **Depends on:** nothing here.
@@ -47,6 +51,8 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 **What Waymark needs:** building-an-app §2's ports table to list Waymark's 3005, beside Ledger's 3003 and Tally's 3004.
 
 **Accepts when:** the change is merged in `sovereign`.
+
+**Built in `sovereign`, not yet published:** the guide's ports table lists every app's port, Waymark's 3005 included (Ledger 3003, Tally 3004, Wallet 3006 and Shopper 3007 beside it, as their manifests say). **Done when it is merged.**
 
 #### 📋 17.4 — `AvatarStack`
 
@@ -56,6 +62,8 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
+**Built in `sovereign`, not yet published:** `AvatarStack` (`people`, `max`, `size`, `label`), in `ui-v0.93.0`: overlapping in a ring of the surface, "+N" beyond the limit (never for one more), one image to assistive technology named for everyone. **Done when `ui-v0.93.0` is published.**
+
 #### 📋 17.5 — A floating action button
 
 **Goal:** the phone's _Check in_. **Design:** §20.12. **Depends on:** nothing here.
@@ -63,6 +71,8 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 **What Waymark needs:** the same as Tally's 14.3: a floating button above `MobileFooter`, respecting the safe area, with an icon and an accessible label.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
+
+**Built in `sovereign`, not yet published:** `FloatingActionButton` (`label`, `icon`, `extended`, `href`), in `ui-v0.93.0`: fixed above `MobileFooter` through `--sv-shell-footer-height`, clear of the safe area, a link with an `href`. **Done when `ui-v0.93.0` is published.**
 
 #### 📋 17.6 — A photo viewer
 
@@ -73,6 +83,8 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published.
 
+**Built in `sovereign`, not yet published:** `PhotoGrid`, `PhotoViewer` and `PhotoGallery`, in `ui-v0.93.0`: a modal dialog on the overlay hooks (focus kept and returned, scroll locked, `Esc`), swipe and arrow keys, pinch, double tap and wheel zoom around the point, drag to pan, swipe down to close, a caption slot, only the addresses it is given (`blob:` included). Tried in Storybook in Chromium (open, arrow key, wheel zoom, `Esc`, focus returned); **touch gestures were not tried on a device**. **Done when `ui-v0.93.0` is published.**
+
 #### 📋 17.7 — A date range picker
 
 **Goal:** a stop's arrival and departure in one control. **Design:** §10.3, §20.11. **Depends on:** nothing here.
@@ -81,3 +93,5 @@ issued"), and `@sovereignfs/config` to accept it. One change serves both apps.
 two dates, the nights between shown, dates outside a given range disabled, keyboard reachable, `YYYY-MM-DD` in and out.
 
 **Accepts when:** a `@sovereignfs/ui` release carrying it is published, or the check shows it exists.
+
+**Checked:** `Calendar` and `DatePicker` pick one date and say so ("date-only, no range"), so this task stands. Not started.

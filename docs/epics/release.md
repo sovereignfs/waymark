@@ -37,7 +37,7 @@ with why.
 
 **Accepts when:** the review is merged and every finding is fixed or recorded.
 
-#### 📋 16.3 — Documents
+#### ⏳ 16.3 — Documents
 
 **Goal:** what an operator and a person need. **Design:** §25 Deployment. **Depends on:** 1.10, 4.3.
 
@@ -47,9 +47,9 @@ attribution, where to get a PMTiles file, the place search and what leaves the s
 
 **Accepts when:** someone new runs Waymark alone from the README alone.
 
-**Done so far:** `RELEASING.md`, copied from Tusk's with the name changed. The README's sections and the user guide are still to write.
+**Done so far:** `RELEASING.md`, copied from Tusk's with the name changed; the README's sections (running alone with each form of the database and `/data`, hosting with `sv app add`, every setting by group, what leaves the server, what encryption at rest does and does not protect, backups, and the map, which was already there); and a short user guide, `docs/user-guide.md` (checking in, offline, importing). **Not done:** nobody new has followed the README from nothing (`scripts/deploy-check.sh` checks the setups it describes, not its words), the user guide describes what is built (opening Waymark offline, 6.4, and the Swarm import, 8.3, are not), and it must be read again when the screens that wait on `@sovereignfs/ui` 0.93.0 are built.
 
-#### 📋 16.4 — Release 0.1.0
+#### ⏳ 16.4 — Release 0.1.0
 
 **Goal:** phase 1 published. **Design:** §2. **Depends on:** 16.2, 16.3.
 

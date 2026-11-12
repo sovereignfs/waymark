@@ -148,9 +148,9 @@ photos round-trip through a file, and 0.1.0 is published and hosted on the live 
 | 55  | [3.3](docs/epics/encryption.md)   | Rotating the key                          | P2       | 3.1, 3.2        | ✅     |
 | 56  | [16.1](docs/epics/release.md)     | Development seed                          | P1       | 5.3, 4.1        | ✅     |
 | 57  | [17.3](docs/epics/upstream.md)    | Waymark's port in the guide (`sovereign`) | P3       | —               | 📋     |
-| 58  | [16.3](docs/epics/release.md)     | Documents                                 | P2       | 1.10, 4.3       | 📋     |
+| 58  | [16.3](docs/epics/release.md)     | Documents                                 | P2       | 1.10, 4.3       | ⏳     |
 | 59  | [16.2](docs/epics/release.md)     | Security review, phase 1                  | P2       | 8.3, 15.2, 14.1 | 📋     |
-| 60  | [16.4](docs/epics/release.md)     | Release 0.1.0                             | P2       | 16.2, 16.3      | 📋     |
+| 60  | [16.4](docs/epics/release.md)     | Release 0.1.0                             | P2       | 16.2, 16.3      | ⏳     |
 | 61  | [16.5](docs/epics/release.md)     | Hosting on an instance                    | P2       | 16.4            | 📋     |
 
 ## Phase 2 — Trips (0.2.0)
