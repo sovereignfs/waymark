@@ -15,7 +15,7 @@ hosting on the live instance. Releases as Tusk's (`scripts/release.sh`, a `vX.Y.
 
 ## Tasks
 
-#### 📋 16.1 — Development seed
+#### ✅ 16.1 — Development seed
 
 **Goal:** `pnpm seed`. **Design:** §25 Testing. **Depends on:** 5.3, 4.1.
 
@@ -24,6 +24,8 @@ grows with phase 2 (a trip of each status relative to today, with a journal, att
 phase 3 (an ongoing trip with timed fixed and flexible items today); refuses to run against anything but a development database.
 
 **Accepts when:** the seed runs on each database form and every screen of the phase has something to show.
+
+**Done as:** **`pnpm seed`** (`scripts/seed.mjs`, which loads `.env` as `pnpm dev` does and runs `src/seed/main.ts` through jiti, since the sources use extensionless imports). It is made of the app's own parts: **accounts are signed up through better-auth** (so each has a sealed profile, by the server's own hook) and **places, check-ins and photos go in through the one write path**, by the import job's `applyBatch`, with the media store storing the photos before the check-in that names them. **Three accounts** with one shared development password (in `src/seed/run.ts`, and printed by the seed): Ada, with a decade (about 3,800 check-ins at 68 places, 284 photos), Grace, with a quiet year, and Nell, with nothing, for the empty screens. **The check-ins** (`src/seed/checkins.ts`, pure and with no randomness of its own: a small generator started from each day's date) are a life in two cities (Berlin, then Lisbon from a fixed date) with the places of a week, **the first of each base visited hundreds of times** and others once or twice, and three trips away a year of three to nine days in 14 cities of 12 countries and 12 zones, several check-ins a day, with notes, companions and a photo on one in five. **A photo is generated, never fetched** (`src/seed/images.ts`: a JPEG drawn from the photo's key, so the store's own checks and re-encoding run). **Running it again makes nothing twice, on the same day or another:** a check-in's id is made from the account, the date and its place in the day, and an account is found by its address. **It refuses anything but a development database** (`src/seed/guard.ts`): not with `NODE_ENV=production`; a file not under `/data`, or an sqld or PostgreSQL service not on this machine; a `WAYMARK_URL` not on this machine; a data directory of `/data`. It names the setting and never its value. **Seen:** the generator (determinism, ten years, every row accepted by the write path's own rules, countries and zones, places of many visits, stable across days), the guard, and the seed on a `file:` database, sqld and PostgreSQL (16 tests each: accounts that sign in with the password, a profile each, rows only their owner's, photos as files, a second run on the same day and the next making nothing); and by hand: `pnpm seed` on a scratch database took 18 seconds and a second run made nothing, then Check-ins and Places in Chromium as Ada showed 3,798 check-ins and the places by visits (459 at the most visited). **Left out:** Home and Map are still placeholders (they wait on epic 17), so the seed does not yet fill them; trips of each status, a journal, attachments, a Tally link, members in each role and a pending invitation join with phase 2, and an ongoing trip with timed items today with phase 3, as the task says. It was not run against the e2e instances: the browser tests make their own accounts.
 
 #### 📋 16.2 — Security review, phase 1
 

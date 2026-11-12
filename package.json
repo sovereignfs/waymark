@@ -25,6 +25,7 @@
     "test": "vitest run",
     "db:generate": "node scripts/db-generate.mjs",
     "places:fake": "node scripts/fake-places.mjs",
+    "seed": "node scripts/seed.mjs",
     "db:dev": "node scripts/dev-db.mjs",
     "boot-check": "node scripts/boot-check.mjs",
     "e2e": "playwright test",
