@@ -47,6 +47,8 @@ attribution, where to get a PMTiles file, the place search and what leaves the s
 
 **Accepts when:** someone new runs Waymark alone from the README alone.
 
+**Done so far:** `RELEASING.md`, copied from Tusk's with the name changed. The README's sections and the user guide are still to write.
+
 #### 📋 16.4 — Release 0.1.0
 
 **Goal:** phase 1 published. **Design:** §2. **Depends on:** 16.2, 16.3.
@@ -55,6 +57,8 @@ attribution, where to get a PMTiles file, the place search and what leaves the s
 booted; the package made public.
 
 **Accepts when:** `ghcr.io/sovereignfs/waymark:0.1.0` is published and boots from `deploy/`.
+
+**Done so far:** `scripts/release.sh`, `scripts/lib/release.sh`, `scripts/release/waymark.sh` and `scripts/test-release.sh` copied from Tusk's (the name, the `WAYMARK_RELEASE_GATES` variable and the repository's address changed; behaviour is the same), the changelog's `[Unreleased]` link the script moves, and CI running shellcheck and `scripts/test-release.sh` when `scripts/` changes (71 tests pass, shellcheck clean). `publish.yml` was already Tusk's with the name changed. **Not done:** 0.1.0 itself, which waits on 16.2, 16.3 and the screens that wait on `@sovereignfs/ui` 0.93.0 (17.1, 17.4 to 17.6, built in `sovereign` and not yet published).
 
 #### 📋 16.5 — Hosting on an instance
 
