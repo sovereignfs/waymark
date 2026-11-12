@@ -148,6 +148,12 @@ An upstream of your own is a TileJSON address or a tile address with `{z}`, `{x}
 draws with shapes and text, so there are no icons to serve. **Letters** (Noto Sans Regular and Bold, SIL Open Font License 1.1, from OpenFreeMap's build, `src/map/assets/fonts`): Latin, Greek, Cyrillic and punctuation are in the image, 1.2 MB; any other script is
 fetched from the default upstream and kept, with `proxy`, and with `pmtiles` its labels show their Latin name. Every map shows its attribution: © OpenStreetMap contributors (the data is ODbL), © OpenMapTiles, and OpenFreeMap for its tiles.
 
+## Directions
+
+On a trip, _Directions_ hands a place over to the maps on the device; Waymark fetches nothing for it and sends no one's position anywhere. The device decides, and the convention is the same everywhere: on **Android** a `geo:` link
+(`geo:<lat>,<lng>?q=<lat>,<lng>(<name>)`, opened by whichever maps app handles it); on **iPhone and iPad** (an iPad that asks for the desktop site included) Apple Maps, `maps://?daddr=<lat>,<lng>&q=<name>`; anywhere else an
+OpenStreetMap directions link, `https://www.openstreetmap.org/directions?route=;<lat>,<lng>`, which opens in a browser. A place's name is one line of at most a hundred characters, percent-encoded, so a name cannot change the link.
+
 ## Licence
 
 [AGPL-3.0-or-later](LICENSE), since it bundles `@sovereignfs/ui`.

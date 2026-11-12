@@ -38,7 +38,7 @@ the person's position; next with the countdown, _Directions_ and _Check in_ (pre
 **Accepts when:** on a mocked clock and position, the screen shows the right day and next item, and checking in from it links to the trip and marks the item
 done in the journal.
 
-#### 📋 13.3 — Directions
+#### ⏳ 13.3 — Directions
 
 **Goal:** a hand-off to the device's maps. **Design:** §14.3. **Depends on:** 13.2.
 
@@ -46,6 +46,8 @@ done in the journal.
 name; documented in the README.
 
 **Accepts when:** on the iOS Simulator, Directions opens Apple Maps at the item, not a browser tab.
+
+**Done so far (the hand-off; the button waits for 13.2's screen):** **`src/directions/directions.ts`**, pure: `platformOf` decides the device from what a browser says (`userAgent`, `platform`, `maxTouchPoints`: Android; iPhone, iPad and iPod; **an iPad that says it is a Mac, told apart by its touch screen**; anything else) and `directionsLink` makes the link: **`geo:<lat>,<lng>?q=<lat>,<lng>(<name>)` on Android, `maps://?daddr=<lat>,<lng>&q=<name>` on Apple devices, `https://www.openstreetmap.org/directions?route=;<lat>,<lng>` elsewhere**, with the point kept to five decimals (a metre or so) and **no link for a point that is not one** (out of range, not finite, not a number). A name is one line of at most a hundred characters, without control characters or the parentheses a `geo:` label ends at, and percent-encoded, so that **a place's name cannot add a parameter, a scheme or a line to the link** (tested with a hostile name for each platform). **Documented in the README** ("Directions"): the convention, that nothing is fetched and no position is sent. **Seen** (7 tests): the device for each kind of agent, the three links, the rounding, the refused points, the hostile name, a name in Japanese with parentheses and an ampersand. **Left out, and why the task is not done:** the _Directions_ button on the Trip Mode screen (13.2), which uses these two functions with `navigator`, and a check in a browser that Android and iPhone open their maps apps from the links (no device here).
 
 #### ✅ 13.4 — Reminders
 

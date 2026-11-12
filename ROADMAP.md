@@ -221,7 +221,7 @@ reminder arrives by Web Push once, and the day's plan and map open offline.
 | --- | ------------------------------- | -------------------- | -------- | --------------- | ------ |
 | 87  | [13.1](docs/epics/trip-mode.md) | Today                | P0       | 9.3, 4.4        | ✅     |
 | 88  | [13.2](docs/epics/trip-mode.md) | The Trip Mode screen | P1       | 13.1, 11.4, 7.2 | 📋     |
-| 89  | [13.3](docs/epics/trip-mode.md) | Directions           | P1       | 13.2            | 📋     |
+| 89  | [13.3](docs/epics/trip-mode.md) | Directions           | P1       | 13.2            | ⏳     |
 | 90  | [12.4](docs/epics/notices.md)   | Web Push             | P1       | 12.3, 1.11      | ✅     |
 | 91  | [13.4](docs/epics/trip-mode.md) | Reminders            | P1       | 13.1, 12.4      | ✅     |
 | 92  | [13.5](docs/epics/trip-mode.md) | A trip offline       | P1       | 13.2, 6.6, 1.11 | 📋     |
