@@ -91,6 +91,33 @@ test.describe('an instance that signs in through Sovereign only', () => {
     await signOut(page);
   });
 
+  test('Settings offers core’s bell as a channel, and email through core, when hosted', async ({
+    page,
+  }) => {
+    await nextPersonIs(page, FIRST);
+    await page.goto('/sign-in');
+    await throughSovereign(page);
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    await page.goto('/settings?section=notifications');
+    const section = page.getByRole('region', { name: 'Notifications' });
+    const bell = section.getByRole('switch', { name: /Core’s bell when: An import from Swarm/ });
+    await expect(bell).toBeVisible();
+    await expect(bell).toBeEnabled();
+    await expect(bell).toHaveAttribute('aria-checked', 'true');
+    // Email is offered too, by core, though this server has no mail of its own.
+    await expect(
+      section.getByRole('switch', { name: /Email me when: An import from Swarm/ }),
+    ).toBeEnabled();
+    await expect(section.getByText(/Email is not set up/)).toHaveCount(0);
+    await bell.click();
+    await expect(bell).toHaveAttribute('aria-checked', 'false');
+    await page.reload();
+    await expect(
+      page.getByRole('switch', { name: /Core’s bell when: An import from Swarm/ }),
+    ).toHaveAttribute('aria-checked', 'false');
+    await signOut(page);
+  });
+
   test('a person who declines at Sovereign is told so and is not signed in', async ({ page }) => {
     await page.goto('/sign-in?error=access_denied');
     await expect(page.getByText(/You declined to share/)).toBeVisible();

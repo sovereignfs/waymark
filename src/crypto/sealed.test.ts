@@ -96,6 +96,7 @@ describe('what each table seals', () => {
       'import_job',
       'notice',
       'mail_outbox',
+      'core_outbox',
     ]);
     for (const table of [
       'account_stream',

@@ -7,6 +7,8 @@ import { type MediaDeps, deleteMediaOf } from '../media/service';
 import { deleteImportsOf, importDirBeside } from '../import/service';
 import { deleteExportsOf, exportDirBeside } from '../portability/export';
 import { deleteMailOf } from '../mail/outbox';
+import { deleteCoreOf, enqueueCore } from './outbox';
+import type { Sealer } from '../crypto/sealed';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
 import { deletePlacesOf } from '../places/places';
@@ -33,6 +35,14 @@ export interface PeopleDeps {
   /** The media store, whose files go with the person. */
   readonly media: MediaDeps;
   readonly now: () => number;
+  /**
+   * Present where the person deleted their account **from Waymark** and the people here sign in through a core: a line about it is left on their activity page there (DESIGN.md §19.4). It names the `sub` and no
+   * account, since the account is going, so it is made after they are gone. Absent when the deletion came from the core, which knows.
+   */
+  readonly core?: {
+    readonly sealer: Sealer;
+    readonly subOf: (accountId: string) => Promise<string | undefined>;
+  };
 }
 
 export interface Deleted {
@@ -45,6 +55,8 @@ const appSchema = (database: Database) =>
 export async function deletePerson(deps: PeopleDeps, accountId: string): Promise<Deleted> {
   const { database, authDatabase } = deps;
   const app = appSchema(database);
+  // Who they are at the core, while the link to it still exists.
+  const sub = deps.core ? await deps.core.subOf(accountId) : undefined;
 
   // 1. Files, and then their rows.
   const files = await deleteMediaOf({ ...deps.media, database }, accountId);
@@ -71,6 +83,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     await deletePrefsOf(tx, accountId);
     // And the mail queued to them.
     await deleteMailOf(tx, accountId);
+    await deleteCoreOf(tx, accountId);
     await dbAll(
       tx,
       sql`DELETE FROM ${app.accountStream} WHERE account_id = ${accountId} RETURNING account_id`,
@@ -119,6 +132,13 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
       sql`DELETE FROM ${auth.verification} WHERE LOWER(identifier) = ${user.email.toLowerCase()} RETURNING id`,
     );
   await dbAll(authDatabase, sql`DELETE FROM ${auth.user} WHERE id = ${accountId} RETURNING id`);
+
+  // The line is queued last, once everything of them is gone, and names the sub: it is not deleted with the account it was about.
+  if (deps.core && sub)
+    await enqueueCore(database, deps.core.sealer, deps.now(), {
+      kind: 'activity',
+      content: { title: 'Deleted your Waymark account', sub, key: `deleted:${sub}` },
+    });
 
   return { files };
 }

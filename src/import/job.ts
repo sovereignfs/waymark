@@ -9,6 +9,7 @@ import { dbAll, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { type Delivery, raiseNotice } from '../notices/notices';
+import { enqueueCore } from '../sovereign/outbox';
 import type { MediaDeps } from '../media/service';
 import { putMedia } from '../media/service';
 import type { Address, PlaceSource } from '../places/clean';
@@ -534,6 +535,17 @@ async function finish(deps: ImportDeps, job: Claimed): Promise<void> {
       },
       deps.delivery?.() ?? {},
     );
+    // A line on the person's activity page at their core (DESIGN.md §19.4), queued with the rest.
+    if (deps.delivery?.().core)
+      await enqueueCore(tx, deps.sealer, now, {
+        accountId: job.accountId,
+        kind: 'activity',
+        content: {
+          title: `Imported ${done.toLocaleString('en-GB')} ${done === 1 ? 'check-in' : 'check-ins'} into Waymark`,
+          path: '/checkins',
+          key: `import:${job.id}`,
+        },
+      });
   });
   await removeImport(deps.dir, job.id);
 }

@@ -76,6 +76,12 @@ export const SEALED = {
     // `content` is `{ subject, text, html? }`: Waymark's own words, with the link or the title a notice carries (`src/mail/outbox.ts`).
     fields: { address: required('string'), content: required('json') },
   },
+  core_outbox: {
+    design: 'content',
+    phase: 1,
+    // `content` is `{ title, body?, path?, sub?, key }`: Waymark's own words for a call to a core, and the `sub` for a line about someone whose account is gone (`src/sovereign/outbox.ts`).
+    fields: { content: required('json') },
+  },
   trip: {
     design: 'name, description',
     phase: 2,

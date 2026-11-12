@@ -8,9 +8,10 @@ import { KINDS, type NoticeKind } from './kinds';
 /**
  * Which notices a person wants by which channel (DESIGN.md §17.2, §21). **The bell is always on and is not a preference**: a notice is always in the app. Beyond it, a person chooses by kind and channel; today
  * the one channel is `email`, and core's bell (14.1) and Web Push (12.4) join when those tasks make them. A kind and channel the person has not changed is at its default, here; a change is a row
- * (`notice_pref`) and a row is the only thing that overrides a default, so a default can be changed in a later version for everyone who never chose.
+ * (`notice_pref`) and a row is the only thing that overrides a default, so a default can be changed in a later version for everyone who never chose. `core` is the bell of a Sovereign core the person signs in through
+ * (14.1): it is offered, and acts, only where the people here sign in through a core; the person's choice is kept either way.
  */
-export const CHANNELS = ['email'] as const;
+export const CHANNELS = ['email', 'core'] as const;
 export type Channel = (typeof CHANNELS)[number];
 
 /** What a person is told of, in words, for Settings (the sentence a notice itself says is its own). */
@@ -20,7 +21,7 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
 export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, boolean>>>> = {
-  import_finished: { email: true },
+  import_finished: { email: true, core: true },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

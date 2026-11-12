@@ -277,6 +277,29 @@ describe(`an export (${leg})`, () => {
   });
 });
 
+describe(`a line on the activity page at a core (${leg})`, () => {
+  it('is queued when the export is ready, if the people here sign in through a core, and not otherwise', async () => {
+    await seed();
+    const rows = async () =>
+      Number(
+        (
+          await dbAll<{ n: number | string }>(
+            database,
+            sql`SELECT COUNT(*) AS n FROM ${named('core_outbox')} WHERE account_id = ${ADA}`,
+          )
+        )[0]?.n,
+      );
+    const before = await rows();
+    expect((await requestExport(deps, ADA)).ok).toBe(true);
+    await workOnExports(deps);
+    expect(await rows()).toBe(before);
+    await dbAll(database, sql`DELETE FROM ${named('export_job')} RETURNING id`);
+    expect((await requestExport(deps, ADA)).ok).toBe(true);
+    await workOnExports({ ...deps, core: true });
+    expect(await rows()).toBe(before + 1);
+  });
+});
+
 describe(`who may have it, and for how long (${leg})`, () => {
   it('is the owner’s alone, only while ready, and only within the day', async () => {
     await seed();

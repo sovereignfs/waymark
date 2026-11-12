@@ -106,6 +106,13 @@
       "when": 1794440533448,
       "tag": "0014_key_rotation",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1794441452844,
+      "tag": "0015_core_outbox",
+      "breakpoints": true
     }
   ]
 }

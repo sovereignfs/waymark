@@ -263,6 +263,24 @@ describe(`importing (${leg})`, () => {
   });
 });
 
+describe(`a line on the activity page at a core (${leg})`, () => {
+  it('is queued with the end of an import when the people here sign in through a core, and not otherwise', async () => {
+    const before = await count('core_outbox', ADA);
+    await uploaded(ADA, items(3, 'act'));
+    await workOnImports(deps);
+    expect(await count('core_outbox', ADA)).toBe(before);
+    await uploaded(ADA, items(4, 'act2'));
+    await workOnImports({ ...deps, delivery: () => ({ core: true as const }) });
+    // The notice's two (core's bell and core's email) and the line on the activity page.
+    expect(await count('core_outbox', ADA)).toBe(before + 3);
+    const kinds = await dbAll<{ kind: string }>(
+      database,
+      sql`SELECT kind FROM ${named('core_outbox')} WHERE account_id = ${ADA}`,
+    );
+    expect(kinds.map((k) => k.kind).sort()).toEqual(['activity', 'email', 'notification']);
+  });
+});
+
 describe(`resuming (${leg})`, () => {
   it('carries on from the cursor after a stop, reading nothing twice, and the whole is made once', async () => {
     const id = await uploaded(ADA, items(80, 'r'));

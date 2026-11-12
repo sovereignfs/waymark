@@ -43,6 +43,7 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'checkin', key: 'id', guard: 'version' },
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
+  { table: 'core_outbox', key: 'id' },
   { table: 'import_job', key: 'id', guard: 'updated_at' },
 ];
 export const FILE_PHASES = ['media', 'imports', 'exports'] as const;

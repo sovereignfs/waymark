@@ -356,6 +356,7 @@ describe('the phases', () => {
       'checkin',
       'notice',
       'mail_outbox',
+      'core_outbox',
       'import_job',
       'media',
       'imports',

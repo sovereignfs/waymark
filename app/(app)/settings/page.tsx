@@ -70,11 +70,14 @@ export default async function SettingsPage({
         ),
         notifications: (
           <NotificationsSection
-            mail={getConfig().mail !== undefined}
+            // Email goes by this server's own mail, or by the core the people sign in through.
+            mail={getConfig().mail !== undefined || authSettings()?.sovereign !== undefined}
+            core={authSettings()?.sovereign !== undefined}
             initial={KINDS.map((kind) => ({
               kind,
               label: KIND_LABELS[kind],
               email: prefs[kind].email,
+              core: prefs[kind].core,
             }))}
           />
         ),

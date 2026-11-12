@@ -347,3 +347,27 @@ export const keyRotation = sqliteTable('key_rotation', {
   updatedAt: epochMs('updated_at').notNull(),
   finishedAt: epochMs('finished_at'),
 });
+
+/**
+ * Calls to a Sovereign core waiting to be made (DESIGN.md §17.2, §19.4): a notice for core's bell, an email by core, a line on the person's activity page. Written **in the transaction of the change that causes it**
+ * and made in the background by a job (`src/sovereign/outbox.ts`), so a slow or absent core never holds a request, nothing is held across a call to core, and a call that fails is tried again. The same shape as the
+ * mail outbox: a lease (`claimed_until`) so that two workers never make one call, the time of the next try, how many have been made. **What it says is sealed** (`SEALED.core_outbox`); who it is for is the account
+ * (`account_id`, from which the job finds their `sub`), or null for a line about someone whose account is gone (its content then names the `sub`).
+ */
+export const coreOutbox = sqliteTable(
+  'core_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    kind: text('kind').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('core_outbox_due_idx').on(table.nextAttemptAt),
+    index('core_outbox_account_idx').on(table.accountId),
+  ],
+);

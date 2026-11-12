@@ -5,13 +5,14 @@ import { sql } from 'drizzle-orm';
 import type { KeyRing } from '../crypto/keys';
 import type { Sealer } from '../crypto/sealed';
 import type { Database } from '../db/client';
-import { dbAll } from '../db/exec';
+import { dbAll, transaction } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { hasImport, listImports, readImport, removeImport, writeImport } from '../import/files';
 import { type MediaDeps, readMedia } from '../media/service';
 import { listPrefs } from '../notices/prefs';
 import { getProfile } from '../profile/profile';
+import { enqueueCore } from '../sovereign/outbox';
 import { pullAccount } from '../sync/pull';
 import { ZipWriter } from './zip';
 import {
@@ -48,6 +49,8 @@ export interface ExportDeps {
   readonly dir: string;
   readonly media: MediaDeps;
   readonly now: () => number;
+  /** Whether the people here sign in through a Sovereign core, which an export is then noted to on their activity page there. */
+  readonly core?: boolean | undefined;
 }
 
 export type ExportStatus = 'queued' | 'running' | 'ready' | 'failed' | 'expired';
@@ -197,12 +200,26 @@ export async function workOnExports(deps: ExportDeps): Promise<boolean> {
     );
     if (!written.ok) throw new Error(written.reason);
     const now = deps.now();
-    const done = await dbAll<{ id: string }>(
-      deps.database,
-      sql`UPDATE ${table(deps.database)}
-          SET status = 'ready', bytes = ${written.bytes}, ready_at = ${now}, expires_at = ${now + READY_FOR_MS}, claimed_until = 0
-          WHERE id = ${job.id} AND status = 'running' RETURNING id`,
-    );
+    const done = await transaction(deps.database, async (tx) => {
+      const rows = await dbAll<{ id: string }>(
+        tx,
+        sql`UPDATE ${table(tx)}
+            SET status = 'ready', bytes = ${written.bytes}, ready_at = ${now}, expires_at = ${now + READY_FOR_MS}, claimed_until = 0
+            WHERE id = ${job.id} AND status = 'running' RETURNING id`,
+      );
+      // A line on the person's activity page at their core, queued with the change (DESIGN.md §19.4).
+      if (rows.length > 0 && deps.core)
+        await enqueueCore(tx, deps.sealer, now, {
+          accountId: job.accountId,
+          kind: 'activity',
+          content: {
+            title: 'Made an export of your Waymark data',
+            path: '/settings?section=data',
+            key: `export:${job.id}`,
+          },
+        });
+      return rows;
+    });
     // The request was deleted while it was being built: nothing is kept.
     if (done.length === 0) await removeImport(deps.dir, job.id);
   } catch {

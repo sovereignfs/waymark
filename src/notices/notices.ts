@@ -6,6 +6,7 @@ import { dbAll } from '../db/exec';
 import * as postgresSchema from '../db/schema/postgres';
 import * as sqliteSchema from '../db/schema/sqlite';
 import { enqueueMail } from '../mail/outbox';
+import { enqueueCore } from '../sovereign/outbox';
 import { notificationMessage } from '../mail/templates';
 import { getProfile } from '../profile/profile';
 import { KINDS, type NoticeKind } from './kinds';
@@ -77,6 +78,36 @@ export function cleanContent(content: NoticeContent): NoticeContent {
 /** How a notice also reaches a person beyond the bell. Present only when this server can send mail (`WAYMARK_SMTP_HOST`): `app` is the name in the message and `url` the address people use. */
 export interface Delivery {
   readonly mail?: { readonly app: string; readonly url: string } | undefined;
+  /** Present only when the people here sign in through a Sovereign core and this server can call it: then core's bell and core's email are channels (DESIGN.md §19.4). */
+  readonly core?: true | undefined;
+}
+
+/**
+ * Waymark's own email of a notice to a person's address (the one they signed up with), queued in the transaction `tx`: used for a notice when mail is the channel, and **for an email core would not send**
+ * (the fallback of `sovereign/outbox.ts`). Nothing is queued for an account with no profile.
+ */
+export async function queueNoticeMail(
+  tx: Database,
+  sealer: Sealer,
+  now: number,
+  mail: { readonly app: string; readonly url: string },
+  notice: { accountId: string; title: string; detail?: string | undefined; path: string },
+): Promise<void> {
+  const profile = await getProfile(tx, sealer, notice.accountId);
+  if (!profile) return;
+  const base = mail.url.replace(/\/+$/, '');
+  await enqueueMail(tx, sealer, now, {
+    accountId: notice.accountId,
+    kind: 'notice',
+    message: notificationMessage(
+      mail.app,
+      profile.email,
+      notice.title,
+      notice.detail,
+      `${base}${notice.path}`,
+      `${base}/settings?section=notifications`,
+    ),
+  });
 }
 
 export interface Raise {
@@ -110,25 +141,30 @@ export async function raiseNotice(
         VALUES (${id}, ${raise.to}, ${raise.kind}, ${raise.tripId ?? null}, NULL, ${sealed}, ${now})
         RETURNING id`,
   );
-  // By email too, where the person wants it and this server can send it (DESIGN.md §17.2): queued in the same transaction, so a notice and its mail stand or fall together. The message is Waymark's own words
-  // and a link, to the address the person signs up with, which only they receive (§6.1).
-  if (delivery.mail && (await wants(tx, raise.to, raise.kind, 'email'))) {
-    const profile = await getProfile(tx, sealer, raise.to);
-    if (profile) {
-      const base = delivery.mail.url.replace(/\/+$/, '');
-      await enqueueMail(tx, sealer, now, {
+  // Beyond the bell, where the person wants it and this server can: all queued in the same transaction, so a notice and its calls stand or fall together (DESIGN.md §17.2). The text is Waymark's own words and
+  // a link, to the address the person signs up with or to a person named by their sub at core, which only they receive (§6.1).
+  const path = content.href ?? '/notifications';
+  if (delivery.core && (await wants(tx, raise.to, raise.kind, 'core')))
+    await enqueueCore(tx, sealer, now, {
+      accountId: raise.to,
+      kind: 'notification',
+      content: { title: content.title, body: content.detail, path, key: id },
+    });
+  if (await wants(tx, raise.to, raise.kind, 'email')) {
+    if (delivery.core)
+      // Core's email for a person who signs in through the core, and Waymark's own mail where core will not send it (or the person has no sub there): the job decides, and falls back to `queueNoticeMail`.
+      await enqueueCore(tx, sealer, now, {
         accountId: raise.to,
-        kind: 'notice',
-        message: notificationMessage(
-          delivery.mail.app,
-          profile.email,
-          content.title,
-          content.detail,
-          `${base}${content.href ?? '/notifications'}`,
-          `${base}/settings?section=notifications`,
-        ),
+        kind: 'email',
+        content: { title: content.title, body: content.detail, path, key: `${id}:email` },
       });
-    }
+    else if (delivery.mail)
+      await queueNoticeMail(tx, sealer, now, delivery.mail, {
+        accountId: raise.to,
+        title: content.title,
+        detail: content.detail,
+        path,
+      });
   }
   return id;
 }

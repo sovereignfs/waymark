@@ -7,6 +7,8 @@ import { sweepUnattachedPhotos } from '../checkins/photos';
 import { rotateKeys } from '../crypto/rotate';
 import { serverRotation } from '../crypto/server-rotation';
 import { serverImport } from '../import/server';
+import { dropStaleCore, sendDueCore } from '../sovereign/outbox';
+import { serverCoreOutbox } from '../sovereign/server-core';
 import { sweepExports, workOnExports } from '../portability/export';
 import { serverExport } from '../portability/server';
 import { sweepImports } from '../import/service';
@@ -186,6 +188,23 @@ export const jobs: readonly JobDefinition[] = [
       else
         console.info(
           `[waymark] keys: rotating (${rotation.rewrapped} moved so far, ${Date.now() - before} ms)`,
+        );
+    },
+  },
+  {
+    // Calls to a Sovereign core wait in the outbox and are made here (DESIGN.md §17.2, §19.4): core's bell, core's email and a line on the person's activity page. Each is claimed by a lease so that several processes
+    // make one call once, carries a key, and is tried again; an email core will not send goes by Waymark's own mail. Where there is no core there is nothing to do. It logs counts, never a title or a sub.
+    name: 'send-core',
+    everyMs: 20 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const core = await serverCoreOutbox(() => now.getTime());
+      if (!core) return;
+      const pass = await sendDueCore(core.deps, core.sender);
+      const stale = await dropStaleCore(core.deps);
+      if (pass.retry + pass.gaveUp + pass.fellBack + stale > 0)
+        console.info(
+          `[waymark] core: ${pass.sent} sent, ${pass.retry} to try again, ${pass.fellBack} by Waymark's mail, ${pass.gaveUp + stale} given up on`,
         );
     },
   },

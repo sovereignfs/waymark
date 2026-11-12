@@ -276,3 +276,22 @@ export const keyRotation = app.table('key_rotation', {
   updatedAt: epochMs('updated_at').notNull(),
   finishedAt: epochMs('finished_at'),
 });
+
+/** See `schema/sqlite/app.ts`. */
+export const coreOutbox = app.table(
+  'core_outbox',
+  {
+    id: id('id'),
+    accountId: ref('account_id'),
+    kind: text('kind').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('core_outbox_due_idx').on(table.nextAttemptAt),
+    index('core_outbox_account_idx').on(table.accountId),
+  ],
+);

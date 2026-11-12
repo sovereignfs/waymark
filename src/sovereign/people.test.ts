@@ -19,6 +19,7 @@ import { hasImport } from '../import/files';
 import type { ImportReader } from '../import/job';
 import { createImport, importDirBeside } from '../import/service';
 import { enqueueMail } from '../mail/outbox';
+import { enqueueCore } from './outbox';
 import { exportDirBeside, requestExport, workOnExports } from '../portability/export';
 import { raiseNotice } from '../notices/notices';
 import { setPref } from '../notices/prefs';
@@ -49,6 +50,7 @@ const GOES = [
   'notice',
   'notice_pref',
   'mail_outbox',
+  'core_outbox',
   'import_job',
   'export_job',
   'media',
@@ -176,6 +178,11 @@ describe(`deleting a person (${leg})`, () => {
         kind: 'notice',
         message: { to: 'x@example.com', subject: 's', text: 't' },
       });
+      await enqueueCore(database, sealer, NOW, {
+        accountId: who,
+        kind: 'notification',
+        content: { title: 'Waiting', key: `k-${who}` },
+      });
       await setPref(database, who, 'import_finished', 'email', false, NOW);
       // An uploaded import, with its file.
       const queued = await createImport(
@@ -263,7 +270,17 @@ describe(`deleting a person (${leg})`, () => {
     expect(files()).toBe(4);
     expect(await authCount('session', `user_id = '${ada}'`)).toBeGreaterThan(0);
 
-    const deps = { database, authDatabase: t.auth.database, media, now: () => NOW };
+    const deps = {
+      database,
+      authDatabase: t.auth.database,
+      media,
+      now: () => NOW,
+      // Deleted from Waymark, by a person who signs in through a core.
+      core: {
+        sealer,
+        subOf: async (accountId: string) => (accountId === ada ? 'sub-ada' : undefined),
+      },
+    };
     expect(await deletePerson(deps, ada)).toEqual({ files: 2 });
 
     // Nothing of Ada, anywhere.
@@ -311,6 +328,9 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('notice', `account_id = '${grace}'`)).toBe(1);
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('core_outbox', `account_id = '${grace}'`)).toBe(1);
+    // A line about the deletion, which names the sub and no account, was left for the core.
+    expect(await count('core_outbox', 'account_id IS NULL')).toBe(1);
     expect(await count('import_job', `account_id = '${grace}'`)).toBe(1);
     expect(await count('export_job', `account_id = '${grace}'`)).toBe(1);
     expect(await hasImport(exportDirBeside(media.dir), exports[grace] ?? '')).toBe(true);
