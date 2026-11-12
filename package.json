@@ -41,7 +41,7 @@
     "@libsql/client": "^0.18.0",
     "@sovereignfs/config": "0.1.0",
     "@sovereignfs/sdk": "2.1.0",
-    "@sovereignfs/ui": "0.92.0",
+    "@sovereignfs/ui": "0.96.1",
     "better-auth": "~1.7.16",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "3.4.0",

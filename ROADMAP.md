@@ -4,7 +4,7 @@ The order of work. **This file tracks progress; it does not define behaviour.** 
 this file, this file is stale and should be corrected. The detail of every task, with its technical notes and what makes it done, is in
 [`docs/epics/`](docs/epics/). How a task is run is in [`AGENTS.md`](AGENTS.md).
 
-State as of 2026-11-12: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.5 and 6.7 done. **Milestone E in progress** (7.1 done, 7.2 done except picking a point on the map (17.1); 7.3 done except the photo viewer (17.6) and what waits for trips; 7.5 done except moving a place's point and its small map (17.1); the rest wait on `Map`, the photo viewer, `AvatarStack` and a floating button, work in `sovereign`). **Milestone F in progress** (12.1, notices and the bell, 12.2, the mail outbox, and 12.3, notification preferences, and 8.1, the import job, done; 8.2 waits on a real export). **Milestone G in progress** (2.3, sign-in through core, 2.4, core's notices, 15.1, export, and 15.2, import, 3.3, rotating the key, and 14.1, core's bell, email and activity, done). **16.1, the development seed, done** for phase 1 (it grows with the phases). **9.1, trips, members and access, 9.2, stops, days and trip places, 9.3, items, 9.4, ready and status, 9.5, attachments, 9.6, links, 9.7, auto-link (on the server; the device's hook for it is a screen's), 10.1, roles, 10.3, sharing check-ins with a trip, 6.6, trips on the device (the store, the sync and the actions; the screens come with 11.x), 10.4, leaving, removing and handing over, 15.3, trips in export and import, 13.1, Today (the rules and the Done marks; the screen is 13.2), 12.4, Web Push (sending and the settings; no real browser has received one yet), and 13.4, reminders, done (phase 2 has begun).** **6.4, opening offline, done:** Home, Check-ins, a check-in, Map, Places and a place open with no network from the kept shell, reading the device's store. **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
+State as of 2026-11-12: **Milestone A done** (the image built and `scripts/deploy-check.sh` passed). **Milestone D** has 5.1 to 5.4, 6.1 to 6.5 and 6.7 done. **Milestone E in progress** (7.1 done, 7.2 done except picking a point on the map (17.1); 7.3 done except the photo viewer (17.6) and what waits for trips; 7.5 done except moving a place's point and its small map (17.1); the rest were waiting on `Map`, the photo viewer, `AvatarStack` and a floating button, which `@sovereignfs/ui` 0.96.1 now publishes, so those screens can be built; epic 17 is done). **Milestone F in progress** (12.1, notices and the bell, 12.2, the mail outbox, and 12.3, notification preferences, and 8.1, the import job, done; 8.2 waits on a real export). **Milestone G in progress** (2.3, sign-in through core, 2.4, core's notices, 15.1, export, and 15.2, import, 3.3, rotating the key, and 14.1, core's bell, email and activity, done). **16.1, the development seed, done** for phase 1 (it grows with the phases). **9.1, trips, members and access, 9.2, stops, days and trip places, 9.3, items, 9.4, ready and status, 9.5, attachments, 9.6, links, 9.7, auto-link (on the server; the device's hook for it is a screen's), 10.1, roles, 10.3, sharing check-ins with a trip, 6.6, trips on the device (the store, the sync and the actions; the screens come with 11.x), 10.4, leaving, removing and handing over, 15.3, trips in export and import, 13.1, Today (the rules and the Done marks; the screen is 13.2), 12.4, Web Push (sending and the settings; no real browser has received one yet), and 13.4, reminders, done (phase 2 has begun).** **6.4, opening offline, done:** Home, Check-ins, a check-in, Map, Places and a place open with no network from the kept shell, reading the device's store. **Milestone C done** (4.1 to 4.4) except 17.1, the `Map` component, which is work in `sovereign`. **Milestone B done** (accounts, sealed rows, profiles, the landing page, the media store, deleting a person and Settings). The developer assigns each task; the first row not done, with its dependencies met, is what the order
 recommends.
 
 _Status key: ✅ Done · ⏳ In progress · 📋 Planned · 🚧 Waits on a decision or an input · ➖ Superseded_
@@ -75,7 +75,7 @@ map of it renders in light and dark from Waymark's own tiles, and the browser ma
 
 | #   | ID                             | Task                   | Priority | Depends on | Status |
 | --- | ------------------------------ | ---------------------- | -------- | ---------- | ------ |
-| 19  | [17.1](docs/epics/upstream.md) | `Map` (`sovereign`)    | P0       | —          | 📋     |
+| 19  | [17.1](docs/epics/upstream.md) | `Map` (`sovereign`)    | P0       | —          | ✅     |
 | 20  | [4.4](docs/epics/places.md)    | Time zones from points | P0       | 1.2        | ✅     |
 | 21  | [4.1](docs/epics/places.md)    | Places                 | P0       | 3.1, 4.4   | ✅     |
 | 22  | [4.2](docs/epics/places.md)    | Finding a place        | P0       | 4.1, 1.7   | ✅     |
@@ -106,9 +106,9 @@ see everything on the map, at desktop and phone widths, with the keyboard, in li
 
 | #   | ID                             | Task                                        | Priority | Depends on     | Status |
 | --- | ------------------------------ | ------------------------------------------- | -------- | -------------- | ------ |
-| 34  | [17.4](docs/epics/upstream.md) | `AvatarStack` (`sovereign`, with Tally)     | P1       | —              | 📋     |
-| 35  | [17.5](docs/epics/upstream.md) | A floating button (`sovereign`, with Tally) | P1       | —              | 📋     |
-| 36  | [17.6](docs/epics/upstream.md) | A photo viewer (`sovereign`)                | P1       | —              | 📋     |
+| 34  | [17.4](docs/epics/upstream.md) | `AvatarStack` (`sovereign`, with Tally)     | P1       | —              | ✅     |
+| 35  | [17.5](docs/epics/upstream.md) | A floating button (`sovereign`, with Tally) | P1       | —              | ✅     |
+| 36  | [17.6](docs/epics/upstream.md) | A photo viewer (`sovereign`)                | P1       | —              | ✅     |
 | 37  | [7.1](docs/epics/screens.md)   | The shell's places                          | P1       | 6.2            | ✅     |
 | 38  | [7.2](docs/epics/screens.md)   | Checking in                                 | P1       | 7.1, 4.2, 17.1 | ⏳     |
 | 39  | [7.3](docs/epics/screens.md)   | The timeline and a check-in                 | P1       | 7.2, 17.6      | ⏳     |
@@ -147,7 +147,7 @@ photos round-trip through a file, and 0.1.0 is published and hosted on the live 
 | 54  | [15.2](docs/epics/portability.md) | Import                                    | P2       | 15.1            | ✅     |
 | 55  | [3.3](docs/epics/encryption.md)   | Rotating the key                          | P2       | 3.1, 3.2        | ✅     |
 | 56  | [16.1](docs/epics/release.md)     | Development seed                          | P1       | 5.3, 4.1        | ✅     |
-| 57  | [17.3](docs/epics/upstream.md)    | Waymark's port in the guide (`sovereign`) | P3       | —               | 📋     |
+| 57  | [17.3](docs/epics/upstream.md)    | Waymark's port in the guide (`sovereign`) | P3       | —               | ✅     |
 | 58  | [16.3](docs/epics/release.md)     | Documents                                 | P2       | 1.10, 4.3       | ⏳     |
 | 59  | [16.2](docs/epics/release.md)     | Security review, phase 1                  | P2       | 8.3, 15.2, 14.1 | 📋     |
 | 60  | [16.4](docs/epics/release.md)     | Release 0.1.0                             | P2       | 16.2, 16.3      | ⏳     |
@@ -178,7 +178,7 @@ their role allows and nothing more, and a check-in reaches the trip only when sh
 
 | #   | ID                             | Task                                                  | Priority | Depends on       | Status |
 | --- | ------------------------------ | ----------------------------------------------------- | -------- | ---------------- | ------ |
-| 70  | [17.2](docs/epics/upstream.md) | `AUTH_SIGNUP` by invitation (`sovereign`, with Tally) | P1       | —                | ⏳     |
+| 70  | [17.2](docs/epics/upstream.md) | `AUTH_SIGNUP` by invitation (`sovereign`, with Tally) | P1       | —                | ✅     |
 | 71  | [10.1](docs/epics/sharing.md)  | Roles                                                 | P0       | 9.1              | ✅     |
 | 72  | [10.2](docs/epics/sharing.md)  | Invitations                                           | P1       | 10.1, 12.2, 17.2 | ⏳     |
 | 73  | [10.3](docs/epics/sharing.md)  | Sharing check-ins with a trip                         | P1       | 10.1, 6.6, 9.7   | ✅     |
@@ -191,7 +191,7 @@ The trip page the plugin deferred. **Done when** a trip goes from a name to a co
 
 | #   | ID                                 | Task                              | Priority | Depends on       | Status |
 | --- | ---------------------------------- | --------------------------------- | -------- | ---------------- | ------ |
-| 76  | [17.7](docs/epics/upstream.md)     | A date range picker (`sovereign`) | P1       | —                | ⏳     |
+| 76  | [17.7](docs/epics/upstream.md)     | A date range picker (`sovereign`) | P1       | —                | ✅     |
 | 77  | [11.1](docs/epics/trip-screens.md) | Trips                             | P1       | 9.4, 6.6, 7.1    | 📋     |
 | 78  | [11.2](docs/epics/trip-screens.md) | A trip and its overview           | P1       | 11.1, 17.4       | 📋     |
 | 79  | [11.3](docs/epics/trip-screens.md) | The plan                          | P1       | 11.2, 9.3, 17.7  | 📋     |

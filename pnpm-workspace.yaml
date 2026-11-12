@@ -20,7 +20,7 @@ supportedArchitectures:
 # A release of a package younger than pnpm's minimum age is installed only by being listed here. These two are ours and exact-pinned, and
 # are listed in the commit that bumps them; any other needs an argument.
 minimumReleaseAgeExclude:
-  - '@sovereignfs/ui@0.92.0'
+  - '@sovereignfs/ui@0.96.1'
   - '@sovereignfs/config@0.1.0'
   - '@sovereignfs/sdk@2.1.0'
 
