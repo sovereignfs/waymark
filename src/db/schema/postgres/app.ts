@@ -499,3 +499,43 @@ export const itemDone = app.table(
     index('item_done_account_idx').on(table.accountId),
   ],
 );
+
+/** See `schema/sqlite/app.ts`. */
+export const pushSubscription = app.table(
+  'push_subscription',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    endpointHash: text('endpoint_hash').notNull(),
+    lastOkAt: epochMs('last_ok_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('push_subscription_endpoint_idx').on(table.accountId, table.endpointHash),
+    index('push_subscription_account_idx').on(table.accountId),
+  ],
+);
+
+/** See `schema/sqlite/app.ts`. */
+export const pushOutbox = app.table(
+  'push_outbox',
+  {
+    id: id('id'),
+    subscriptionId: ref('subscription_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    path: text('path').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    expiresAt: epochMs('expires_at').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('push_outbox_due_idx').on(table.nextAttemptAt),
+    index('push_outbox_subscription_idx').on(table.subscriptionId),
+    index('push_outbox_account_idx').on(table.accountId),
+  ],
+);

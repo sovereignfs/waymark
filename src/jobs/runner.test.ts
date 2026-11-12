@@ -338,6 +338,7 @@ describe('starting the jobs', () => {
       'prune-history',
       'prune-notices',
       'send-mail',
+      'send-push',
       'import',
       'export',
       'rotate-keys',

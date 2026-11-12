@@ -7,11 +7,13 @@ import type { Delivery } from './notices';
  * place's and a notice never queues mail that nothing could send.
  */
 export function noticeDelivery(): Delivery {
-  const { mail, url, auth } = getConfig();
+  const { mail, url, auth, push } = getConfig();
   if (!url) return {};
   return {
     ...(mail ? { mail: { app: site.name, url } } : {}),
     // Core's bell and core's email, where the people here sign in through a core (DESIGN.md §19.4).
     ...(auth?.sovereign ? { core: true as const } : {}),
+    // Web Push, where the instance has a key for it.
+    ...(push ? { push: true as const } : {}),
   };
 }

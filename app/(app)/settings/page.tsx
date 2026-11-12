@@ -37,6 +37,7 @@ export default async function SettingsPage({
   );
   const signIns = await signInsOf(user.id);
   const prefs = await listPrefs(database, user.id);
+  const pushKey = getConfig().push?.publicKey;
   return (
     <SettingsShell
       initial={sectionOf(one(query.section))}
@@ -73,11 +74,13 @@ export default async function SettingsPage({
             // Email goes by this server's own mail, or by the core the people sign in through.
             mail={getConfig().mail !== undefined || authSettings()?.sovereign !== undefined}
             core={authSettings()?.sovereign !== undefined}
+            push={pushKey ? { publicKey: pushKey } : undefined}
             initial={KINDS.map((kind) => ({
               kind,
               label: KIND_LABELS[kind],
               email: prefs[kind].email,
               core: prefs[kind].core,
+              push: prefs[kind].push,
             }))}
           />
         ),

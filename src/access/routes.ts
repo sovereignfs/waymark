@@ -67,6 +67,11 @@ export const ROUTES: RouteRule[] = [
   { route: '/api/notices', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   // What is emailed (DESIGN.md §17.2, §21): the account's own choices, read and changed; every statement names the account.
   { route: '/api/notices/prefs', methods: { GET: { kind: 'account' }, PUT: { kind: 'account' } } },
+  // Web Push (DESIGN.md §17.3): the account's own devices, listed, turned on and turned off; every statement names the account.
+  {
+    route: '/api/push',
+    methods: { GET: { kind: 'account' }, POST: { kind: 'account' }, DELETE: { kind: 'account' } },
+  },
   // Imports (DESIGN.md §16): the account's own, listed, uploaded (limited for each account) and cancelled; every statement names the account, so another person's are not found.
   { route: '/api/imports', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   { route: '/api/imports/[id]', methods: { DELETE: { kind: 'account' } } },

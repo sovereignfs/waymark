@@ -9,7 +9,7 @@
  *
  * **With no network,** Home, Check-ins, a check-in, Map, Places and a place (`src/sw/addresses.ts`) are answered with the kept shell page, which carries the policy and the nonce it was sent
  * with (the headers are kept with the body, so the two agree), and which draws the screen from the device's own store (`OfflineApp`). Every other address is answered with a page the worker
- * builds itself, saying that it needs a connection. (A trip's map tiles, the one public thing kept beyond this list, are 13.5; Background Sync is 6.2; push is 12.4.) A new
+ * builds itself, saying that it needs a connection. (A trip's map tiles, the one public thing kept beyond this list, are 13.5; Background Sync is 6.2.) It also shows a **push** (12.4) as a notification whose words it writes itself from the kind the push names, and opens the path the push names when it is tapped: a push carries nothing of a person's. A new
  * version waits until the pages that use the old one are closed (no `skipWaiting`), so what is in flight and the outbox are not disturbed.
  */
 import { offlineAddressSources } from './addresses';
@@ -77,6 +77,51 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(kept(event, request));
   }
   // Anything else is not the worker's: it goes to the network as it would without one, and is never stored.
+});
+
+/**
+ * A push (DESIGN.md §17.3): the push service carries a kind and a path of this app and nothing else, so **the words are the worker's own**, chosen by the kind. A push that is not that is shown as the plain sentence it falls back to; a path that is not
+ * a path of this app is not followed.
+ */
+const PUSH_WORDS = {
+  import_finished: 'Your import has finished.',
+  organizer_passed: 'A trip has passed to you.',
+  trip_ready: 'A trip you are in has changed.',
+  trip_dates: 'The dates of a trip you are in have changed.',
+  role_changed: 'Your part in a trip has changed.',
+  checkin_shared: 'A check-in was shared with a trip you are in.',
+  edit_replaced: 'Someone changed an item right after you.',
+  trip_starts: 'Your trip starts soon.',
+  item_soon: 'Something on your trip is coming up.',
+  day_plan: 'Today’s plan is ready.',
+};
+const PUSH_FALLBACK = 'Waymark has something for you.';
+const isAppPath = (path) => typeof path === 'string' && /^\\/(?![/\\\\])/.test(path) && path.length < 500;
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    data = {};
+  }
+  const kind = data && typeof data.k === 'string' ? data.k : '';
+  const path = data && isAppPath(data.p) ? data.p : '/notifications';
+  const body = Object.prototype.hasOwnProperty.call(PUSH_WORDS, kind) ? PUSH_WORDS[kind] : PUSH_FALLBACK;
+  event.waitUntil(self.registration.showNotification('Waymark', { body, tag: kind || 'waymark', data: { path } }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const data = event.notification.data;
+  const path = data && isAppPath(data.path) ? data.path : '/notifications';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((each) => new URL(each.url).origin === self.location.origin);
+      if (open) return open.navigate(self.location.origin + path).then((moved) => (moved || open).focus());
+      return self.clients.openWindow(self.location.origin + path);
+    }),
+  );
 });
 
 /** A built file or an icon: from the cache if it is there, else from the network and kept. They are the same for everyone. */

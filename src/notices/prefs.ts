@@ -11,7 +11,7 @@ import { KINDS, type NoticeKind } from './kinds';
  * (`notice_pref`) and a row is the only thing that overrides a default, so a default can be changed in a later version for everyone who never chose. `core` is the bell of a Sovereign core the person signs in through
  * (14.1): it is offered, and acts, only where the people here sign in through a core; the person's choice is kept either way.
  */
-export const CHANNELS = ['email', 'core'] as const;
+export const CHANNELS = ['email', 'core', 'push'] as const;
 export type Channel = (typeof CHANNELS)[number];
 
 /** What a person is told of, in words, for Settings (the sentence a notice itself says is its own). */
@@ -27,17 +27,17 @@ export const KIND_LABELS: Readonly<Record<NoticeKind, string>> = {
 
 /** The default for each kind and channel. An import takes a while and people leave: email is on. */
 export const DEFAULTS: Readonly<Record<NoticeKind, Readonly<Record<Channel, boolean>>>> = {
-  import_finished: { email: true, core: true },
+  import_finished: { email: true, core: true, push: false },
   // Said in the bell and by core's bell: not worth a mail of its own.
-  organizer_passed: { email: false, core: true },
+  organizer_passed: { email: false, core: true, push: false },
   // The bell and core's bell, not mail: a trip changes often and its people are in it.
-  trip_ready: { email: false, core: true },
-  trip_dates: { email: false, core: true },
-  role_changed: { email: false, core: true },
+  trip_ready: { email: false, core: true, push: false },
+  trip_dates: { email: false, core: true, push: false },
+  role_changed: { email: false, core: true, push: false },
   // Off by default, in every channel: a member is told of a shared check-in only if they turned it on (DESIGN.md §17.1).
-  checkin_shared: { email: false, core: false },
+  checkin_shared: { email: false, core: false, push: false },
   // Said in the bell and by core's bell: your own words were replaced, which you should be able to find.
-  edit_replaced: { email: false, core: true },
+  edit_replaced: { email: false, core: true, push: false },
 };
 
 export const isChannel = (value: unknown): value is Channel =>

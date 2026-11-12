@@ -15,6 +15,10 @@
   },
   "database": true,
   "data": ["/data"],
-  "generate": ["WAYMARK_AUTH_SECRET", { "name": "WAYMARK_ENCRYPTION_KEY", "bytes": 32 }],
+  "generate": [
+    "WAYMARK_AUTH_SECRET",
+    { "name": "WAYMARK_ENCRYPTION_KEY", "bytes": 32 },
+    "WAYMARK_VAPID_PRIVATE_KEY"
+  ],
   "core": ">=0.57.0 <1.0.0"
 }

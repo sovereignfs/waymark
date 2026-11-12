@@ -19,6 +19,8 @@ import { serverMailer, serverOutbox } from '../mail/server';
 import { pruneNotices } from '../notices/notices';
 import { pruneHistory } from '../sync/history';
 import { serverMap } from '../map/server';
+import { dropStale as dropStalePush, sendDue as sendPushDue } from '../push/outbox';
+import { serverPush } from '../push/server';
 import { nameWaitingPlaces } from '../places/naming';
 import { serverFind } from '../places/server';
 import { workOnRelinks } from '../autolink/queue';
@@ -147,6 +149,23 @@ export const jobs: readonly JobDefinition[] = [
       if (pass.retry + pass.gaveUp + stale > 0)
         console.info(
           `[waymark] mail: ${pass.sent} sent, ${pass.retry} to try again, ${pass.gaveUp + stale} given up on`,
+        );
+    },
+  },
+  {
+    // Web Push waits in the outbox and is sent here (DESIGN.md §17.3), as mail is: each push is claimed by a lease, so several processes never send one twice, and one that fails is tried again soon, and given up on
+    // when it is too old to be of use. It logs counts, never an address, a key or a payload. With no `WAYMARK_VAPID_PRIVATE_KEY` there is nothing to send with and nothing is queued.
+    name: 'send-push',
+    everyMs: 15 * 1000,
+    runAtStart: false,
+    run: async ({ now }) => {
+      const deps = await serverPush(() => now.getTime());
+      if (!deps) return;
+      const pass = await sendPushDue(deps);
+      const stale = await dropStalePush(deps);
+      if (pass.retry + pass.gaveUp + pass.removed + stale > 0)
+        console.info(
+          `[waymark] push: ${pass.sent} sent, ${pass.retry} to try again, ${pass.gaveUp + stale} given up on, ${pass.removed} devices removed`,
         );
     },
   },

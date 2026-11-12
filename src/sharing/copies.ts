@@ -256,7 +256,8 @@ async function tellOptedIn(
   for (const member of members)
     if (
       (await wants(tx, member.accountId, 'checkin_shared', 'email')) ||
-      (await wants(tx, member.accountId, 'checkin_shared', 'core'))
+      (await wants(tx, member.accountId, 'checkin_shared', 'core')) ||
+      (await wants(tx, member.accountId, 'checkin_shared', 'push'))
     )
       chosen.push(member.accountId);
   if (chosen.length === 0) return;

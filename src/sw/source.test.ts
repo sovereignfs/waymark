@@ -51,8 +51,27 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     };
   };
   const listeners: Record<string, Listener> = {};
+  const shown: { title: string; options: Record<string, unknown> }[] = [];
+  const windows: { url: string; navigated?: string; focused?: boolean }[] = [];
+  const opened: string[] = [];
   const self = {
     location: { origin: ORIGIN },
+    registration: {
+      showNotification: async (title: string, options: Record<string, unknown>) =>
+        void shown.push({ title, options }),
+    },
+    clients: {
+      matchAll: async () =>
+        windows.map((each) => ({
+          url: each.url,
+          navigate: async (to: string) => {
+            each.navigated = to;
+            return { focus: async () => void (each.focused = true) };
+          },
+          focus: async () => void (each.focused = true),
+        })),
+      openWindow: async (url: string) => void opened.push(url),
+    },
     addEventListener: (type: string, listener: Listener) => (listeners[type] = listener),
     skipWaitingCalled: false,
   };
@@ -101,7 +120,7 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     [...stores.entries()].flatMap(([cache, store]) =>
       [...store.keys()].map((url) => ({ cache, path: new URL(url).pathname })),
     );
-  return { lifecycle, ask, kept, stores, state, self };
+  return { lifecycle, ask, kept, stores, state, self, listeners, shown, windows, opened };
 }
 
 describe('the service worker', () => {
@@ -270,6 +289,114 @@ describe('the service worker', () => {
     const text = workerSource('v1');
     for (const word of ['indexedDB', 'localStorage', 'checkin', 'email', 'note'])
       expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`, 'i'));
+  });
+});
+
+describe('a push', () => {
+  const push = async (w: ReturnType<typeof load>, data: unknown) => {
+    let waiting: Promise<unknown> = Promise.resolve();
+    w.listeners.push?.({
+      data: { json: () => (data instanceof Error ? Promise.reject(data) : data) },
+      waitUntil: (p: Promise<unknown>) => (waiting = p),
+    });
+    await waiting;
+  };
+  const click = async (w: ReturnType<typeof load>, data: unknown) => {
+    let waiting: Promise<unknown> = Promise.resolve();
+    let closed = false;
+    w.listeners.notificationclick?.({
+      notification: { data, close: () => (closed = true) },
+      waitUntil: (p: Promise<unknown>) => (waiting = p),
+    });
+    await waiting;
+    return closed;
+  };
+
+  it('is shown in the worker’s own words for the kind it names, opening the path it names', async () => {
+    const w = load();
+    await push(w, { k: 'trip_ready', p: '/trips/abc' });
+    expect(w.shown).toEqual([
+      {
+        title: 'Waymark',
+        options: {
+          body: 'A trip you are in has changed.',
+          tag: 'trip_ready',
+          data: { path: '/trips/abc' },
+        },
+      },
+    ]);
+  });
+
+  it('says nothing of what a push carries beyond the kind and the path: any other field, and any kind it does not know, are not shown', async () => {
+    const w = load();
+    await push(w, {
+      k: 'trip_ready',
+      p: '/trips/abc',
+      title: 'Ada’s secret trip to Lisbon',
+      body: 'ada@example.com',
+    });
+    await push(w, { k: 'made_up_kind', p: '/notifications' });
+    await push(w, { k: ['x'], p: 5 });
+    await push(w, 'text');
+    await push(w, null);
+    const text = JSON.stringify(w.shown);
+    expect(text).not.toContain('secret');
+    expect(text).not.toContain('example.com');
+    expect(w.shown.map((each) => each.options.body)).toEqual([
+      'A trip you are in has changed.',
+      'Waymark has something for you.',
+      'Waymark has something for you.',
+      'Waymark has something for you.',
+      'Waymark has something for you.',
+    ]);
+    // A kind that is a property of every object is not a kind.
+    await push(w, { k: 'constructor', p: '/x' });
+    await push(w, { k: '__proto__', p: '/x' });
+    expect(w.shown.slice(-2).map((each) => each.options.body)).toEqual([
+      'Waymark has something for you.',
+      'Waymark has something for you.',
+    ]);
+  });
+
+  it('is shown even when the data cannot be read, and follows only a path of this app', async () => {
+    const w = load();
+    await push(w, new Error('not json'));
+    expect(w.shown[0]?.options.body).toBe('Waymark has something for you.');
+    for (const bad of [
+      '//evil.example/x',
+      'https://evil.example/x',
+      '\\evil',
+      'javascript:alert(1)',
+      '',
+      'trips/abc',
+    ])
+      await push(w, { k: 'trip_ready', p: bad });
+    for (const each of w.shown.slice(1))
+      expect(each.options.data).toEqual({ path: '/notifications' });
+  });
+
+  it('opens the path when tapped: in a window of the app that is open, or a new one; and closes the notification', async () => {
+    const w = load();
+    expect(await click(w, { path: '/trips/abc' })).toBe(true);
+    expect(w.opened).toEqual([`${ORIGIN}/trips/abc`]);
+    w.windows.push({ url: `${ORIGIN}/checkins` });
+    await click(w, { path: '/trips/abc' });
+    expect(w.windows[0]).toMatchObject({ navigated: `${ORIGIN}/trips/abc`, focused: true });
+    expect(w.opened).toHaveLength(1);
+    // A path that is not the app’s is never followed.
+    await click(w, { path: '//evil.example/' });
+    expect(w.windows[0]?.navigated).toBe(`${ORIGIN}/notifications`);
+    await click(w, undefined);
+    expect(w.windows[0]?.navigated).toBe(`${ORIGIN}/notifications`);
+  });
+
+  it('keeps nothing: a push puts nothing in any cache', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    const before = w.kept();
+    await push(w, { k: 'trip_ready', p: '/trips/abc' });
+    await click(w, { path: '/trips/abc' });
+    expect(w.kept()).toEqual(before);
   });
 });
 

@@ -183,6 +183,13 @@
       "when": 1794502194812,
       "tag": "0025_itemdone",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794503390736,
+      "tag": "0026_webpush",
+      "breakpoints": true
     }
   ]
 }

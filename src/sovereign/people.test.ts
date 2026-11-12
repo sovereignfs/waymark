@@ -49,6 +49,8 @@ const GOES = [
   'checkin_photo',
   'shared_checkin',
   'item_done',
+  'push_subscription',
+  'push_outbox',
   'trip_member',
   'account_stream',
   'applied_mutation',
@@ -307,6 +309,21 @@ describe(`deleting a person (${leg})`, () => {
         sql`INSERT INTO ${sql.raw(app('item_done'))} (trip_id, item_id, account_id, done_at) VALUES (${shared.id}, ${`item-${owner}`}, ${owner}, ${NOW}) RETURNING item_id`,
       );
 
+    // A device each can be pushed to, with a push waiting for it: Ada’s go with her.
+    for (const owner of [ada, grace]) {
+      const device = `device-${owner}`;
+      await dbAll(
+        database,
+        sql`INSERT INTO ${sql.raw(app('push_subscription'))} (id, account_id, endpoint_hash, last_ok_at, sealed, created_at, updated_at)
+            VALUES (${device}, ${owner}, ${`hash-${owner}`}, NULL, ${sealer.seal('push_subscription', device, { endpoint: 'https://fcm.googleapis.com/x', keys: { p256dh: 'a', auth: 'b' } })}, ${NOW}, ${NOW}) RETURNING id`,
+      );
+      await dbAll(
+        database,
+        sql`INSERT INTO ${sql.raw(app('push_outbox'))} (id, subscription_id, account_id, kind, path, attempts, next_attempt_at, claimed_until, expires_at, created_at)
+            VALUES (${`push-${owner}`}, ${device}, ${owner}, 'trip_ready', '/trips/x', 0, ${NOW}, 0, ${NOW + 1000}, ${NOW}) RETURNING id`,
+      );
+    }
+
     // The sign-in store: a pending verification named by the address, a second factor and a passkey.
     await dbAll(
       t.auth.database,
@@ -341,6 +358,10 @@ describe(`deleting a person (${leg})`, () => {
       },
     };
     expect(await deletePerson(deps, ada)).toEqual({ files: 2 });
+    for (const table of ['push_subscription', 'push_outbox']) {
+      expect(await count(table, `account_id = '${ada}'`), table).toBe(0);
+      expect(await count(table, `account_id = '${grace}'`), table).toBe(1);
+    }
     expect(await count('item_done', `account_id = '${ada}'`)).toBe(0);
     expect(await count('item_done', `account_id = '${grace}'`)).toBe(1);
     expect(await count('shared_checkin', `account_id = '${ada}'`)).toBe(0);

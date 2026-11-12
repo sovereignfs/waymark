@@ -10,6 +10,7 @@ import { enqueueCore } from '../sovereign/outbox';
 import { notificationMessage } from '../mail/templates';
 import { getProfile } from '../profile/profile';
 import { KINDS, type NoticeKind } from './kinds';
+import { enqueuePush } from '../push/outbox';
 import { wants } from './prefs';
 
 /**
@@ -80,6 +81,8 @@ export interface Delivery {
   readonly mail?: { readonly app: string; readonly url: string } | undefined;
   /** Present only when the people here sign in through a Sovereign core and this server can call it: then core's bell and core's email are channels (DESIGN.md §19.4). */
   readonly core?: true | undefined;
+  /** Present only when this server has a Web Push key (`WAYMARK_VAPID_PRIVATE_KEY`): then a push to each device the person turned it on in is a channel (DESIGN.md §17.3). */
+  readonly push?: true | undefined;
 }
 
 /**
@@ -144,6 +147,9 @@ export async function raiseNotice(
   // Beyond the bell, where the person wants it and this server can: all queued in the same transaction, so a notice and its calls stand or fall together (DESIGN.md §17.2). The text is Waymark's own words and
   // a link, to the address the person signs up with or to a person named by their sub at core, which only they receive (§6.1).
   const path = content.href ?? '/notifications';
+  // A push to each device the person has turned push on in, if they want this kind by push: it says the kind and where it opens, and nothing of the notice (§17.3).
+  if (delivery.push && (await wants(tx, raise.to, raise.kind, 'push')))
+    await enqueuePush(tx, now, { accountId: raise.to, kind: raise.kind, path });
   if (delivery.core && (await wants(tx, raise.to, raise.kind, 'core')))
     await enqueueCore(tx, sealer, now, {
       accountId: raise.to,

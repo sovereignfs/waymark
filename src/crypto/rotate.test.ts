@@ -361,6 +361,7 @@ describe('the phases', () => {
       'attachment',
       'trip_link',
       'shared_checkin',
+      'push_subscription',
       'notice',
       'mail_outbox',
       'core_outbox',

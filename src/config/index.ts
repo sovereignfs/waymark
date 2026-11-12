@@ -1,5 +1,6 @@
 import { resolveAuth, type AuthSettings } from '../auth/config';
 import { resolveMail } from '../mail/config';
+import { type PushSettings, resolvePush } from '../push/config';
 import { type MapSettings, resolveMap } from '../map/config';
 import { type PlacesSettings, resolvePlaces } from '../places/config';
 import type { MailSettings } from '../mail/mailer';
@@ -25,6 +26,8 @@ export interface Config {
   readonly places: PlacesSettings;
   /** The map: where its tiles come from, or `off` (DESIGN.md §8.1). */
   readonly map: MapSettings;
+  /** Web Push (DESIGN.md §17.3), or `undefined`: then no device is offered it and nothing is queued for one. */
+  readonly push: PushSettings | undefined;
   /** What a trip and an account may hold (DESIGN.md §10.8). */
   readonly limits: LimitSettings;
   /** Where mail goes, or `undefined`: then an address is not verified, a password is not reset by mail, and no screen or route offers either (DESIGN.md §19.1). */
@@ -214,6 +217,9 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
   // Place search: the provider and where it is, with the public instance's usage policy unless the operator names their own.
   const places = resolvePlaces(read, problems);
 
+  // Web Push: a secret the instance generated, from which the key is derived; optional, and off without it.
+  const push = resolvePush(read, url, problems);
+
   // The map: where its tiles come from, and the cache and the PMTiles file under the data directory.
   const map = resolveMap(read, dataDir, problems);
 
@@ -246,6 +252,7 @@ export function loadConfig(env: Env, readFile?: ReadFile): LoadResult {
       mail,
       places,
       map,
+      push,
     },
   };
 }

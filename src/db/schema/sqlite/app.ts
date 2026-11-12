@@ -620,3 +620,49 @@ export const itemDone = sqliteTable(
     index('item_done_account_idx').on(table.accountId),
   ],
 );
+
+/**
+ * A device that can be told by Web Push (DESIGN.md §17.3, §24.3): one row for each browser a person turned push on in. **The push service's address and the keys that encrypt to this device are sealed** (`SEALED.push_subscription`); what
+ * the database may know is the owner and a hash of the address (so that turning it on again in the same browser is one row, not two). Removed when the push service says the device is gone, when the person turns it off, and with the person.
+ */
+export const pushSubscription = sqliteTable(
+  'push_subscription',
+  {
+    id: id('id'),
+    accountId: ref('account_id').notNull(),
+    endpointHash: text('endpoint_hash').notNull(),
+    lastOkAt: epochMs('last_ok_at'),
+    sealed: sealed('sealed').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('push_subscription_endpoint_idx').on(table.accountId, table.endpointHash),
+    index('push_subscription_account_idx').on(table.accountId),
+  ],
+);
+
+/**
+ * Pushes waiting to be sent (DESIGN.md §17.3): one row for each notice and device, **written in the transaction of the change that raised the notice** and sent by a job that claims it by a lease, as mail is. It holds the kind of notice and
+ * the path it opens, which is all a push says (the push service carries it, so no place, note or name is in it), and is deleted when it is sent, when the device is gone, and when it is given up on (`expires_at`: a reminder an hour late is no reminder).
+ */
+export const pushOutbox = sqliteTable(
+  'push_outbox',
+  {
+    id: id('id'),
+    subscriptionId: ref('subscription_id').notNull(),
+    accountId: ref('account_id').notNull(),
+    kind: text('kind').notNull(),
+    path: text('path').notNull(),
+    attempts: counter('attempts').notNull().default(0),
+    nextAttemptAt: epochMs('next_attempt_at').notNull(),
+    claimedUntil: epochMs('claimed_until').notNull().default(0),
+    expiresAt: epochMs('expires_at').notNull(),
+    createdAt: epochMs('created_at').notNull(),
+  },
+  (table) => [
+    index('push_outbox_due_idx').on(table.nextAttemptAt),
+    index('push_outbox_subscription_idx').on(table.subscriptionId),
+    index('push_outbox_account_idx').on(table.accountId),
+  ],
+);

@@ -764,7 +764,7 @@ older one, sends nothing and changes nothing else. With no channel beyond the be
 ### 17.3 Web Push
 
 In phase 3, because reminders on a trip are worth little without it (§29). Keys generated once by the instance (`generate`:
-`WAYMARK_VAPID_PRIVATE_KEY`; the public key derived), a subscription per device in `push_subscription`, sent by a job with the same claims as mail, a
+`WAYMARK_VAPID_PRIVATE_KEY`, a random secret from which the EC key is derived, as is the public key), a subscription per device in `push_subscription`, sent by a job with the same claims as mail, a
 payload that says what and where without a place name, note or person's name in it (the push service carries it). Browser push services cost nothing.
 On iPhone only once Waymark is on the home screen; Settings says so. The design is Tally's §21.4, so the two apps share it.
 
@@ -851,7 +851,7 @@ answering `200` only once done), verified by the SDK, replays refused (`notice_s
 - **`directory` and `offline_access`** are for finding people in core's directory as the person (Tally's §14.4): the refresh token is a credential, kept
   only through `src/crypto/`. If the scopes are refused, inviting works exactly as alone. They are added in phase 2, when invitations are built; phase 1's
   manifest asks for `openid`, `profile` and `email` only.
-- **`WAYMARK_VAPID_PRIVATE_KEY`** joins `generate` in phase 3; whether `generate` can make a VAPID key (an EC key, not random bytes) is checked then (§27).
+- **`WAYMARK_VAPID_PRIVATE_KEY`** is in `generate`: random bytes, as any secret, from which Waymark derives the EC P-256 key push services want (§17.3, §27: settled with 12.4).
 - **The `core` floor** is raised, if needed, to the first release with the directory scope and the app scopes Waymark calls.
 - `pooling` is not set: the jobs take locks.
 
@@ -1213,8 +1213,7 @@ mistaken for decisions.
 - **`AUTH_SIGNUP`'s `invite`** (§6.2) is not in `contracts/env.md`; it is the same task in `sovereign` that Tally waits on (Tally 14.5, here 17.2).
 - **The directory as a person** needs the SDK's `tokenStore` fed from better-auth's `genericOAuth`, as Tally's §22; whichever app builds it first settles
   it for both.
-- **A VAPID key in `generate`:** the manifest's `generate` makes random secrets; whether it can make an EC P-256 key, or Waymark derives one from a random
-  secret, is checked in 12.4, and a gap raised in `sovereign` if needed. Tally's push plan has the same question.
+- **A VAPID key in `generate`: settled in 12.4.** `generate` makes random secrets and Waymark derives the EC P-256 key from one (HKDF-SHA-256), so nothing is needed in `sovereign`; Tally's push plan can do the same.
 - **`Map` in the design system** brings MapLibre (and its worker) into `@sovereignfs/ui`; whether it is an entry point of its own is the design system's
   call (17.1).
 - The kit of research 0004 is not published, so the infrastructure is copied (§5.1).

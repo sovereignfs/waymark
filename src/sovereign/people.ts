@@ -12,6 +12,7 @@ import { deleteCoreOf, enqueueCore } from './outbox';
 import type { Sealer } from '../crypto/sealed';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
+import { deletePushOf } from '../push/subscriptions';
 import { deletePlacesOf } from '../places/places';
 import { type Delivery } from '../notices/notices';
 import { endMembershipsOf } from '../trips/people';
@@ -88,6 +89,7 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     // What they were told.
     await deleteNoticesOf(tx, accountId);
     await deletePrefsOf(tx, accountId);
+    await deletePushOf(tx, accountId);
     // And the mail queued to them.
     await deleteMailOf(tx, accountId);
     await deleteCoreOf(tx, accountId);
