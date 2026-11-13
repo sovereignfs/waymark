@@ -8,6 +8,11 @@ const config: NextConfig = {
   // The map's bundled glyphs are read from disk at run time (`src/map/glyphs.ts`), so a standalone build must carry them.
   outputFileTracingIncludes: {
     '/api/map/glyphs/[fontstack]/[range]': ['./src/map/assets/fonts/**/*'],
+    // MapLibre's worker is served from here too (`app/api/map/worker/[file]/route.ts`).
+    '/api/map/worker/[file]': [
+      './node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs',
+      './node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs',
+    ],
   },
   // `next dev` would write its own block into AGENTS.md, which is the one copy of this repository's conventions and is not edited by a tool.
   agentRules: false,

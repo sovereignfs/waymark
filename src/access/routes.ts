@@ -126,6 +126,8 @@ export const ROUTES: RouteRule[] = [
   { route: '/api/map/style/[theme]', methods: { GET: { kind: 'account' } } },
   { route: '/api/map/tiles/[z]/[x]/[y]', methods: { GET: { kind: 'account' } } },
   { route: '/api/map/glyphs/[fontstack]/[range]', methods: { GET: { kind: 'account' } } },
+  // MapLibre's worker script (DESIGN.md §25): library code, the same for everyone, so it asks for no session; only the two files it is made of.
+  { route: '/api/map/worker/[file]', methods: { GET: { kind: 'public' } } },
   // Deleting the account (DESIGN.md §23): what it would do, and doing it with the password (or a session made just now, for an account with none); the account is the session's.
   {
     route: '/api/account/delete',

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { EmptyState, type IconName, NavTabs } from '@sovereignfs/ui';
 import { goTo } from './checkin-location';
 import { TripHeader } from './TripHeader';
-import { PlanView } from './PlanView';
+import { PlanWithMap } from './PlanWithMap';
+import { TripMapView } from './TripMapView';
 import { TripOverview } from './TripOverview';
 import styles from './Trip.module.css';
 import { usePageLocation } from './useLocation';
@@ -13,16 +14,16 @@ import { useTripCards } from './useTrips';
 import { VIEW_LABEL, type View, viewOf, viewsFor } from './trip';
 import { useEffect, useState } from 'react';
 
-const SOON: Readonly<Record<Exclude<View, 'overview' | 'plan'>, { icon: IconName; text: string }>> =
-  {
-    map: { icon: 'map-pin', text: 'The trip’s map is not built yet.' },
-    journal: {
-      icon: 'calendar-days',
-      text: 'The journal, the plan beside what happened, is not built yet.',
-    },
-    files: { icon: 'folder-lock', text: 'The trip’s files are not built yet.' },
-    people: { icon: 'users', text: 'The trip’s people are not built yet.' },
-  };
+const SOON: Readonly<
+  Record<Exclude<View, 'overview' | 'plan' | 'map'>, { icon: IconName; text: string }>
+> = {
+  journal: {
+    icon: 'calendar-days',
+    text: 'The journal, the plan beside what happened, is not built yet.',
+  },
+  files: { icon: 'folder-lock', text: 'The trip’s files are not built yet.' },
+  people: { icon: 'users', text: 'The trip’s people are not built yet.' },
+};
 
 /** `/t/<id>`'s id, from the address. */
 export const tripIdOf = (path: string): string | undefined =>
@@ -106,7 +107,9 @@ export function TripPage({ id }: { id: string }) {
       {view === 'overview' ? (
         <TripOverview data={data} now={now} />
       ) : view === 'plan' ? (
-        <PlanView tripId={id} data={data} />
+        <PlanWithMap tripId={id} data={data} />
+      ) : view === 'map' ? (
+        <TripMapView data={data} />
       ) : (
         <EmptyState
           icon={SOON[view].icon}

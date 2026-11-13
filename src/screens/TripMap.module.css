@@ -1,0 +1,125 @@
+/* A trip's map and the list of the same (DESIGN.md §20.10). */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  min-width: 0;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sv-space-3);
+}
+
+.pick {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--sv-space-3);
+  align-items: start;
+}
+
+.map {
+  position: relative;
+  height: 24rem;
+  min-width: 0;
+  overflow: hidden;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.mapNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--sv-space-4);
+  color: var(--sv-color-text-muted);
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  text-align: left;
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.row[aria-pressed='true'] {
+  background: var(--sv-color-accent-subtle);
+  border-color: var(--sv-color-accent);
+}
+
+.row:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.rowName {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+}
+
+.shared {
+  color: var(--sv-color-success-text);
+}
+
+.detail {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.empty {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.toggle[aria-pressed='true'] {
+  background: var(--sv-color-accent-subtle);
+  border-color: var(--sv-color-accent);
+}
