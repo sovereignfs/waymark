@@ -243,6 +243,57 @@ describe(`local sign-in, first account only (${leg})`, () => {
   });
 });
 
+describe(`local sign-in, by invitation (${leg})`, () => {
+  const GOOD = 'good-token-'.padEnd(43, 'a');
+  let t: TestAuth;
+  beforeAll(async () => {
+    t = await makeAuth({ signUp: 'invite' }, undefined, undefined, async (token) => token === GOOD);
+  });
+  afterAll(async () => {
+    await t.close();
+  });
+  const withToken = (token: string) => ({ 'x-waymark-invite': token });
+  const signUpWith = (token: string | undefined, email = newEmail()) =>
+    visitor(t).post(
+      '/api/auth/sign-up/email',
+      { name: 'Ada', email, password: PASSWORD },
+      token === undefined ? {} : withToken(token),
+    );
+
+  it('lets the first account be made with no invitation, as closed does', async () => {
+    expect(await userCount(t)).toBe(0);
+    expect((await signUpWith(undefined)).status).toBe(200);
+    expect(await userCount(t)).toBe(1);
+  });
+
+  it('then refuses a sign-up with no invitation, or with a token that opens none, the same way and creating nothing', async () => {
+    for (const token of [undefined, 'nonsense', GOOD.replace('good', 'evil')]) {
+      const refused = await signUpWith(token);
+      expect(refused.status, String(token)).toBe(403);
+      expect(refused.body.code).toBe('SIGNUP_CLOSED');
+    }
+    expect(await userCount(t)).toBe(1);
+  });
+
+  it('lets an account be made by whoever holds an invitation that can still be used', async () => {
+    const made = await signUpWith(GOOD);
+    expect(made.status).toBe(200);
+    expect(await userCount(t)).toBe(2);
+  });
+
+  it('does not take the token from anywhere but its header: not the address, not the body', async () => {
+    const before = await userCount(t);
+    const viaQuery = await visitor(t).post(`/api/auth/sign-up/email?invite=${GOOD}`, {
+      name: 'Ada',
+      email: newEmail(),
+      password: PASSWORD,
+      invite: GOOD,
+    });
+    expect(viaQuery.status).toBe(403);
+    expect(await userCount(t)).toBe(before);
+  });
+});
+
 describe(`local sign-in, open to anyone (${leg})`, () => {
   let t: TestAuth;
   beforeAll(async () => {

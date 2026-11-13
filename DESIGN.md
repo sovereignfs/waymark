@@ -246,8 +246,8 @@ Waymark has **no placeholders**: everyone in a trip has an account, since a role
 | `open`                 | Anyone                                                                   |
 | `closed`               | The first account only; an invitation can be accepted only by signing in |
 
-**Signing in through core always gets an account,** whatever the value (`app-manifest.md` §4). `invite` waits on the same change to `contracts/env.md`
-that Tally waits on (§27); until it lands, Waymark offers `open` and `closed`, and phase 1, which has no invitations, needs nothing else.
+**Signing in through core always gets an account,** whatever the value (`app-manifest.md` §4). `invite` is in `contracts/env.md` (17.2, merged in `sovereign`). **The invitation's token comes in a header** (`X-Waymark-Invite`) of the sign-up request, never in an address or the body, and is checked
+where the account is made; a token that opens nothing is the same refusal as none.
 
 ## 7. Places
 
@@ -1210,7 +1210,7 @@ mistaken for decisions.
 
 ## 27. Not settled in the platform
 
-- **`AUTH_SIGNUP`'s `invite`** (§6.2) is not in `contracts/env.md`; it is the same task in `sovereign` that Tally waits on (Tally 14.5, here 17.2).
+- **`AUTH_SIGNUP`'s `invite`** (§6.2): settled in 17.2, and built here in 11.7.
 - **The directory as a person** needs the SDK's `tokenStore` fed from better-auth's `genericOAuth`, as Tally's §22; whichever app builds it first settles
   it for both.
 - **A VAPID key in `generate`: settled in 12.4.** `generate` makes random secrets and Waymark derives the EC P-256 key from one (HKDF-SHA-256), so nothing is needed in `sovereign`; Tally's push plan can do the same.

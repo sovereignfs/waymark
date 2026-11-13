@@ -83,7 +83,7 @@ holding `.env.example` to the code and `process.env` to `src/config`), `src/auth
 `src/db/config.ts` and its test (the settings of the database belong to `loadConfig`; the clients and migrations are 1.5), `instrumentation.ts` and
 `instrumentation-node.ts`. Trimmed: the GitHub, Web Push and operator-encryption settings and the Tusk-only `_FILE` list. Changed in behaviour: **the instance
 key is required** (Tusk's is optional), because everything Waymark stores about where and what is sealed with it (§18.1), so a start with none stops;
-`WAYMARK_AUTH_SIGNUP` accepts `open` and `closed` only (`invite` joins with 10.2); the phase-1 scopes are `openid`, `profile`, `email`. New tests for sign-in
+`WAYMARK_AUTH_SIGNUP` accepted `open` and `closed` only (`invite` joined with 10.2/11.7, and is now the default); the phase-1 scopes are `openid`, `profile`, `email`. New tests for sign-in
 (`src/auth/config.test.ts`) and mail (`src/mail/config.test.ts`). `next.config.ts` is Tusk's without its header list (1.7). `/api/health` answers for the process
 alone until 1.5 gives it the database and `/data`. Seen to work on the built server: a wrong address, worker and a missing key stop it with all three named and
 no value printed, and a good key starts it and answers `/api/health`. Left out: `README.md`'s table of settings, which 16.3 writes.

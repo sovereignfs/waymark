@@ -397,6 +397,15 @@ async function open(tx: Database, now: number, token: string): Promise<Found | u
   return row && sameHash(row.tokenHash, token) ? row : undefined;
 }
 
+/** Whether a token opens an invitation that can still be used. For the sign-up policy `invite` (DESIGN.md §6.2), which asks it when an account is made and says nothing of why a token does not. */
+export async function invitationIsOpen(
+  database: Database,
+  now: number,
+  token: string,
+): Promise<boolean> {
+  return (await open(database, now, token)) !== undefined;
+}
+
 /** What the page at `/invite/<token>` shows, to anyone: the trip's name, its dates and who invited, and nothing else. */
 export async function previewInvitation(
   deps: InviteDeps,
@@ -503,7 +512,7 @@ export async function acceptInvitation(
             content: {
               title: `${await nameOf(deps, tx, accountId)} joined “${tripName}”`,
               detail: `They accepted your invitation as ${found.role === 'organizer' ? 'an Organizer' : found.role === 'traveler' ? 'a Traveler' : 'a Follower'}.`,
-              href: `/trips/${found.tripId}`,
+              href: `/t/${found.tripId}`,
             },
           },
           deps.delivery?.() ?? {},

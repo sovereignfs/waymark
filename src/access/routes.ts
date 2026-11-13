@@ -27,6 +27,8 @@ export const ROUTES: RouteRule[] = [
   // Home (DESIGN.md §20.4): the front address `/` shows it to someone signed in (the proxy rewrites it), and `/home` itself is sent back to `/`.
   { route: '/home', page: { kind: 'account' } },
   { route: '/sign-in', page: { kind: 'public' } },
+  // What whoever holds an invitation's link sees (DESIGN.md §11.2): the trip's name, dates and inviter, and nothing else; every link that cannot be used is the same page.
+  { route: '/invite/[token]', page: { kind: 'public' } },
   { route: '/sign-up', page: { kind: 'public' } },
   // Only with mail (DESIGN.md §19.1): without it they are 404, like the routes under /api/auth that send and use the links.
   { route: '/forgot-password', page: { kind: 'public' } },

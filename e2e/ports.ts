@@ -18,6 +18,8 @@ export const PORTS = {
   /** The instance that takes only Sovereign (sign-up closed), and the one that takes both ways (`e2e/sovereign.spec.ts`). */
   sovereign: 4003 + offset,
   both: 4002 + offset,
+  /** The instance that takes accounts by invitation (`WAYMARK_AUTH_SIGNUP=invite`, `e2e/people.spec.ts`): its own database, so that the first account is its own. */
+  invite: 4001 + offset,
   /** The fake Sovereign: the OIDC provider, and the control port a test says who signs in next on. (Not 4190: it is on the Fetch standard's list of ports a fetch refuses, "bad port".) */
   coreAuth: 4192 + offset,
   coreControl: 4193 + offset,

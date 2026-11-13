@@ -33,11 +33,19 @@ export async function makeAuth(
   overrides: AuthOverrides = {},
   mailer?: Mailer,
   onAccountCreated?: AuthDependencies['onAccountCreated'],
+  invitationOpen?: AuthDependencies['invitationOpen'],
 ): Promise<TestAuth> {
   const { database } = await freshDatabase('auth');
   await runMigrations(database);
   const settings: AuthSettings = { ...SETTINGS, ...overrides };
-  const auth = createAuth({ settings, name: 'Waymark', database, mailer, onAccountCreated });
+  const auth = createAuth({
+    settings,
+    name: 'Waymark',
+    database,
+    mailer,
+    onAccountCreated,
+    invitationOpen,
+  });
   return {
     auth,
     settings,

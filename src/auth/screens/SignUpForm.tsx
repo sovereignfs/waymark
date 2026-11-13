@@ -2,11 +2,21 @@
 
 import { type FormEvent, useState } from 'react';
 import { authClient } from '../client';
+import { INVITE_HEADER } from '../config';
 import { messageFor } from '../messages';
 import { AuthButton, AuthError, AuthField, AuthForm, Input } from '@sovereignfs/ui';
 
 /** Name, email and password. Without email there is nothing to confirm, so the account is made and the person is signed in. */
-export function SignUpForm({ minLength, mail = false }: { minLength: number; mail?: boolean }) {
+export function SignUpForm({
+  minLength,
+  mail = false,
+  invite,
+}: {
+  minLength: number;
+  mail?: boolean;
+  /** The token of the invitation this account is made for, which the server asks of an instance that takes accounts by invitation. */
+  invite?: string | undefined;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +28,10 @@ export function SignUpForm({ minLength, mail = false }: { minLength: number; mai
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: failure } = await authClient.signUp.email({ name, email, password });
+    const { error: failure } = await authClient.signUp.email(
+      { name, email, password },
+      invite ? { headers: { [INVITE_HEADER]: invite } } : undefined,
+    );
     if (failure) {
       setBusy(false);
       setError(messageFor(failure));
@@ -30,7 +43,8 @@ export function SignUpForm({ minLength, mail = false }: { minLength: number; mai
       setSent(true);
       return;
     }
-    window.location.assign('/');
+    // From an invitation the person goes back to it, to join the trip.
+    window.location.assign(invite ? `/invite/${invite}` : '/');
   }
 
   if (sent)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig, type LoadResult } from '../config';
+import { safeNext } from './config';
 
 const BASE = {
   WAYMARK_ENCRYPTION_KEY: 'a'.repeat(64),
@@ -37,8 +38,11 @@ describe('how people sign in', () => {
     expect(short.join(' ')).not.toContain('too-short-secret');
   });
 
-  it('is closed with local sign-in unless it says open, and open when a core is the only way in', () => {
-    expect(authOf({ WAYMARK_AUTH_LOCAL: '1' })).toMatchObject({ local: true, signUp: 'closed' });
+  it('is by invitation with local sign-in unless it says otherwise, and open when a core is the only way in', () => {
+    expect(authOf({ WAYMARK_AUTH_LOCAL: '1' })).toMatchObject({ local: true, signUp: 'invite' });
+    expect(authOf({ WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'closed' })).toMatchObject({
+      signUp: 'closed',
+    });
     expect(authOf({ WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'open' })).toMatchObject({
       signUp: 'open',
     });
@@ -55,14 +59,38 @@ describe('how people sign in', () => {
     // Both ways at once, as an instance hosts it: local sign-up keeps its own default.
     expect(authOf({ ...core, WAYMARK_AUTH_LOCAL: '1' })).toMatchObject({
       local: true,
-      signUp: 'closed',
+      signUp: 'invite',
     });
   });
 
-  it('refuses a sign-up policy it does not know, `invite` included until invitations exist', () => {
+  it('takes `invite`, and refuses a sign-up policy it does not know', () => {
+    expect(authOf({ WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'invite' })).toMatchObject({
+      signUp: 'invite',
+    });
+    expect(authOf({ WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'INVITE' })?.signUp).toBe(
+      'invite',
+    );
     expect(
-      problems(loadConfig({ ...BASE, WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'invite' }))[0],
+      problems(loadConfig({ ...BASE, WAYMARK_AUTH_LOCAL: '1', WAYMARK_AUTH_SIGNUP: 'anyone' }))[0],
     ).toContain('WAYMARK_AUTH_SIGNUP');
+  });
+
+  it('sends a person who signed in from an invitation back to it, and nowhere else', () => {
+    const token = 'a'.repeat(43);
+    expect(safeNext(`/invite/${token}`)).toBe(`/invite/${token}`);
+    for (const hostile of [
+      undefined,
+      '',
+      '/',
+      '//evil.example.com',
+      'https://evil.example.com/invite/' + token,
+      `/invite/${token}/../../x`,
+      `/invite/${token}?x=1`,
+      '/invite/short',
+      '/settings',
+      ['/invite/' + token],
+    ])
+      expect(safeNext(hostile), String(hostile)).toBe('/');
   });
 
   it('reads the shortest password, 8 to 128, 10 by default', () => {

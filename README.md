@@ -33,8 +33,8 @@ docker run -d -p 127.0.0.1:3005:3005 -v waymark:/data \
   ghcr.io/sovereignfs/waymark
 ```
 
-**Keep the two generated values**: they are written nowhere else. Put a reverse proxy with TLS in front of port 3005, open the address, and **make the first account on the sign-up page** (after it, sign-up is closed unless
-you set `WAYMARK_AUTH_SIGNUP=open`). [`deploy/`](deploy/README.md) has three Compose setups, one for each form of the database, and says how each is started, updated and checked:
+**Keep the two generated values**: they are written nowhere else. Put a reverse proxy with TLS in front of port 3005, open the address, and **make the first account on the sign-up page** (after it, sign-up is only for people with an invitation to a trip, unless
+you set `WAYMARK_AUTH_SIGNUP=closed` or `open`). [`deploy/`](deploy/README.md) has three Compose setups, one for each form of the database, and says how each is started, updated and checked:
 
 | Database               | Setup                                           | For                                                                      |
 | ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |

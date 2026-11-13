@@ -6,8 +6,10 @@ import type { Problem } from '../config';
  *
  *   WAYMARK_AUTH_LOCAL                 1 or true: email and password. Off means off: `/sign-in`, `/sign-up` and `/api/auth` answer 404.
  *   WAYMARK_AUTH_SECRET[_FILE]         32 characters or more, to sign sessions and tokens. Required with local sign-in.
- *   WAYMARK_AUTH_SIGNUP                `closed` (the default with local sign-in): the first account is made and then sign-up is refused, by the
+ *   WAYMARK_AUTH_SIGNUP                `invite` (the default with local sign-in): the first account, and anyone holding a valid invitation to a trip (DESIGN.md §11.2), checked
+ *                                    when the account is made. `closed`: the first account is made and then sign-up is refused, by the
  *                                    server. `open`: anyone who can reach the page. A self-hoster who forgets is not an open registration.
+ *                                    `invite`: the first account, and anyone holding a valid invitation to a trip (DESIGN.md §11.2), checked when the account is made.
  *                                    With a core as the only way in the default is `open`: the core decides who may sign in.
  *   WAYMARK_AUTH_PASSWORD_MIN_LENGTH   the shortest password, 10 by default.
  *   WAYMARK_URL                        the address people use; required with either way (links, cookies, passkeys and the redirect are made from it).
@@ -20,7 +22,7 @@ export interface AuthSettings {
   /** The address people use, an origin with no path. */
   readonly url: string;
   readonly secret: string;
-  readonly signUp: 'open' | 'closed';
+  readonly signUp: 'open' | 'closed' | 'invite';
   readonly passwordMinLength: number;
   /** Email and password, passkeys and an authenticator app are on. Off means off: their pages and routes answer 404. */
   readonly local: boolean;
@@ -50,6 +52,15 @@ const LONGEST_MIN_PASSWORD = 128;
 
 /** The code a refused sign-up carries, in the API's answer. */
 export const SIGNUP_CLOSED = 'SIGNUP_CLOSED';
+/** The header a sign-up carries the invitation's token in, when the policy is `invite`. Never in an address, which is logged. */
+export const INVITE_HEADER = 'x-waymark-invite';
+
+/**
+ * Where a person is sent after signing in, when they came from an invitation: **only the page of an invitation**, so that a link cannot send anyone anywhere else. Anything other is the front page.
+ */
+export function safeNext(next: unknown): string {
+  return typeof next === 'string' && /^\/invite\/[A-Za-z0-9_-]{20,100}$/.test(next) ? next : '/';
+}
 
 /** Reads a setting by name, as `loadConfig` does: a secret may be a file, and an empty value is no value. */
 export type Read = (name: string) => string | undefined;
@@ -83,12 +94,12 @@ export function resolveAuth(
     );
   }
 
-  // Unset, it is closed, unless a core is the only way in: then the core already decides who may sign in, and closed would admit only the
-  // first of its people (contracts/app-manifest.md §4 in sovereignfs/sovereign).
+  // Unset, it is `invite` (DESIGN.md §6.2): the first account, and whoever holds an invitation to a trip. Unless a core is the only way in: then the core already
+  // decides who may sign in, and anything else would admit only the first of its people (contracts/app-manifest.md §4 in sovereignfs/sovereign).
   const rawSignUp =
-    (read('WAYMARK_AUTH_SIGNUP') ?? '').toLowerCase() || (local ? 'closed' : 'open');
-  if (rawSignUp !== 'open' && rawSignUp !== 'closed') {
-    problems.push('WAYMARK_AUTH_SIGNUP is open or closed.');
+    (read('WAYMARK_AUTH_SIGNUP') ?? '').toLowerCase() || (local ? 'invite' : 'open');
+  if (rawSignUp !== 'open' && rawSignUp !== 'closed' && rawSignUp !== 'invite') {
+    problems.push('WAYMARK_AUTH_SIGNUP is open, closed or invite.');
   }
 
   const rawLength = read('WAYMARK_AUTH_PASSWORD_MIN_LENGTH');
@@ -103,7 +114,10 @@ export function resolveAuth(
   }
 
   if (url === undefined || secret === undefined) return undefined;
-  if (secret.length < MIN_SECRET_LENGTH || (rawSignUp !== 'open' && rawSignUp !== 'closed')) {
+  if (
+    secret.length < MIN_SECRET_LENGTH ||
+    (rawSignUp !== 'open' && rawSignUp !== 'closed' && rawSignUp !== 'invite')
+  ) {
     return undefined;
   }
   return { url, secret, signUp: rawSignUp, passwordMinLength, local, sovereign };

@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { AuthShell } from '@/src/auth/screens/AuthShell';
 import { SignInForm } from '@/src/auth/screens/SignInForm';
+import { safeNext } from '@/src/auth/config';
 import { oauthErrorMessage } from '@/src/auth/messages';
 import { authSettings, mailAvailable, signUpAvailable } from '@/src/auth/server';
 import { getSession } from '@/src/auth/session';
@@ -13,12 +14,12 @@ export const metadata = { title: 'Sign in' };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{ error?: string | string[]; next?: string | string[] }>;
 }) {
   const settings = authSettings();
   if (!settings) notFound();
   if (await getSession()) redirect('/');
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   return (
     <AuthShell title="Sign in to Waymark">
       <SignInForm
@@ -29,6 +30,7 @@ export default async function SignInPage({
         }
         sovereign={settings.sovereign !== undefined}
         failure={oauthErrorMessage(typeof error === 'string' ? error : undefined)}
+        next={safeNext(next)}
       />
     </AuthShell>
   );

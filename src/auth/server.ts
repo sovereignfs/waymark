@@ -1,6 +1,7 @@
 import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getAuthDatabase, getDatabase } from '../db/boot';
+import { invitationIsOpen } from '../invitations/service';
 import { createProfile } from '../profile/profile';
 import { outboxMailer } from '../mail/outbox';
 import { site } from '../site';
@@ -37,6 +38,8 @@ export function getAuth(): Promise<Auth | null> {
         mailer: mail
           ? outboxMailer({ database: appDatabase, sealer: serverSealer(), now: Date.now })
           : undefined,
+        // Under the sign-up policy `invite`, an account may be made by whoever holds an invitation that can still be used.
+        invitationOpen: async (token) => invitationIsOpen(await getDatabase(), Date.now(), token),
         // Waymark's own copy of the person's name and address, made with the account (2.7).
         onAccountCreated: async (account) => {
           await createProfile(
@@ -64,10 +67,16 @@ export function mailAvailable(): boolean {
  * Whether a new account can be made: yes if sign-up is open, yes for the very first account whatever the setting (someone has to be first), and
  * otherwise no. The server enforces the same rule where an account is created, so this only decides what the page offers.
  */
-export async function signUpAvailable(): Promise<boolean> {
+export async function signUpAvailable(invitation?: string): Promise<boolean> {
   const settings = authSettings();
   // Sign-up is a page of local sign-in; a person who comes through Sovereign is made at their first sign-in (under the same policy, in the hook).
   if (!settings?.local) return false;
   if (settings.signUp === 'open') return true;
-  return (await countUsers(await getAuthDatabase())) === 0;
+  if ((await countUsers(await getAuthDatabase())) === 0) return true;
+  // `invite`: with an invitation that can still be used (the server asks it again where the account is made).
+  return (
+    settings.signUp === 'invite' &&
+    invitation !== undefined &&
+    (await invitationIsOpen(await getDatabase(), Date.now(), invitation))
+  );
 }

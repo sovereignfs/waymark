@@ -10,6 +10,7 @@ import { resetMessage, verificationMessage } from '../mail/templates';
 import * as postgresAuth from '../db/schema/postgres/auth';
 import * as sqliteAuth from '../db/schema/sqlite/auth';
 import {
+  INVITE_HEADER,
   type AuthSettings,
   SIGNUP_CLOSED,
   SOVEREIGN_PROVIDER_ID,
@@ -37,6 +38,8 @@ export interface AuthDependencies {
    * (2.7). The account and the profile are in two stores, which cannot share a transaction, so the profile is made idempotently (its key is the account), and a
    * profile that is somehow missing is made when it is first read. A failure here does not undo the account: it is logged by kind and left to that.
    */
+  /** Whether a token opens an invitation that can still be used: asked when an account is made under the sign-up policy `invite` (DESIGN.md §6.2). */
+  invitationOpen?: ((token: string) => Promise<boolean>) | undefined;
   onAccountCreated?:
     ((account: { id: string; name: string; email: string }) => Promise<void>) | undefined;
 }
@@ -62,12 +65,20 @@ const FOR_PASSWORD_ACCOUNTS = [
   '/passkey/verify-registration',
 ];
 
+/** The invitation's token a sign-up carries, if it does: the header of the request the account is being made by. */
+function tokenOf(context: unknown): string | undefined {
+  const ctx = context as { request?: Request; headers?: Headers } | null;
+  const value = ctx?.request?.headers.get(INVITE_HEADER) ?? ctx?.headers?.get(INVITE_HEADER);
+  return value && value.length <= 200 ? value : undefined;
+}
+
 export function createAuth({
   settings,
   name,
   database,
   mailer,
   onAccountCreated,
+  invitationOpen,
 }: AuthDependencies) {
   const schema = database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
   const { local, sovereign } = settings;
@@ -175,6 +186,11 @@ export function createAuth({
               ctx.params?.id === SOVEREIGN_PROVIDER_ID
             )
               return;
+            // `invite`: the first account, and anyone holding an invitation that can still be used; the token comes in a header, and a token that does not open one is the same refusal as none.
+            if (settings.signUp === 'invite' && (await countUsers(database)) > 0) {
+              const token = tokenOf(context);
+              if (token && (await invitationOpen?.(token))) return;
+            }
             if ((await countUsers(database)) > 0) {
               // With a code, so that a refusal can be told apart from any other 403.
               throw new APIError('FORBIDDEN', {

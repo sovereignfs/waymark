@@ -23,10 +23,13 @@ export function SignInForm({
   local,
   sovereign,
   failure: returned = null,
+  next = '/',
 }: {
   local: { canSignUp: boolean; canReset: boolean } | undefined;
   sovereign: boolean;
   failure?: string | null;
+  /** Where to go once signed in: `/`, or the invitation the person came from (`safeNext`). */
+  next?: string;
 }) {
   const canSignUp = local?.canSignUp ?? false;
   const canReset = local?.canReset ?? false;
@@ -57,7 +60,7 @@ export function SignInForm({
       return;
     }
     // A full navigation, not a client-side one: `/` is a different page now that there is a session, and the server decides which.
-    window.location.assign('/');
+    window.location.assign(next);
   }
 
   async function onCode(event: FormEvent<HTMLFormElement>) {
@@ -76,7 +79,7 @@ export function SignInForm({
       );
       return;
     }
-    window.location.assign('/');
+    window.location.assign(next);
   }
 
   async function withPasskey() {
@@ -88,7 +91,7 @@ export function SignInForm({
       setError('That passkey did not sign you in. Use your password instead.');
       return;
     }
-    window.location.assign('/');
+    window.location.assign(next);
   }
 
   async function onSovereign(event?: FormEvent<HTMLFormElement>) {
@@ -99,7 +102,7 @@ export function SignInForm({
     // again with the reason.
     const { error: failure } = await authClient.signIn.social({
       provider: 'sovereign',
-      callbackURL: '/',
+      callbackURL: next,
       errorCallbackURL: '/sign-in',
     });
     if (failure) {

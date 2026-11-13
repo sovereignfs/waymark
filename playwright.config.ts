@@ -27,6 +27,8 @@ const OFF_PORT = PORTS.off;
 /** An instance that signs in through Sovereign only, and one that offers both ways (`e2e/sovereign.spec.ts`); each has its own database. */
 const SOVEREIGN_PORT = PORTS.sovereign;
 const BOTH_PORT = PORTS.both;
+/** An instance that takes accounts by invitation: the first account, and whoever holds an invitation (`e2e/people.spec.ts`). */
+const INVITE_PORT = PORTS.invite;
 /** The fake Sovereign (`e2e/fake-sovereign-server.ts`) and how an instance is told to sign in through it. */
 const CORE = {
   WAYMARK_CORE_URL: `http://localhost:${PORTS.coreAuth}/api/auth`,
@@ -191,6 +193,24 @@ export default defineConfig({
         WAYMARK_AUTH_SIGNUP: 'open',
         WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
         ...CORE,
+      } as Record<string, string>,
+    },
+    {
+      // Accounts by invitation: the first account is made by sign-up, and the next ones by whoever holds an invitation to a trip.
+      command: `node scripts/serve-standalone.mjs ${INVITE_PORT}`,
+      url: `http://localhost:${INVITE_PORT}/api/health`,
+      timeout: 90_000,
+      reuseExistingServer: false,
+      env: {
+        ...BLANK,
+        WAYMARK_DB_DIALECT: 'sqlite',
+        WAYMARK_SQLITE_URL: `file:${own('invite')}`,
+        WAYMARK_URL: `http://localhost:${INVITE_PORT}`,
+        WAYMARK_DATA_DIR: join(directory, 'invite-data'),
+        WAYMARK_AUTH_LOCAL: '1',
+        WAYMARK_AUTH_SECRET: SECRET,
+        WAYMARK_AUTH_SIGNUP: 'invite',
+        WAYMARK_ENCRYPTION_KEY: 'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       } as Record<string, string>,
     },
   ],
