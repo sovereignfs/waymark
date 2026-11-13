@@ -64,7 +64,7 @@ function rowFor(
       note: options.note,
       companions: options.companions ?? [],
       tripId: link?.tripId ?? null,
-      linkSource: link ? 'auto' : null,
+      linkSource: link ? (link.source === 'chosen' ? 'manual' : 'auto') : null,
       share: options.share ?? 'trip',
       source: live ? 'live' : 'manual',
       photos: options.photos,
@@ -194,7 +194,7 @@ export function editCheckin(
   } else if (patch.trip === 'auto' || ((placeMoved || timeChanged) && linkSource !== 'manual')) {
     const link = ctx.link?.({ at, tz, placeId }) ?? null;
     tripId = link?.tripId ?? null;
-    linkSource = link ? 'auto' : null;
+    linkSource = link ? (link.source === 'chosen' ? 'manual' : 'auto') : null;
   }
   const note = patch.note === undefined ? current.note : (patch.note ?? undefined);
   const next = validateCheckinRow(

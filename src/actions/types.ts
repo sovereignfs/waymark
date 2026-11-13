@@ -30,7 +30,11 @@ export type AutoLink = (checkin: {
   readonly at: number;
   readonly tz: string;
   readonly placeId: string;
-}) => { readonly tripId: string } | null;
+  /**
+   * The trip the app decided on, or one the person chose: **`source: 'chosen'` is the person's own word** (a check-in made from a trip's Today, for that trip's item), kept as a link by hand, so that nothing automatic, the
+   * server's included, moves it to another trip with the same dates and place.
+   */
+}) => { readonly tripId: string; readonly source?: 'chosen' } | null;
 
 export type ActionResult =
   | {

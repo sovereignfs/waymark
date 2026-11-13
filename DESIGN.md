@@ -598,7 +598,7 @@ it says when the trip starts or that it has ended, and links to the plan. Phone 
 └──────────────────────────────────────┘
 ```
 
-- **Check in** here pre-fills the next item's place (copied into the person's places, §7.1) and links to the trip.
+- **Check in** here pre-fills the next item's place (copied into the person's places, §7.1) and links to the trip **as the person's own choice, a link by hand**: the person pressed _Check in_ on that trip's item, so nothing automatic (the server's re-deciding included) moves it to another trip with the same dates and place (§12).
 - **Done** on an item marks it for today without checking in.
 - The plan is the plan exactly as ordered; nothing reorders it in phase 3 (§26.1).
 

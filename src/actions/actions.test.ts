@@ -173,6 +173,23 @@ describe('checking in at a place', () => {
     expect(row).toMatchObject({ tripId: 'trip-9', linkSource: 'auto' });
     expect(asked).toEqual([{ at: NOW, tz: 'Asia/Tokyo', placeId: 'lisbon' }]);
   });
+
+  it('keeps a trip the person chose as a link by hand, which nothing automatic changes, and one the app decided as the app’s', () => {
+    const rowOf = (source?: 'chosen') => {
+      const result = accepted(
+        checkInAtPlace(
+          LISBON,
+          {},
+          ctx({ link: () => ({ tripId: 'trip-9', ...(source ? { source } : {}) }) }),
+        ),
+      );
+      return result.ok && result.mutation.changes[0]?.op === 'put'
+        ? result.mutation.changes[0].row
+        : undefined;
+    };
+    expect(rowOf('chosen')).toMatchObject({ tripId: 'trip-9', linkSource: 'manual' });
+    expect(rowOf()).toMatchObject({ tripId: 'trip-9', linkSource: 'auto' });
+  });
 });
 
 describe('photos on a check-in', () => {

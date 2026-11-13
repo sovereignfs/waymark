@@ -192,8 +192,11 @@ export function CheckInContent({
       now: Date.now(),
       deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       // The trip it falls into, decided here so that it shows at once with no network (the server decides again).
-      // From Trip Mode the trip is the item's; otherwise the one the dates and the place suggest.
-      link: from ? () => ({ tripId: from.tripId }) : autoLinkFor(local.trips, local.places),
+      // From Trip Mode the trip is the item's, and **the person's own choice** (a link by hand, which nothing automatic changes: two trips can share their dates and their place); otherwise the one the dates and
+      // the place suggest.
+      link: from
+        ? () => ({ tripId: from.tripId, source: 'chosen' as const })
+        : autoLinkFor(local.trips, local.places),
     };
     const plan = editing
       ? planEdit(
