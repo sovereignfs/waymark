@@ -1,0 +1,151 @@
+/* The map of everywhere (DESIGN.md §20.7). */
+.page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: calc(
+    100dvh - var(--sv-shell-header-height, 56px) - var(--sv-shell-footer-height, 0px)
+  );
+}
+
+.count {
+  margin: 0;
+  padding: var(--sv-space-2) var(--sv-space-4);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  gap: var(--sv-space-3);
+  min-height: 0;
+  padding: 0 var(--sv-space-4) var(--sv-space-4);
+}
+
+.map {
+  position: relative;
+  min-height: 24rem;
+  overflow: hidden;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  min-width: 0;
+  max-height: 70dvh;
+  overflow-y: auto;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: var(--sv-space-4);
+  color: var(--sv-color-text-muted);
+  text-align: center;
+}
+
+.chosen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  padding: var(--sv-space-3);
+  background: var(--sv-color-accent-subtle);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-accent);
+  border-radius: var(--sv-radius-md);
+}
+
+.chosen h2,
+.chosen p {
+  margin: 0;
+}
+
+.chosen h2 {
+  font-size: var(--sv-font-size-md);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-3);
+  margin-top: var(--sv-space-1);
+}
+
+.actions a {
+  color: var(--sv-color-accent);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sv-space-2);
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  text-align: left;
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.row[aria-pressed='true'] {
+  background: var(--sv-color-accent-subtle);
+  border-color: var(--sv-color-accent);
+}
+
+.row:focus-visible,
+.actions a:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.name {
+  overflow-wrap: anywhere;
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.muted {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+/* Under the map on a narrow screen (DESIGN.md §20.12): the same page, the list below. */
+@media (max-width: 767px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .map {
+    min-height: 20rem;
+  }
+
+  .side {
+    max-height: none;
+  }
+}

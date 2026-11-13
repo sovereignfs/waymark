@@ -122,7 +122,10 @@ test('after one visit, with no network, each of the app’s screens opens with t
   await page.goto('/places/offline-p1');
   await expect(page.getByText(PLACE).first()).toBeVisible();
   await page.goto('/map');
-  await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
+  // The map's tiles are the server's, so with no network the list is what is there: the person's places are in it (the style may still come from the browser's cache, and the tiles do not).
+  await expect(
+    page.getByRole('list', { name: 'Places on the map' }).getByText(PLACE),
+  ).toBeVisible();
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   // The account menu is the person's, from the device.

@@ -1,9 +1,10 @@
 'use client';
 
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, EmptyState, FormField, Icon, Input, Select } from '@sovereignfs/ui';
+import { Button, EmptyState, Icon } from '@sovereignfs/ui';
 import { useLocal } from '../local/LocalProvider';
 import { openCheckIn } from './checkin-location';
+import { FilterBar } from './FilterBar';
 import { PhotoImage } from './PhotoImage';
 import styles from './Timeline.module.css';
 import {
@@ -169,96 +170,7 @@ export function TimelineList({ selectedId }: { selectedId?: string | undefined }
 
   return (
     <div className={styles.root}>
-      <div className={styles.filters} role="search" aria-label="Filter check-ins">
-        <FormField label="Search" className={styles.search}>
-          {(field) => (
-            <Input
-              {...field}
-              type="search"
-              name="q"
-              autoComplete="off"
-              placeholder="Places and notes"
-              value={filters.q}
-              onChange={(event) => set({ q: event.target.value })}
-            />
-          )}
-        </FormField>
-        <FormField label="Year">
-          {(field) => (
-            <Select
-              {...field}
-              name="year"
-              value={filters.year ? String(filters.year) : ''}
-              onChange={(event) => set({ year: event.target.value })}
-            >
-              <option value="">All</option>
-              {options.years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Category">
-          {(field) => (
-            <Select
-              {...field}
-              name="category"
-              value={filters.category ?? ''}
-              onChange={(event) => set({ category: event.target.value })}
-            >
-              <option value="">All</option>
-              {options.categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Country">
-          {(field) => (
-            <Select
-              {...field}
-              name="country"
-              value={filters.country ?? ''}
-              onChange={(event) => set({ country: event.target.value })}
-            >
-              <option value="">All</option>
-              {options.countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        {trips.length > 0 ? (
-          <FormField label="Trip">
-            {(field) => (
-              <Select
-                {...field}
-                name="trip"
-                value={filters.trip ?? ''}
-                onChange={(event) => set({ trip: event.target.value })}
-              >
-                <option value="">All</option>
-                {trips.map((trip) => (
-                  <option key={trip.id} value={trip.id}>
-                    {trip.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
-        ) : null}
-        {isFiltered(filters) ? (
-          <Button type="button" variant="secondary" onClick={clear}>
-            Clear
-          </Button>
-        ) : null}
-      </div>
+      <FilterBar filters={filters} options={options} trips={trips} set={set} clear={clear} />
       <p className={styles.count} role="status">
         {isFiltered(filters)
           ? `${shown.length} of ${all.length} check-ins`
