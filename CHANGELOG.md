@@ -87,3 +87,15 @@ Each release's section is also its GitHub release notes: the release workflow re
 - A trip offline: _Download for offline_ on a trip that is coming up or on keeps the map around its stops on your device, so Trip Mode and the map draw with no connection; Settings shows what is kept and removes it, and it is let go of when the trip ends and at sign-out.
 
 [Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.0.0...HEAD
+
+### Changed
+
+- The page's policy no longer allows a worker made from a `blob:` (`worker-src 'self'`): the map's worker is served by the app itself.
+
+### Fixed
+
+- A map that could not load its code (no network at that moment, or a file gone after an update) took the whole screen with it; now the map draws nothing and the list beside it stays.
+
+### Security
+
+- Written reviews of what each phase adds (`docs/security/0.1.0.md`, `0.2.0.md`, `0.3.0.md`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
