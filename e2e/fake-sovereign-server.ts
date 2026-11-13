@@ -1,6 +1,6 @@
 // The fake Sovereign (src/auth/testing/fake-sovereign.ts) as a process of its own, for the browser tests: the OIDC provider on `PORTS.coreAuth`, and on `PORTS.coreControl` a control
 // port, where a test says who the next person to sign in is (POST /sign-in-as, a JSON user), asks for a signed notice to the app (POST /notice, a JSON
-// { kind: "logout" | "account-deleted", sub, sid?, wrong? }, answered with the token) and which the webServer waits on (GET /health). Run by
+// { kind: "logout" | "account-deleted", sub, sid?, wrong? }, answered with the token), puts a person in the directory (POST /people, a JSON { sub, name }: one who has not signed in anywhere) and which the webServer waits on (GET /health). Run by
 // playwright.config.ts; Node strips the types itself.
 import { createServer } from 'node:http';
 import { startFakeSovereign } from '../src/auth/testing/fake-sovereign.ts';
@@ -34,6 +34,15 @@ createServer((req, res) => {
       void fake
         .noticeToken(kind, { sub, sid }, wrong)
         .then((token) => res.writeHead(200, { 'content-type': 'text/plain' }).end(token));
+    });
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/people') {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      fake.core.addPerson(JSON.parse(body));
+      res.writeHead(204).end();
     });
     return;
   }

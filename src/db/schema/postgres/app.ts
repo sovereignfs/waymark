@@ -279,6 +279,20 @@ export const keyRotation = app.table('key_rotation', {
 });
 
 /** See `schema/sqlite/app.ts`. */
+export const coreToken = app.table(
+  'core_token',
+  {
+    sub: text('sub').primaryKey(),
+    accountId: ref('account_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    lockUntil: epochMs('lock_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [index('core_token_account_idx').on(table.accountId)],
+);
+
+/** See `schema/sqlite/app.ts`. */
 export const coreOutbox = app.table(
   'core_outbox',
   {
@@ -590,6 +604,8 @@ export const invitation = app.table(
     via: text('via').notNull(),
     invitedBy: ref('invited_by'),
     targetAccountId: ref('target_account_id'),
+    // The person a core's directory named, by their `sub`, when they have no account here yet: their first sign-in through that core takes the invitation (`src/invitations/`, DESIGN.md §11.2).
+    targetSub: text('target_sub'),
     tokenHash: text('token_hash').notNull(),
     lastSentAt: epochMs('last_sent_at').notNull(),
     expiresAt: epochMs('expires_at').notNull(),
@@ -604,5 +620,6 @@ export const invitation = app.table(
     index('invitation_trip_idx').on(table.tripId),
     index('invitation_invited_by_idx').on(table.invitedBy),
     index('invitation_target_idx').on(table.targetAccountId),
+    index('invitation_target_sub_idx').on(table.targetSub),
   ],
 );

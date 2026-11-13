@@ -16,15 +16,20 @@ export interface OpAnswer {
     readonly id: string;
     readonly link: string;
     readonly mail: boolean;
-    readonly via: 'link' | 'account' | 'email';
+    readonly via: 'link' | 'account' | 'email' | 'directory';
     readonly expiresAt: number;
   };
+  /** For `people.directory`: whether core's directory answered (`off`: there is none to ask here) and who it named. */
+  readonly directory?: 'on' | 'off' | 'failed';
+  readonly people?: readonly { readonly sub: string; readonly name: string }[];
   /** For `invite.list`. */
   readonly invitations?: readonly {
     readonly id: string;
     readonly role: 'organizer' | 'traveler' | 'follower';
-    readonly via: 'link' | 'account' | 'email';
+    readonly via: 'link' | 'account' | 'email' | 'directory';
     readonly email: string | undefined;
+    /** The name core's directory gave, for an invitation made from it. */
+    readonly name?: string | undefined;
     readonly createdAt: number;
     readonly lastSentAt: number;
     readonly expiresAt: number;

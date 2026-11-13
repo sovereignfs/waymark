@@ -105,6 +105,7 @@ const REQUESTS: Record<OpName, (id: string, fixture: Fixture) => Op> = {
   'member.share': (id) => ({ op: 'member.share', tripId: id, choice: 'on' }),
   'member.leave': (id) => ({ op: 'member.leave', tripId: id }),
   'invite.create': (id) => ({ op: 'invite.create', tripId: id, role: 'traveler' }),
+  'people.directory': (id) => ({ op: 'people.directory', tripId: id, q: 'ada' }),
   'invite.list': (id) => ({ op: 'invite.list', tripId: id }),
   'invite.revoke': (id) => ({ op: 'invite.revoke', tripId: id, invitationId: randomUUID() }),
   'invite.resend': (id) => ({ op: 'invite.resend', tripId: id, invitationId: randomUUID() }),

@@ -5,6 +5,8 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet, transaction } from '../db/exec';
 import type { Limiter } from '../limits/rate';
 import { enqueueMail } from '../mail/outbox';
+import type { Found as DirectoryFound, Resolved } from '../sovereign/directory';
+import { enqueueCore } from '../sovereign/outbox';
 import { invitationMessage } from '../mail/templates';
 import { raiseNotice } from '../notices/notices';
 import { getProfile } from '../profile/profile';
@@ -35,12 +37,26 @@ export interface InviteDeps extends TripDeps {
   readonly url?: string | undefined;
   /** The account with this email address, if there is one (the sign-in store's, where addresses are plain); absent, every address is mailed. */
   readonly accountByEmail?: ((email: string) => Promise<string | undefined>) | undefined;
+  /** Core's directory, where the people sign in through a core (DESIGN.md §11.2): absent, inviting a person from it is not offered. */
+  readonly coreDirectory?: InviteDirectory | undefined;
+}
+
+/**
+ * What an invitation needs of core's directory, for the Organizer who is inviting: **one person looked up by their `sub`** (never taken on a browser's word), and the account here that has signed in with a `sub`, if one has.
+ * Both are asked for the Organizer's own account, which finds their `sub` and their refresh token; `unavailable` is the answer when there is nothing to ask as.
+ */
+export interface InviteDirectory {
+  search(accountId: string, query: string): Promise<DirectoryFound>;
+  resolve(accountId: string, sub: string): Promise<Resolved>;
+  accountOfSub(sub: string): Promise<string | undefined>;
 }
 
 export const CREATE_RATE = { limit: 60, windowMs: 3_600_000 } as const;
 export const LOOKUP_RATE = { limit: 30, windowMs: 3_600_000 } as const;
+/** Searching core's directory while typing a name: a search for each pause in typing, a hundred in a minute at the most for one person. */
+export const DIRECTORY_RATE = { limit: 100, windowMs: 60_000 } as const;
 
-export type Via = 'link' | 'account' | 'email';
+export type Via = 'link' | 'account' | 'email' | 'directory';
 
 export interface InvitationView {
   readonly id: string;
@@ -48,6 +64,8 @@ export interface InvitationView {
   readonly via: Via;
   /** The address it was sent to, for an Organizer to see who is waiting. */
   readonly email: string | undefined;
+  /** The name core's directory gave, for an invitation made from it. */
+  readonly name: string | undefined;
   readonly createdAt: number;
   readonly lastSentAt: number;
   readonly expiresAt: number;
@@ -84,6 +102,7 @@ const viewOf = (deps: InviteDeps, row: Row): InvitationView => ({
   role: row.role as Role,
   via: row.via as Via,
   email: deps.sealer.unseal('invitation', row.id, bytes(row.sealed)).email,
+  name: deps.sealer.unseal('invitation', row.id, bytes(row.sealed)).name,
   createdAt: Number(row.createdAt),
   lastSentAt: Number(row.lastSentAt),
   expiresAt: Number(row.expiresAt),
@@ -104,7 +123,11 @@ async function deliver(
     by: string;
     target: string | undefined;
     email: string | undefined;
+    /** A person core's directory named who has no account here: told by core's bell, which their sign-in through core then follows. */
+    sub?: string | undefined;
     token: string;
+    /** For the key of a call to core: a new send is a new call. */
+    sentAt: number;
   },
 ): Promise<void> {
   const link = linkOf(deps, invitation.token);
@@ -128,6 +151,19 @@ async function deliver(
     );
     return;
   }
+  if (invitation.sub) {
+    await enqueueCore(tx, deps.sealer, deps.now(), {
+      kind: 'notification',
+      content: {
+        title: `${invitation.inviter} invited you to “${invitation.tripName}”`,
+        body: 'Sign in to Waymark with your Sovereign account to join the trip.',
+        path: `/invite/${invitation.token}`,
+        sub: invitation.sub,
+        key: `invite-${invitation.id}-${invitation.sentAt}`,
+      },
+    });
+    return;
+  }
   if (invitation.email && delivery.mail)
     await enqueueMail(tx, deps.sealer, deps.now(), {
       kind: 'notice',
@@ -146,7 +182,7 @@ export async function createInvitation(
   deps: InviteDeps,
   accountId: string,
   tripId: string,
-  input: { role?: unknown; accountId?: unknown; email?: unknown },
+  input: { role?: unknown; accountId?: unknown; email?: unknown; sub?: unknown },
 ): Promise<Sent | undefined> {
   if (!TRIP_ID.test(tripId)) return undefined;
   if (typeof input.role !== 'string' || !(ROLES as readonly string[]).includes(input.role))
@@ -154,8 +190,11 @@ export async function createInvitation(
   const role = input.role as Role;
   const hasAccount = input.accountId !== undefined && input.accountId !== null;
   const hasEmail = input.email !== undefined && input.email !== null;
-  if (hasAccount && hasEmail)
+  const hasSub = input.sub !== undefined && input.sub !== null;
+  if ([hasAccount, hasEmail, hasSub].filter(Boolean).length > 1)
     throw new TripError('An invitation is for a person or an address, not both.');
+  if (hasSub && (typeof input.sub !== 'string' || input.sub.length < 1 || input.sub.length > 200))
+    throw new TripError('That is not a person.');
   let email: string | undefined;
   if (hasEmail) {
     const raw = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
@@ -177,8 +216,32 @@ export async function createInvitation(
     if (!taken.ok)
       throw new TripError('That is a lot of invitations for one hour. Try again later.');
   }
+  // A person from core's directory is looked up again here, as the Organizer, and never taken on what a browser said of them: whether they are there, and the name core gives (which is what is kept and shown).
+  let found: { sub: string; name: string } | undefined;
+  if (hasSub) {
+    // Only an Organizer's trip is looked up for: nothing is asked of core for anyone else, and the answer for a trip that is not theirs is the one for a trip that is not there.
+    const mine = await dbGet<{ id: string }>(
+      deps.database,
+      sql`SELECT t.id AS id FROM ${t('trip')} t WHERE t.id = ${tripId} AND ${memberOf(deps.database, sql`t.id`, accountId, ORGANIZERS)}`,
+    );
+    if (!mine) return undefined;
+    if (!deps.coreDirectory)
+      throw new TripError(
+        'There is no directory to find people in here. Use an email address or a link.',
+      );
+    const who = await deps.coreDirectory.resolve(accountId, input.sub as string);
+    if (who.outcome === 'gone') throw new TripError('That person is not in the directory.');
+    if (who.outcome !== 'found')
+      throw new TripError('The directory cannot be reached now. Use an email address or a link.');
+    found = { sub: who.person.sub, name: who.person.name };
+  }
   // Which account, if any, an address belongs to is asked at a limited rate, so the answer cannot be mined; and it is never said.
-  let target = hasAccount ? (input.accountId as string) : undefined;
+  // A person from the directory who has signed in here is that account: told by a notice, as any account is.
+  let target = hasAccount
+    ? (input.accountId as string)
+    : found
+      ? await deps.coreDirectory?.accountOfSub(found.sub)
+      : undefined;
   /** An address that belongs to someone already in the trip: the invitation is made (the answer is the same) and nothing is sent. */
   let quiet = false;
   if (email && deps.accountByEmail) {
@@ -219,21 +282,31 @@ export async function createInvitation(
           tx,
           sql`SELECT role FROM ${t('trip_member')} WHERE trip_id = ${tripId} AND account_id = ${target} AND left_at IS NULL`,
         );
-        if (member && hasAccount) throw new TripError('They are already in this trip.');
+        if (member && (hasAccount || found)) throw new TripError('They are already in this trip.');
         // An address that is already in the trip is simply not invited again, and nothing says why.
         if (member) {
           target = undefined;
           quiet = true;
         }
       }
+      // One waiting invitation for a person from the directory, so that it is not made twice: it is sent again instead.
+      if (found) {
+        const already = await dbGet<{ id: string }>(
+          tx,
+          sql`SELECT id FROM ${t('invitation')}
+              WHERE trip_id = ${tripId} AND (target_sub = ${found.sub} OR target_account_id = ${target ?? ''}) AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}`,
+        );
+        if (already)
+          throw new TripError('They are already invited. Send that invitation again instead.');
+      }
       const { token, hash } = newToken();
       const id = crypto.randomUUID();
-      const via: Via = hasAccount ? 'account' : hasEmail ? 'email' : 'link';
+      const via: Via = hasAccount ? 'account' : found ? 'directory' : hasEmail ? 'email' : 'link';
       await dbAll(
         tx,
-        sql`INSERT INTO ${t('invitation')} (id, trip_id, role, via, invited_by, target_account_id, token_hash, last_sent_at, expires_at, sealed, created_at)
-            VALUES (${id}, ${tripId}, ${role}, ${via}, ${accountId}, ${target ?? null}, ${hash}, ${now}, ${now + INVITE_TTL_MS},
-                    ${deps.sealer.seal('invitation', id, email ? { email } : {})}, ${now})
+        sql`INSERT INTO ${t('invitation')} (id, trip_id, role, via, invited_by, target_account_id, target_sub, token_hash, last_sent_at, expires_at, sealed, created_at)
+            VALUES (${id}, ${tripId}, ${role}, ${via}, ${accountId}, ${target ?? null}, ${found && !target ? found.sub : null}, ${hash}, ${now}, ${now + INVITE_TTL_MS},
+                    ${deps.sealer.seal('invitation', id, { ...(email ? { email } : {}), ...(found ? { name: found.name } : {}) })}, ${now})
             RETURNING id`,
       );
       const tripName = deps.sealer.unseal('trip', tripId, bytes(trip.sealed)).name;
@@ -245,13 +318,16 @@ export async function createInvitation(
           by: accountId,
           target,
           email,
+          sub: found?.sub,
           token,
+          sentAt: now,
         });
       return {
         id,
         role,
         via,
         email,
+        name: found?.name,
         createdAt: now,
         lastSentAt: now,
         expiresAt: now + INVITE_TTL_MS,
@@ -263,6 +339,56 @@ export async function createInvitation(
     if (error instanceof NotFound) return undefined;
     throw error;
   }
+}
+
+export interface DirectoryAnswer {
+  /** `on`: asked, and these are the answer (maybe none). `off`: there is no directory to ask (not hosted, not signed in through a core, not granted): the field is Waymark's own alone. `failed`: core did not answer now. */
+  readonly directory: 'on' | 'off' | 'failed';
+  readonly people: readonly { readonly sub: string; readonly name: string }[];
+}
+
+/**
+ * **People of the instance, for an Organizer to invite** (DESIGN.md §11.2): core's directory searched for a name, as the Organizer. **The Organizer's role is in the statement that lets the search happen**, a
+ * trip that is not theirs is not there, and the search is limited. People already in the trip are left out (who they are here is known by their `sub`, never by a name or an address), and nothing is said of who has an
+ * account here: every person of the directory is offered the same.
+ */
+export async function searchDirectory(
+  deps: InviteDeps,
+  accountId: string,
+  tripId: string,
+  query: unknown,
+): Promise<DirectoryAnswer | undefined> {
+  if (!TRIP_ID.test(tripId)) return undefined;
+  const t = (name: string) => tableOf(deps.database, name);
+  const allowed = await dbGet<{ id: string }>(
+    deps.database,
+    sql`SELECT t.id AS id FROM ${t('trip')} t WHERE t.id = ${tripId} AND ${memberOf(deps.database, sql`t.id`, accountId, ORGANIZERS)}`,
+  );
+  if (!allowed) return undefined;
+  if (!deps.coreDirectory) return { directory: 'off', people: [] };
+  const q = typeof query === 'string' ? query.trim() : '';
+  if (q === '' || q.length > 100) return { directory: 'on', people: [] };
+  if (deps.limiter) {
+    const taken = await deps.limiter.take(`directory:${accountId}`, DIRECTORY_RATE);
+    if (!taken.ok) throw new TripError('That is a lot of searches. Wait a moment.');
+  }
+  const found = await deps.coreDirectory.search(accountId, q);
+  if (found.outcome === 'unavailable') return { directory: 'off', people: [] };
+  if (found.outcome === 'failed') return { directory: 'failed', people: [] };
+  // Not those already in this trip: an account that has signed in with their `sub` and is a member.
+  const people: { sub: string; name: string }[] = [];
+  for (const person of found.people) {
+    const account = await deps.coreDirectory.accountOfSub(person.sub);
+    if (account) {
+      const member = await dbGet<{ role: string }>(
+        deps.database,
+        sql`SELECT role FROM ${t('trip_member')} WHERE trip_id = ${tripId} AND account_id = ${account} AND left_at IS NULL`,
+      );
+      if (member) continue;
+    }
+    people.push({ sub: person.sub, name: person.name });
+  }
+  return { directory: 'on', people };
 }
 
 /** The invitations of a trip that are waiting, for its Organizers: never a token. */
@@ -318,15 +444,13 @@ export async function resendInvitation(
   try {
     return await transaction(deps.database, async (tx): Promise<Sent> => {
       const { token, hash } = newToken();
-      const sent = await dbAll<
-        Row & { target: string | null; tripSealed: Uint8Array | ArrayBuffer }
-      >(
+      const sent = await dbAll<Row & { target: string | null; targetSub: string | null }>(
         tx,
         sql`UPDATE ${t('invitation')} SET token_hash = ${hash}, last_sent_at = ${now}, expires_at = ${now + INVITE_TTL_MS}
             WHERE id = ${invitationId} AND trip_id = ${tripId} AND accepted_at IS NULL AND revoked_at IS NULL
               AND last_sent_at <= ${now - RESEND_AFTER_MS}
               AND ${memberOf(tx, sql`${tripId}`, accountId, ORGANIZERS)}
-            RETURNING id, role, via, created_at AS "createdAt", last_sent_at AS "lastSentAt", expires_at AS "expiresAt", sealed, target_account_id AS target`,
+            RETURNING id, role, via, created_at AS "createdAt", last_sent_at AS "lastSentAt", expires_at AS "expiresAt", sealed, target_account_id AS target, target_sub AS "targetSub"`,
       );
       const row = sent[0];
       if (!row) {
@@ -358,7 +482,9 @@ export async function resendInvitation(
         by: accountId,
         target: row.target ?? undefined,
         email: view.email,
+        sub: row.targetSub ?? undefined,
         token,
+        sentAt: now,
       });
       return { ...view, link: linkOf(deps, token), mail: deps.delivery?.().mail !== undefined };
     });
@@ -445,85 +571,129 @@ export async function acceptInvitation(
   token: string,
 ): Promise<Accepted | undefined> {
   const now = deps.now();
-  const t = (name: string) => tableOf(deps.database, name);
   try {
     return await transaction(deps.database, async (tx): Promise<Accepted> => {
       const found = await open(tx, now, token);
       if (!found) throw new NotFound();
-      const me = await dbGet<{ leftAt: number | string | null }>(
-        tx,
-        sql`SELECT left_at AS "leftAt" FROM ${t('trip_member')} WHERE trip_id = ${found.tripId} AND account_id = ${accountId}`,
-      );
-      if (me && me.leftAt === null) return { status: 'already', tripId: found.tripId };
-      const members = await dbGet<{ n: number | string }>(
-        tx,
-        sql`SELECT COUNT(*) AS n FROM ${t('trip_member')} WHERE trip_id = ${found.tripId} AND left_at IS NULL`,
-      );
-      if (Number(members?.n ?? 0) >= deps.limits.tripMembers)
-        throw new TripError(
-          'This trip already has as many people as this server allows. Ask an Organizer.',
-        );
-      const claimed = await dbAll<{ id: string }>(
-        tx,
-        sql`UPDATE ${t('invitation')} SET accepted_by = ${accountId}, accepted_at = ${now}
-            WHERE id = ${found.id} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
-            RETURNING id`,
-      );
-      if (claimed.length === 0) throw new NotFound();
-      const bumped = await dbAll<{ seq: number | string }>(
-        tx,
-        sql`UPDATE ${t('trip')} SET seq = seq + 1, updated_at = ${now} WHERE id = ${found.tripId} RETURNING seq`,
-      );
-      const trip = bumped[0];
-      if (!trip) throw new NotFound();
-      const seq = Number(trip.seq);
-      const going = found.role !== 'follower';
-      if (me)
-        await dbAll(
-          tx,
-          sql`UPDATE ${t('trip_member')} SET role = ${found.role}, going = ${going}, share_checkins = 'ask', added_by = ${found.invitedBy}, joined_at = ${now}, left_at = NULL, seq = ${seq}
-              WHERE trip_id = ${found.tripId} AND account_id = ${accountId} RETURNING account_id`,
-        );
-      else
-        await dbAll(
-          tx,
-          sql`INSERT INTO ${t('trip_member')} (trip_id, account_id, role, going, share_checkins, added_by, joined_at, seq)
-              VALUES (${found.tripId}, ${accountId}, ${found.role}, ${going}, 'ask', ${found.invitedBy}, ${now}, ${seq}) RETURNING trip_id`,
-        );
-      // A new person who goes: their check-ins that fall within the trip's dates are linked in the background.
-      await enqueueRelink(tx, found.tripId, now);
-      if (found.invitedBy) {
-        const sealedTrip = await dbGet<{ sealed: Uint8Array | ArrayBuffer }>(
-          tx,
-          sql`SELECT sealed FROM ${t('trip')} WHERE id = ${found.tripId}`,
-        );
-        const tripName = sealedTrip
-          ? deps.sealer.unseal('trip', found.tripId, bytes(sealedTrip.sealed)).name
-          : 'a trip';
-        await raiseNotice(
-          tx,
-          deps.sealer,
-          now,
-          {
-            to: found.invitedBy,
-            by: accountId,
-            kind: 'invite_accepted',
-            tripId: found.tripId,
-            content: {
-              title: `${await nameOf(deps, tx, accountId)} joined “${tripName}”`,
-              detail: `They accepted your invitation as ${found.role === 'organizer' ? 'an Organizer' : found.role === 'traveler' ? 'a Traveler' : 'a Follower'}.`,
-              href: `/t/${found.tripId}`,
-            },
-          },
-          deps.delivery?.() ?? {},
-        );
-      }
-      return { status: 'joined', tripId: found.tripId, role: found.role as Role };
+      return join(tx, deps, now, found, accountId);
     });
   } catch (error) {
     if (error instanceof NotFound) return undefined;
     throw error;
   }
+}
+
+/**
+ * **A person core's directory named takes the invitations made for them by signing in through core** (DESIGN.md §11.2): called when a sign-in through core ends, with the account and its `sub`. Each waiting invitation
+ * for that `sub` is accepted as an invitation is (the same statement, so once, with a full trip refused and the inviter told), in a transaction of its own, so that one that cannot be taken does not stop the others.
+ * **A `sub` is identity; an email is never matched to an account** (DESIGN.md §19.1): this is the one place an invitation finds an account by anything but a link, and it is by the `sub` core vouched for in the
+ * sign-in. Returns the trips joined.
+ */
+export async function claimInvitations(
+  deps: InviteDeps,
+  accountId: string,
+  sub: string,
+): Promise<string[]> {
+  const now = deps.now();
+  const t = (name: string) => tableOf(deps.database, name);
+  const waiting = await dbAll<Found>(
+    deps.database,
+    sql`SELECT i.id AS id, i.trip_id AS "tripId", i.role AS role, i.invited_by AS "invitedBy", i.token_hash AS "tokenHash"
+        FROM ${t('invitation')} i JOIN ${t('trip')} tr ON tr.id = i.trip_id
+        WHERE i.target_sub = ${sub} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > ${now}
+        ORDER BY i.created_at, i.id`,
+  );
+  const joined: string[] = [];
+  for (const found of waiting) {
+    try {
+      const done = await transaction(deps.database, (tx) => join(tx, deps, now, found, accountId));
+      if (done.status === 'joined') joined.push(done.tripId);
+    } catch (error) {
+      // Not here, or a full trip: this one stays waiting, with its link, and the rest are taken.
+      if (!(error instanceof NotFound) && !(error instanceof TripError)) throw error;
+    }
+  }
+  return joined;
+}
+
+/** Makes `accountId` a member for the invitation `found`, in the transaction `tx`. Throws `NotFound` for one that cannot be used any more, and `TripError` in words for a full trip. */
+async function join(
+  tx: Database,
+  deps: InviteDeps,
+  now: number,
+  found: Found,
+  accountId: string,
+): Promise<Accepted> {
+  const t = (name: string) => tableOf(tx, name);
+  const me = await dbGet<{ leftAt: number | string | null }>(
+    tx,
+    sql`SELECT left_at AS "leftAt" FROM ${t('trip_member')} WHERE trip_id = ${found.tripId} AND account_id = ${accountId}`,
+  );
+  if (me && me.leftAt === null) return { status: 'already', tripId: found.tripId };
+  const members = await dbGet<{ n: number | string }>(
+    tx,
+    sql`SELECT COUNT(*) AS n FROM ${t('trip_member')} WHERE trip_id = ${found.tripId} AND left_at IS NULL`,
+  );
+  if (Number(members?.n ?? 0) >= deps.limits.tripMembers)
+    throw new TripError(
+      'This trip already has as many people as this server allows. Ask an Organizer.',
+    );
+  const claimed = await dbAll<{ id: string }>(
+    tx,
+    sql`UPDATE ${t('invitation')} SET accepted_by = ${accountId}, accepted_at = ${now}
+        WHERE id = ${found.id} AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ${now}
+        RETURNING id`,
+  );
+  if (claimed.length === 0) throw new NotFound();
+  const bumped = await dbAll<{ seq: number | string }>(
+    tx,
+    sql`UPDATE ${t('trip')} SET seq = seq + 1, updated_at = ${now} WHERE id = ${found.tripId} RETURNING seq`,
+  );
+  const trip = bumped[0];
+  if (!trip) throw new NotFound();
+  const seq = Number(trip.seq);
+  const going = found.role !== 'follower';
+  if (me)
+    await dbAll(
+      tx,
+      sql`UPDATE ${t('trip_member')} SET role = ${found.role}, going = ${going}, share_checkins = 'ask', added_by = ${found.invitedBy}, joined_at = ${now}, left_at = NULL, seq = ${seq}
+          WHERE trip_id = ${found.tripId} AND account_id = ${accountId} RETURNING account_id`,
+    );
+  else
+    await dbAll(
+      tx,
+      sql`INSERT INTO ${t('trip_member')} (trip_id, account_id, role, going, share_checkins, added_by, joined_at, seq)
+          VALUES (${found.tripId}, ${accountId}, ${found.role}, ${going}, 'ask', ${found.invitedBy}, ${now}, ${seq}) RETURNING trip_id`,
+    );
+  // A new person who goes: their check-ins that fall within the trip's dates are linked in the background.
+  await enqueueRelink(tx, found.tripId, now);
+  if (found.invitedBy) {
+    const sealedTrip = await dbGet<{ sealed: Uint8Array | ArrayBuffer }>(
+      tx,
+      sql`SELECT sealed FROM ${t('trip')} WHERE id = ${found.tripId}`,
+    );
+    const tripName = sealedTrip
+      ? deps.sealer.unseal('trip', found.tripId, bytes(sealedTrip.sealed)).name
+      : 'a trip';
+    await raiseNotice(
+      tx,
+      deps.sealer,
+      now,
+      {
+        to: found.invitedBy,
+        by: accountId,
+        kind: 'invite_accepted',
+        tripId: found.tripId,
+        content: {
+          title: `${await nameOf(deps, tx, accountId)} joined “${tripName}”`,
+          detail: `They accepted your invitation as ${found.role === 'organizer' ? 'an Organizer' : found.role === 'traveler' ? 'a Traveler' : 'a Follower'}.`,
+          href: `/t/${found.tripId}`,
+        },
+      },
+      deps.delivery?.() ?? {},
+    );
+  }
+  return { status: 'joined', tripId: found.tripId, role: found.role as Role };
 }
 
 /** Forgets invitations that were used, revoked or ran out more than a month ago. */

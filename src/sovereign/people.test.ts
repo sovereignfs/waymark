@@ -30,6 +30,7 @@ import { DEFAULT_LIMITS } from '../config';
 import { addAttachment } from '../trips/attachments';
 import { createTrip } from '../trips/trips';
 import { deletePerson } from './people';
+import { rememberCoreToken } from './tokens';
 
 /**
  * Deleting an account (DESIGN.md §23), on two real accounts and every table. **The test that keeps the routine whole:** it asks the schema for its tables, and a table that is
@@ -61,6 +62,7 @@ const GOES = [
   'notice_pref',
   'mail_outbox',
   'core_outbox',
+  'core_token',
   'import_job',
   'export_job',
   'media',
@@ -325,6 +327,15 @@ describe(`deleting a person (${leg})`, () => {
             VALUES (${key}, ${shared.id}, 'traveler', 'link', ${by}, ${target}, ${`hash-${key}`}, ${NOW}, ${NOW + 1000}, ${acceptedBy}, ${acceptedBy ? NOW : null}, NULL, ${sealer.seal('invitation', key, {})}, ${NOW}) RETURNING id`,
       );
 
+    // The refresh token each has at a core, sealed: Ada's goes with her.
+    for (const owner of [ada, grace])
+      await rememberCoreToken(
+        { database, sealer, now: () => NOW },
+        owner,
+        `sub-${owner}`,
+        `refresh-${owner}`,
+      );
+
     // A device each can be pushed to, with a push waiting for it: Ada’s go with her.
     for (const owner of [ada, grace]) {
       const device = `device-${owner}`;
@@ -466,6 +477,8 @@ describe(`deleting a person (${leg})`, () => {
     expect(await count('mail_outbox', `account_id = '${grace}'`)).toBe(1);
     expect(await count('notice_pref', `account_id = '${grace}'`)).toBe(1);
     expect(await count('core_outbox', `account_id = '${grace}'`)).toBe(1);
+    expect(await count('core_token', `account_id = '${ada}'`)).toBe(0);
+    expect(await count('core_token', `account_id = '${grace}'`)).toBe(1);
     // A line about the deletion, which names the sub and no account, was left for the core.
     expect(await count('core_outbox', 'account_id IS NULL')).toBe(1);
     expect(await count('import_job', `account_id = '${grace}'`)).toBe(1);

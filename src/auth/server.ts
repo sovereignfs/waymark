@@ -1,7 +1,9 @@
 import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getAuthDatabase, getDatabase } from '../db/boot';
-import { invitationIsOpen } from '../invitations/service';
+import { claimInvitations, invitationIsOpen } from '../invitations/service';
+import { serverInvite } from '../invitations/server';
+import { rememberCoreToken } from '../sovereign/tokens';
 import { createProfile } from '../profile/profile';
 import { outboxMailer } from '../mail/outbox';
 import { site } from '../site';
@@ -40,6 +42,17 @@ export function getAuth(): Promise<Auth | null> {
           : undefined,
         // Under the sign-up policy `invite`, an account may be made by whoever holds an invitation that can still be used.
         invitationOpen: async (token) => invitationIsOpen(await getDatabase(), Date.now(), token),
+        // A sign-in through core: its refresh token is kept sealed for the directory, and the invitations made for the person's `sub` are taken (DESIGN.md §19.3, §11.2).
+        onSovereignSignIn: async ({ accountId, sub, refreshToken }) => {
+          if (refreshToken)
+            await rememberCoreToken(
+              { database: await getDatabase(), sealer: serverSealer(), now: Date.now },
+              accountId,
+              sub,
+              refreshToken,
+            );
+          await claimInvitations(await serverInvite(), accountId, sub);
+        },
         // Waymark's own copy of the person's name and address, made with the account (2.7).
         onAccountCreated: async (account) => {
           await createProfile(

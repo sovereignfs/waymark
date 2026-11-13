@@ -58,6 +58,8 @@ export const ROW_PHASES: readonly { table: SealedTable; key: string; guard?: str
   { table: 'notice', key: 'id' },
   { table: 'mail_outbox', key: 'id' },
   { table: 'core_outbox', key: 'id' },
+  // A refresh token is rewritten by every rotation at core, which advances `updated_at`.
+  { table: 'core_token', key: 'sub', guard: 'updated_at' },
   { table: 'import_job', key: 'id', guard: 'updated_at' },
 ];
 export const FILE_PHASES = ['media', 'imports', 'exports'] as const;

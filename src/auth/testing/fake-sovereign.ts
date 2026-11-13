@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { type Server, createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { type FakeCore, createFakeCore } from '@sovereignfs/sdk/testing';
 import { type CryptoKey, SignJWT, exportJWK, generateKeyPair } from 'jose';
 
 /**
@@ -9,6 +10,10 @@ import { type CryptoKey, SignJWT, exportJWK, generateKeyPair } from 'jose';
  * is "at the keyboard" without a screen), the token endpoint and userinfo. It is strict where
  * Sovereign is: a redirect URI is matched exactly, PKCE is S256 and checked, the client signs in
  * with its secret, and a code works once. The ID token is EdDSA, as Sovereign's is.
+ *
+ * **It is also a core for what an app does as a person** (DESIGN.md §19.3): the SDK's own fake core (`createFakeCore`) answers behind it, so that a sign-in with `offline_access` is given a refresh token, the SDK's
+ * refresh and app-token grants are served at the token endpoint, and `/api/v1/*` (the directory) and the documents the SDK reads first are there. The people of its directory are the ones signed in and those a test adds
+ * (`core.addPerson`).
  *
  * Its discovery document has the shape of the one recorded from a real instance
  * (`fixtures/sovereign-discovery.json`, checked against this in `sovereign-discovery.test.ts`), so a
@@ -46,6 +51,7 @@ interface Pending {
   nonce: string | undefined;
   user: FakeUser;
   overrides: LoginOverrides;
+  scope: string;
   used: boolean;
 }
 
@@ -68,6 +74,8 @@ export interface FakeSovereign {
     who: { sub?: string; sid?: string },
     wrong?: 'signature' | 'audience' | 'expired' | 'type',
   ): Promise<string>;
+  /** The SDK's fake core behind this provider: the directory's people, the notifications and emails it was asked to send, and what it saw. */
+  core: FakeCore;
   /** The authorization requests received, newest last. */
   authorizations: URL[];
   /** The access tokens handed out, so a test can look for them where they must not be. */
@@ -100,6 +108,8 @@ export async function startFakeSovereign(
   const authorizations: URL[] = [];
   const tokenRequests: FakeSovereign['tokenRequests'] = [];
   let issuer = '';
+  // The core behind the provider is made once the port is known (its address is the provider's origin).
+  const behind: { core?: FakeCore } = {};
 
   const sign = (key: CryptoKey, claims: Record<string, unknown>) =>
     new SignJWT(claims)
@@ -164,6 +174,39 @@ export async function startFakeSovereign(
         }
         if (url.pathname === `${PATH}/jwks`) return json(200, { keys: [jwk] });
 
+        // What the SDK asks of a core: its documents at the root, the Core API, and the grants that are not a sign-in's code (a refresh, and the app's own token).
+        let tokenBody: string | undefined;
+        const core = behind.core;
+        if (core) {
+          const delegate =
+            url.pathname === '/.well-known/openid-configuration' ||
+            url.pathname === '/.well-known/sovereign-instance' ||
+            url.pathname.startsWith('/api/v1/');
+          let body: string | undefined;
+          let grant: string | null = null;
+          if (req.method === 'POST' && url.pathname === `${PATH}/oauth2/token`) {
+            body = tokenBody = await readBody(req);
+            grant = new URLSearchParams(body).get('grant_type');
+          }
+          if (delegate || (grant !== null && grant !== 'authorization_code')) {
+            if (body === undefined && req.method !== 'GET' && req.method !== 'HEAD')
+              body = await readBody(req);
+            const answer = await core.fetch(
+              new Request(new URL(url.pathname + url.search, core.url), {
+                method: req.method,
+                headers: Object.fromEntries(
+                  Object.entries(req.headers).filter(
+                    (entry): entry is [string, string] => typeof entry[1] === 'string',
+                  ),
+                ),
+                ...(body !== undefined ? { body } : {}),
+              }),
+            );
+            res.writeHead(answer.status, Object.fromEntries(answer.headers));
+            return void res.end(await answer.text());
+          }
+        }
+
         if (url.pathname === `${PATH}/oauth2/authorize`) {
           authorizations.push(url);
           const q = url.searchParams;
@@ -199,6 +242,7 @@ export async function startFakeSovereign(
               nonce: q.get('nonce') ?? undefined,
               user: next.user,
               overrides: next.overrides,
+              scope: q.get('scope') ?? 'openid',
               used: false,
             });
             back.searchParams.set('code', code);
@@ -208,7 +252,7 @@ export async function startFakeSovereign(
         }
 
         if (url.pathname === `${PATH}/oauth2/token` && req.method === 'POST') {
-          const form = new URLSearchParams(await readBody(req));
+          const form = new URLSearchParams(tokenBody ?? (await readBody(req)));
           tokenRequests.push({ authorization: req.headers.authorization, form });
           const basic = /^Basic (.+)$/.exec(req.headers.authorization ?? '')?.[1];
           const [id, secret] = basic
@@ -244,12 +288,19 @@ export async function startFakeSovereign(
             ...(pending.nonce && !overrides.omitNonce ? { nonce: pending.nonce } : {}),
             ...overrides.claims,
           });
+          // With `offline_access` the person is a person of the directory and is given a refresh token the SDK can use (the fake core rotates it, as core does).
+          let refreshToken: string | undefined;
+          if (behind.core && pending.scope.split(' ').includes('offline_access')) {
+            behind.core.addPerson({ sub: user.sub, name: user.name ?? user.email });
+            refreshToken = behind.core.signIn(user.sub);
+          }
           return json(200, {
             access_token: accessToken,
             token_type: 'Bearer',
             expires_in: 3600,
-            scope: 'openid profile email',
+            scope: pending.scope,
             id_token: idToken,
+            ...(refreshToken ? { refresh_token: refreshToken } : {}),
           });
         }
 
@@ -274,12 +325,15 @@ export async function startFakeSovereign(
 
   await new Promise<void>((resolve) => server.listen(options.port ?? 0, resolve));
   issuer = `http://localhost:${(server.address() as AddressInfo).port}${PATH}`;
+  const core = createFakeCore({ url: new URL(issuer).origin, clientId, clientSecret });
+  behind.core = core;
 
   return {
     issuer,
     clientId,
     clientSecret,
     noticeToken,
+    core,
     signInAs: (user, overrides = {}) => void (next = { user, overrides }),
     denyNext: () => void (deny = true),
     authorizations,

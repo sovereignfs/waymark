@@ -10,6 +10,7 @@ Each release's section is also its GitHub release notes: the release workflow re
 
 ### Added
 
+- On an instance with Sovereign, inviting to a trip can start from the instance's directory: typing a name offers its people beside the ones you already share a trip with. A person who has never used Waymark is told by Sovereign's bell, and their first sign-in with Sovereign puts them in the trip with the role you chose; one who already has an account is told as any account is, and accepts. Where the directory is not granted, not there or not answering, inviting is as it was.
 - The repository's conventions: licence, contributing guide, pull request template, dependency updates, and the package that the app is built in.
 - Settings, all named `WAYMARK_…`, checked when the server starts: a wrong or missing one stops it, naming every problem and no value. `WAYMARK_ENCRYPTION_KEY` is required.
 - The database: sqld (the default), a SQLite file or PostgreSQL, chosen with `WAYMARK_DB_DIALECT`, provisioned and migrated when the server starts; it waits for a database that is still starting and stops, saying why, if it cannot use it. `/api/health` answers for it.

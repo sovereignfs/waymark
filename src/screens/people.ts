@@ -117,8 +117,10 @@ export function suggestPeople(
 export interface Waiting {
   readonly id: string;
   readonly role: Role;
-  readonly via: 'link' | 'account' | 'email';
+  readonly via: 'link' | 'account' | 'email' | 'directory';
   readonly email: string | undefined;
+  /** The name core's directory gave, for an invitation made from it. */
+  readonly name?: string | undefined;
   readonly lastSentAt: number;
   readonly expiresAt: number;
 }
@@ -127,9 +129,11 @@ export interface Waiting {
 export const waitingFor = (invitation: Waiting): string =>
   invitation.via === 'email' && invitation.email
     ? invitation.email
-    : invitation.via === 'account'
-      ? 'A person chosen by name'
-      : 'Anyone with the link';
+    : invitation.via === 'directory'
+      ? (invitation.name ?? 'A person from the instance')
+      : invitation.via === 'account'
+        ? 'A person chosen by name'
+        : 'Anyone with the link';
 
 /** Resent at most once an hour (DESIGN.md §11.2): the server refuses sooner, and this keeps the button from offering it. */
 export const RESEND_AFTER_MS = 3_600_000;

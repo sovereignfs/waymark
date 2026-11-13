@@ -350,6 +350,24 @@ export const keyRotation = sqliteTable('key_rotation', {
 });
 
 /**
+ * **A person's refresh token at a Sovereign core** (DESIGN.md §19.3), kept so that the app can call core's directory as them. It is a credential: **sealed** (`SEALED.core_token`) and never anywhere else, and the one
+ * place the sign-in store's own copy is cleared into at sign-in (`src/sovereign/tokens.ts`). Core rotates it on every use and takes one used twice for theft, so a write is a conditional update on `token_hash` (a hash
+ * of the token that was read: the token itself is never in a `WHERE`), and `lock_until` is a lease so that two processes never refresh at once. One row for each `sub`; removed with the account.
+ */
+export const coreToken = sqliteTable(
+  'core_token',
+  {
+    sub: text('sub').primaryKey(),
+    accountId: ref('account_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    lockUntil: epochMs('lock_until').notNull().default(0),
+    sealed: sealed('sealed').notNull(),
+    updatedAt: epochMs('updated_at').notNull(),
+  },
+  (table) => [index('core_token_account_idx').on(table.accountId)],
+);
+
+/**
  * Calls to a Sovereign core waiting to be made (DESIGN.md §17.2, §19.4): a notice for core's bell, an email by core, a line on the person's activity page. Written **in the transaction of the change that causes it**
  * and made in the background by a job (`src/sovereign/outbox.ts`), so a slow or absent core never holds a request, nothing is held across a call to core, and a call that fails is tried again. The same shape as the
  * mail outbox: a lease (`claimed_until`) so that two workers never make one call, the time of the next try, how many have been made. **What it says is sealed** (`SEALED.core_outbox`); who it is for is the account
@@ -721,6 +739,8 @@ export const invitation = sqliteTable(
     via: text('via').notNull(),
     invitedBy: ref('invited_by'),
     targetAccountId: ref('target_account_id'),
+    // The person a core's directory named, by their `sub`, when they have no account here yet: their first sign-in through that core takes the invitation (`src/invitations/`, DESIGN.md §11.2).
+    targetSub: text('target_sub'),
     tokenHash: text('token_hash').notNull(),
     lastSentAt: epochMs('last_sent_at').notNull(),
     expiresAt: epochMs('expires_at').notNull(),
@@ -735,5 +755,6 @@ export const invitation = sqliteTable(
     index('invitation_trip_idx').on(table.tripId),
     index('invitation_invited_by_idx').on(table.invitedBy),
     index('invitation_target_idx').on(table.targetAccountId),
+    index('invitation_target_sub_idx').on(table.targetSub),
   ],
 );

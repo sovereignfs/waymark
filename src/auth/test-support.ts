@@ -34,6 +34,7 @@ export async function makeAuth(
   mailer?: Mailer,
   onAccountCreated?: AuthDependencies['onAccountCreated'],
   invitationOpen?: AuthDependencies['invitationOpen'],
+  onSovereignSignIn?: AuthDependencies['onSovereignSignIn'],
 ): Promise<TestAuth> {
   const { database } = await freshDatabase('auth');
   await runMigrations(database);
@@ -45,6 +46,7 @@ export async function makeAuth(
     mailer,
     onAccountCreated,
     invitationOpen,
+    onSovereignSignIn,
   });
   return {
     auth,

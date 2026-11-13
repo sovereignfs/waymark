@@ -119,9 +119,15 @@ export const SEALED = {
     fields: { copy: required('json') },
   },
   invitation: {
-    design: 'email',
+    design: 'email, and the name a core directory gave',
     phase: 2,
-    fields: { email: optional('string') },
+    fields: { email: optional('string'), name: optional('string') },
+  },
+  core_token: {
+    design: 'refresh token at a core',
+    phase: 2,
+    // `token` is the refresh token a Sovereign core gave this person at sign-in (`src/sovereign/tokens.ts`), a credential: never in a log, an error or the browser.
+    fields: { token: required('string') },
   },
   push_subscription: {
     design: 'endpoint and keys',

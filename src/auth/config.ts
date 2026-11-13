@@ -41,10 +41,11 @@ export interface SovereignSettings {
 export const SOVEREIGN_PROVIDER_ID = 'sovereign';
 
 /**
- * What Waymark asks core for in phase 1. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to. `offline_access` and
- * `directory` join with invitations (10.2, 14.2; DESIGN.md §19.3).
+ * What Waymark asks core for. The manifest (`sovereign.manifest.json`) says the same, which a test holds it to. **`offline_access`** gives the refresh token that lets the app call core as the person later, and **`directory`**
+ * lets it find the people of the instance to invite to a trip (DESIGN.md §11.2, §19.3). **If core refuses either, signing in is unchanged** and inviting works as it does alone: an operator who does not grant
+ * them removes only the directory.
  */
-export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email'];
+export const SOVEREIGN_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'directory'];
 
 export const MIN_SECRET_LENGTH = 32;
 const DEFAULT_PASSWORD_MIN_LENGTH = 10;

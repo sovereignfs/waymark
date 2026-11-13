@@ -22,7 +22,6 @@ import { NOT_DONE, NO_CONNECTION, type OpAnswer, askOp } from './ops';
 import {
   type Member,
   ROLE_HELP,
-  type Suggestion,
   type Waiting,
   actionsFor,
   canResend,
@@ -264,6 +263,20 @@ export function PeopleView({ tripId, data }: { tripId: string; data: TripData })
 
 type Way = 'person' | 'email' | 'link';
 
+/** Whom the Organizer chose: someone they share a trip with (by their account here), or someone core's directory named (by their `sub`, which the server looks up again). */
+type Chosen =
+  | { readonly kind: 'known'; readonly accountId: string; readonly name: string }
+  | { readonly kind: 'directory'; readonly sub: string; readonly name: string };
+
+/** What core's directory said to the last search: nothing asked yet, the people it named, no directory here, or no answer now. */
+interface DirectoryState {
+  readonly status: 'unknown' | 'on' | 'off' | 'failed';
+  readonly people: readonly { readonly sub: string; readonly name: string }[];
+}
+const NO_DIRECTORY: DirectoryState = { status: 'unknown', people: [] };
+/** A pause in typing before the directory is asked: a search for each key would be a request for each key. */
+const TYPING_PAUSE_MS = 250;
+
 /** _Invite_ (DESIGN.md §11.2): a role, and a person by name, an address or a link. With no mail the dialog says the link is the only way. **The link is shown once**: only its hash is kept. */
 function InviteDialog({
   open,
@@ -280,7 +293,8 @@ function InviteDialog({
   const [role, setRole] = useState<Role>('traveler');
   const [way, setWay] = useState<Way>('link');
   const [query, setQuery] = useState('');
-  const [chosen, setChosen] = useState<Suggestion | undefined>(undefined);
+  const [chosen, setChosen] = useState<Chosen | undefined>(undefined);
+  const [directory, setDirectory] = useState<DirectoryState>(NO_DIRECTORY);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -293,6 +307,7 @@ function InviteDialog({
       setWay('link');
       setQuery('');
       setChosen(undefined);
+      setDirectory(NO_DIRECTORY);
       setEmail('');
       setProblem(undefined);
       setBusy(false);
@@ -305,6 +320,34 @@ function InviteDialog({
     [local?.trips, query, members],
   );
 
+  // Core's directory, asked a moment after the typing stops, and only where there is one (`off` says there is not, and then it is not asked again for this dialog).
+  const searching = open && way === 'person' && !chosen && directory.status !== 'off';
+  useEffect(() => {
+    const q = query.trim();
+    if (!searching || q === '') return;
+    let current = true;
+    const timer = setTimeout(() => {
+      void askOp({ op: 'people.directory', tripId, q }).then((answer) => {
+        if (!current || !answer) return;
+        if (answer.ok && answer.directory)
+          setDirectory({ status: answer.directory, people: answer.people ?? [] });
+        else setDirectory({ status: 'failed', people: [] });
+      });
+    }, TYPING_PAUSE_MS);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [searching, query, tripId]);
+  // The names already offered as people the Organizer shares a trip with are not offered twice.
+  const fromDirectory =
+    query.trim() === '' || directory.status !== 'on'
+      ? []
+      : directory.people.filter(
+          (person) =>
+            !suggestions.some((known) => known.name.toLowerCase() === person.name.toLowerCase()),
+        );
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
@@ -316,7 +359,11 @@ function InviteDialog({
       op: 'invite.create',
       tripId,
       role,
-      ...(way === 'person' && chosen ? { accountId: chosen.accountId } : {}),
+      ...(way === 'person' && chosen
+        ? chosen.kind === 'known'
+          ? { accountId: chosen.accountId }
+          : { sub: chosen.sub }
+        : {}),
       ...(way === 'email' ? { email: email.trim() } : {}),
     });
     if (!answer) setProblem(NO_CONNECTION);
@@ -334,11 +381,13 @@ function InviteDialog({
               ? 'Send this link to whoever should join. Anyone who has it can join, once.'
               : sent.via === 'account'
                 ? 'They have been told in Waymark. The link is here too, if you want to send it another way.'
-                : sent.mail
-                  ? 'An email is on its way. The link is here too, if you want to send it another way.'
-                  : 'This server cannot send email, so the link is the only way: send it yourself.'}
+                : sent.via === 'directory'
+                  ? 'They have been told by the instance. They join when they open the invitation or, if they have not used Waymark yet, when they first sign in with Sovereign. The link is here too, if you want to send it another way.'
+                  : sent.mail
+                    ? 'An email is on its way. The link is here too, if you want to send it another way.'
+                    : 'This server cannot send email, so the link is the only way: send it yourself.'}
           </p>
-          {!sent.mail && sent.via !== 'account' ? (
+          {!sent.mail && sent.via !== 'account' && sent.via !== 'directory' ? (
             <p className={styles.muted}>This server has no email set up.</p>
           ) : null}
           <Input
@@ -395,7 +444,7 @@ function InviteDialog({
             >
               <option value="link">With a link to send</option>
               <option value="email">By email</option>
-              <option value="person">A person I share a trip with</option>
+              <option value="person">A person by name</option>
             </Select>
           )}
         </FormField>
@@ -425,7 +474,10 @@ function InviteDialog({
             </div>
           ) : (
             <>
-              <FormField label="Name" hint="People you already share a trip with.">
+              <FormField
+                label="Name"
+                hint={`People you already share a trip with${directory.status === 'on' ? ', and the people of this instance' : ''}.`}
+              >
                 {(field) => (
                   <Input
                     {...field}
@@ -440,16 +492,46 @@ function InviteDialog({
                 <ul className={styles.found} aria-label="People found">
                   {suggestions.map((each) => (
                     <li key={each.accountId}>
-                      <button type="button" onClick={() => setChosen(each)}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setChosen({ kind: 'known', accountId: each.accountId, name: each.name })
+                        }
+                      >
                         {each.name}
                       </button>
                     </li>
                   ))}
                 </ul>
-              ) : query.trim() !== '' ? (
+              ) : null}
+              {fromDirectory.length > 0 ? (
+                <>
+                  <p className={styles.muted}>On this instance</p>
+                  <ul className={styles.found} aria-label="People on this instance">
+                    {fromDirectory.map((each) => (
+                      <li key={each.sub}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setChosen({ kind: 'directory', sub: each.sub, name: each.name })
+                          }
+                        >
+                          {each.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {query.trim() !== '' && suggestions.length === 0 && fromDirectory.length === 0 ? (
                 <p className={styles.muted}>
-                  No one you share a trip with has that name. Use an email address or a link.
+                  {directory.status === 'on'
+                    ? 'No one you share a trip with, and no one on this instance, has that name. Use an email address or a link.'
+                    : 'No one you share a trip with has that name. Use an email address or a link.'}
                 </p>
+              ) : null}
+              {directory.status === 'failed' && query.trim() !== '' ? (
+                <p className={styles.muted}>The instance’s directory did not answer just now.</p>
               ) : null}
             </>
           )

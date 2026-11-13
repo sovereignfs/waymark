@@ -21,6 +21,8 @@ import {
   listInvitations,
   resendInvitation,
   revokeInvitation,
+  searchDirectory,
+  type DirectoryAnswer,
   type InvitationView,
   type Sent,
 } from '../invitations/service';
@@ -89,7 +91,15 @@ export type Op =
   | { op: 'member.going'; tripId: string; going: boolean }
   | { op: 'member.share'; tripId: string; choice: string }
   | { op: 'member.leave'; tripId: string; successor?: string }
-  | { op: 'invite.create'; tripId: string; role: unknown; accountId?: unknown; email?: unknown }
+  | {
+      op: 'invite.create';
+      tripId: string;
+      role: unknown;
+      accountId?: unknown;
+      email?: unknown;
+      sub?: unknown;
+    }
+  | { op: 'people.directory'; tripId: string; q: unknown }
   | { op: 'invite.list'; tripId: string }
   | { op: 'invite.revoke'; tripId: string; invitationId: string }
   | { op: 'invite.resend'; tripId: string; invitationId: string }
@@ -176,6 +186,8 @@ export const OPERATIONS: Readonly<Record<OpName, 'account' | 'member' | 'editor'
   // A member's own reminder settings for the trip: Organizers and Travelers, who go (DESIGN.md §14.4).
   // Only an Organizer invites, and only an Organizer sees who is waiting (DESIGN.md §11.1, §11.2).
   'invite.create': 'organizer',
+  // Searching core's directory to invite someone: an Organizer's, as inviting is.
+  'people.directory': 'organizer',
   'invite.list': 'organizer',
   'invite.revoke': 'organizer',
   'invite.resend': 'organizer',
@@ -226,7 +238,8 @@ const KEYS: Readonly<Record<OpName, readonly string[]>> = {
   'member.going': ['op', 'tripId', 'going'],
   'member.share': ['op', 'tripId', 'choice'],
   'member.leave': ['op', 'tripId', 'successor'],
-  'invite.create': ['op', 'tripId', 'role', 'accountId', 'email'],
+  'invite.create': ['op', 'tripId', 'role', 'accountId', 'email', 'sub'],
+  'people.directory': ['op', 'tripId', 'q'],
   'invite.list': ['op', 'tripId'],
   'invite.revoke': ['op', 'tripId', 'invitationId'],
   'invite.resend': ['op', 'tripId', 'invitationId'],
@@ -394,6 +407,7 @@ export type OpResult =
   | { ok: true; left: true }
   | { ok: true; invitation: Sent }
   | { ok: true; invitations: InvitationView[] }
+  | ({ ok: true } & DirectoryAnswer)
   | { ok: true; revoked: true }
   | { ok: true; reminders: ReminderPrefs }
   | { ok: true; checkins: SharedCheckin[] }
@@ -471,6 +485,10 @@ export async function applyOp(deps: OpDeps, accountId: string, op: Op): Promise<
       case 'invite.create': {
         const invitation = await createInvitation(deps, accountId, op.tripId, op);
         return invitation ? { ok: true, invitation } : NOT_FOUND;
+      }
+      case 'people.directory': {
+        const found = await searchDirectory(deps, accountId, op.tripId, op.q);
+        return found ? { ok: true, ...found } : NOT_FOUND;
       }
       case 'invite.list': {
         const invitations = await listInvitations(deps, accountId, op.tripId);

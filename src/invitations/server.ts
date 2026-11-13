@@ -3,6 +3,9 @@ import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getAuthDatabase, getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
+import { accountOfSub, subOfAccount } from '../sovereign/identity';
+import { serverDirectory } from '../sovereign/server-core';
+import type { InviteDirectory } from './service';
 import { noticeDelivery } from '../notices/server';
 import type { InviteHttpDeps } from './http';
 import { dbGet } from '../db/exec';
@@ -23,6 +26,28 @@ export async function accountByEmail(email: string): Promise<string | undefined>
   return found?.id;
 }
 
+/**
+ * Core's directory for the Organizer inviting, where there is a core (DESIGN.md §11.2): the person asking is found by their account's `sub`, and **an account that did not sign in through a core has none to ask as**, so
+ * the directory is simply not there for them (`unavailable`). `accountOfSub` is the account here that signed in with a `sub`, if any.
+ */
+export function serverInviteDirectory(): InviteDirectory | undefined {
+  const directory = serverDirectory();
+  if (!directory) return undefined;
+  const asker = async (accountId: string) =>
+    (await subOfAccount(await getAuthDatabase(), accountId)) ?? undefined;
+  return {
+    search: async (accountId, query) => {
+      const sub = await asker(accountId);
+      return sub ? directory.search(sub, query) : { outcome: 'unavailable' };
+    },
+    resolve: async (accountId, sub) => {
+      const me = await asker(accountId);
+      return me ? directory.resolve(me, sub) : { outcome: 'unavailable' };
+    },
+    accountOfSub: async (sub) => (await accountOfSub(await getAuthDatabase(), sub)) ?? undefined,
+  };
+}
+
 /** What invitations need as the server runs them. */
 export async function serverInvite(): Promise<InviteHttpDeps> {
   const database = await getDatabase();
@@ -35,5 +60,6 @@ export async function serverInvite(): Promise<InviteHttpDeps> {
     limiter: new RateLimiter(database),
     url: getConfig().url,
     accountByEmail,
+    coreDirectory: serverInviteDirectory(),
   };
 }

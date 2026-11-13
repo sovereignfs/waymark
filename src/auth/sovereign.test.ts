@@ -813,3 +813,87 @@ describe(`what Sovereign's notices find here (${leg})`, () => {
     expect(await accountOfSub(t.database, 'local-notice')).toBeNull();
   });
 });
+
+describe(`what a sign-in through core brings (${leg})`, () => {
+  const base = () => ({
+    local: false,
+    signUp: 'open' as const,
+  });
+  it('hands the app the refresh token core gave for offline_access, with the sub and the account, and clears the sign-in store’s own copy: a credential is in one place', async () => {
+    const fake = await startFakeSovereign();
+    const seen: { accountId: string; sub: string; refreshToken: string | undefined }[] = [];
+    const t = await makeAuth(
+      {
+        ...base(),
+        sovereign: {
+          issuer: fake.issuer,
+          clientId: fake.clientId,
+          clientSecret: fake.clientSecret,
+        },
+      },
+      undefined,
+      undefined,
+      undefined,
+      async (info) => void seen.push(info),
+    );
+    try {
+      const who = person();
+      const result = await login(t, fake, visitor(t), who);
+      expect(result.signedIn).toBe(true);
+      expect(seen).toHaveLength(1);
+      const user = (await users(t)).find((u) => u.email === who.email);
+      expect(seen[0]).toMatchObject({ accountId: user?.id, sub: who.sub });
+      expect(seen[0]?.refreshToken).toMatch(/^rt_/);
+      // The token is core's to rotate: the one the app was handed is the one the core's fake knows.
+      expect(fake.core.seen.refreshes).toBe(0);
+      const stored = await dbAll<{ refresh_token: string | null }>(
+        t.database,
+        sql`SELECT refresh_token FROM ${tables(t).account} WHERE account_id = ${who.sub}`,
+      );
+      expect(stored[0]?.refresh_token).toBeNull();
+      // The scopes asked for are what the manifest says.
+      expect(fake.authorizations.at(-1)?.searchParams.get('scope')?.split(' ')).toEqual([
+        'openid',
+        'profile',
+        'email',
+        'offline_access',
+        'directory',
+      ]);
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+
+  it('is told of every sign-in, and a sign-in is not undone by what the app does with it failing', async () => {
+    const fake = await startFakeSovereign();
+    let count = 0;
+    const t = await makeAuth(
+      {
+        ...base(),
+        sovereign: {
+          issuer: fake.issuer,
+          clientId: fake.clientId,
+          clientSecret: fake.clientSecret,
+        },
+      },
+      undefined,
+      undefined,
+      undefined,
+      async () => {
+        count += 1;
+        throw new Error('the store is down');
+      },
+    );
+    try {
+      const who = person();
+      expect((await login(t, fake, visitor(t), who)).signedIn).toBe(true);
+      expect((await login(t, fake, visitor(t), who)).signedIn).toBe(true);
+      expect(count).toBe(2);
+      expect((await users(t)).filter((u) => u.email === who.email)).toHaveLength(1);
+    } finally {
+      await t.close();
+      await fake.close();
+    }
+  });
+});

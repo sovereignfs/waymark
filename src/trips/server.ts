@@ -2,7 +2,7 @@ import { getConfig } from '../config/current';
 import { serverSealer } from '../crypto/server';
 import { getDatabase } from '../db/boot';
 import { RateLimiter } from '../limits/rate';
-import { accountByEmail } from '../invitations/server';
+import { accountByEmail, serverInviteDirectory } from '../invitations/server';
 import { serverMedia } from '../media/server';
 import { noticeDelivery } from '../notices/server';
 import type { OpsDeps } from './endpoint';
@@ -21,6 +21,8 @@ export async function serverOps(): Promise<OpsDeps> {
     // For invitations: the link's address, and the account an address belongs to (never told to the person asking).
     url: getConfig().url,
     accountByEmail,
+    // Core's directory, to find people to invite, where there is a core.
+    coreDirectory: serverInviteDirectory(),
     // Files of a trip's attachments, for a rename's and a deletion's own part.
     media: await serverMedia(),
   };

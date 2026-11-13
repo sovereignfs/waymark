@@ -9,6 +9,7 @@ import { deleteImportsOf, importDirBeside } from '../import/service';
 import { deleteExportsOf, exportDirBeside } from '../portability/export';
 import { deleteMailOf } from '../mail/outbox';
 import { deleteCoreOf, enqueueCore } from './outbox';
+import { deleteCoreTokenOf } from './tokens';
 import type { Sealer } from '../crypto/sealed';
 import { deleteNoticesOf } from '../notices/notices';
 import { deletePrefsOf } from '../notices/prefs';
@@ -93,6 +94,8 @@ export async function deletePerson(deps: PeopleDeps, accountId: string): Promise
     // And the mail queued to them.
     await deleteMailOf(tx, accountId);
     await deleteCoreOf(tx, accountId);
+    // Their refresh token at the core, if they signed in through one: a credential goes with the person.
+    await deleteCoreTokenOf(tx, accountId);
     await dbAll(
       tx,
       sql`DELETE FROM ${app.accountStream} WHERE account_id = ${accountId} RETURNING account_id`,

@@ -204,6 +204,13 @@
       "when": 1794516061805,
       "tag": "0028_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794590474828,
+      "tag": "0029_coredirectory",
+      "breakpoints": true
     }
   ]
 }

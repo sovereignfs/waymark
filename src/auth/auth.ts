@@ -2,6 +2,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
+import { decryptOAuthToken } from 'better-auth/oauth2';
 import { genericOAuth, twoFactor } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import type { Database } from '../db/client';
@@ -42,6 +43,18 @@ export interface AuthDependencies {
   invitationOpen?: ((token: string) => Promise<boolean>) | undefined;
   onAccountCreated?:
     ((account: { id: string; name: string; email: string }) => Promise<void>) | undefined;
+  /**
+   * Called when a sign-in through core has ended, with the account, the person's `sub` and **the refresh token core gave** (it gives one for the `offline_access` scope), for what the app does as them (DESIGN.md §19.3):
+   * the token is kept sealed (`src/sovereign/tokens.ts`) and the invitations made for that `sub` are taken (`src/invitations/`). After it returns, **the sign-in store's own copy of the token is cleared**, so that a
+   * credential is in one place. A failure here does not undo the sign-in: it is logged by kind, and the next sign-in tries again.
+   */
+  onSovereignSignIn?:
+    | ((info: {
+        accountId: string;
+        sub: string;
+        refreshToken: string | undefined;
+      }) => Promise<void>)
+    | undefined;
 }
 
 /** The prefix of better-auth's cookies, so that ours do not collide with another app's on localhost. */
@@ -78,6 +91,7 @@ export function createAuth({
   database,
   mailer,
   onAccountCreated,
+  onSovereignSignIn,
   invitationOpen,
 }: AuthDependencies) {
   const schema = database.dialect === 'postgres' ? postgresAuth : sqliteAuth;
@@ -150,6 +164,30 @@ export function createAuth({
     // A session is fresh for ten minutes (`FRESH_SESSION_SECONDS`), for the few things that ask for it.
     session: { freshAge: FRESH_SESSION_SECONDS },
     hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        // A sign-in through core has ended (the callback of the Sovereign provider): what the app keeps of it for the person is made here, once the account and its session are.
+        if (!sovereign || !onSovereignSignIn) return;
+        if (ctx.path !== '/callback/:id' || ctx.params?.id !== SOVEREIGN_PROVIDER_ID) return;
+        const accountId = ctx.context.newSession?.user.id;
+        if (!accountId) return;
+        try {
+          const accounts = await ctx.context.internalAdapter.findAccounts(accountId);
+          const account = accounts.find((each) => each.providerId === SOVEREIGN_PROVIDER_ID);
+          if (!account) return;
+          const refreshToken = account.refreshToken
+            ? await decryptOAuthToken(account.refreshToken, ctx.context)
+            : undefined;
+          await onSovereignSignIn({ accountId, sub: account.accountId, refreshToken });
+          // Moved, not copied: only once it has been kept elsewhere is the sign-in store's copy cleared.
+          if (account.refreshToken)
+            await ctx.context.internalAdapter.updateAccount(account.id, { refreshToken: null });
+        } catch (error) {
+          // The kind and nothing else: a message can hold a token or an address.
+          console.error(
+            `[waymark] a sign-in through core was not finished: ${error instanceof Error ? error.name : typeof error}`,
+          );
+        }
+      }),
       before: createAuthMiddleware(async (ctx) => {
         if (!FOR_PASSWORD_ACCOUNTS.includes(ctx.path)) return;
         const session = await getSessionFromCtx(ctx);

@@ -11,7 +11,7 @@
     "redirect": ["/api/auth/callback/sovereign"],
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
-    "scopes": ["openid", "profile", "email"]
+    "scopes": ["openid", "profile", "email", "offline_access", "directory"]
   },
   "database": true,
   "data": ["/data"],

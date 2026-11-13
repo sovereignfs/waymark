@@ -170,6 +170,12 @@ describe('what is waiting', () => {
     expect(waitingFor(inv())).toBe('noor@example.com');
     expect(waitingFor(inv({ via: 'link', email: undefined }))).toBe('Anyone with the link');
     expect(waitingFor(inv({ via: 'account', email: undefined }))).toBe('A person chosen by name');
+    expect(waitingFor(inv({ via: 'directory', email: undefined, name: 'Nia Newcomer' }))).toBe(
+      'Nia Newcomer',
+    );
+    expect(waitingFor(inv({ via: 'directory', email: undefined }))).toBe(
+      'A person from the instance',
+    );
   });
 
   it('can be resent once an hour, and never for a link, which has nothing to send', () => {
