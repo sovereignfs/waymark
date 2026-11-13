@@ -1,0 +1,121 @@
+/* The Journal (DESIGN.md §13, §20.10). */
+.journal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-5);
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-4);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.day h2 {
+  margin: 0;
+  font-size: var(--sv-font-size-lg);
+}
+
+.day header p {
+  margin: var(--sv-space-1) 0 0;
+}
+
+.sentence {
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  background: var(--sv-color-surface);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.entry[data-entry='skipped'] {
+  border-style: dashed;
+}
+
+.found {
+  background: var(--sv-color-accent-subtle);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  padding-top: 2px;
+  color: var(--sv-color-text-muted);
+}
+
+.entryMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  min-width: 0;
+}
+
+.entryTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-2);
+}
+
+.muted {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.checkins {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-1);
+  margin-top: var(--sv-space-1);
+}
+
+.photo {
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: var(--sv-radius-sm);
+}
+
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-3);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-1);
+}

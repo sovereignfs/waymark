@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { journalOf } from '../journal';
 import type { DayRecord, ItemRecord, StopRecord, TripSets } from '../sync/trip-format';
 import type { LinkView } from '../trips/links';
 import {
@@ -122,12 +123,35 @@ const sets = (over: Partial<TripSets['trip']> = {}, extra: Partial<TripSets> = {
     done: [],
     ...extra,
   }) as unknown as TripSets;
-const view = (s: TripSets, items: ItemRecord[] = [], done: string[] = [], sharedCount = 0) => ({
+/** What the Overview is given: the rows, and the journal over them with `own` check-ins of the reader's (each a visit to a place of the plan, by name and point, on the day it is asked for). */
+const view = (
+  s: TripSets,
+  items: ItemRecord[] = [],
+  done: string[] = [],
+  own: { id: string; name: string; lat: number; lng: number; date?: string }[] = [],
+) => ({
   sets: s,
   items,
   days: s.days,
   done: new Set(done),
-  sharedCount,
+  journal: journalOf({
+    stops: s.stops,
+    days: s.days,
+    items,
+    members: [{ accountId: 'me', name: 'Me', role: 'traveler', going: true }],
+    own: own.map((each) => ({
+      id: each.id,
+      authorId: 'me',
+      place: { name: each.name, lat: each.lat, lng: each.lng },
+      at: Date.parse(`${each.date ?? '2026-06-10'}T10:00:00Z`),
+      tz: 'Europe/Lisbon',
+      offsetMin: 60,
+      photos: [],
+    })),
+    shared: [],
+    now: Date.parse('2026-07-01T12:00:00Z'),
+    deviceZone: 'Europe/Lisbon',
+  }),
 });
 
 describe('the views', () => {
@@ -232,7 +256,7 @@ describe('the Overview', () => {
     ).toBeNull();
   });
 
-  it('counts days, stops, distinct places and the check-ins shared with the trip', () => {
+  it('counts days, stops, distinct places planned and visited, and the check-ins the journal counts', () => {
     const items = [
       item('a', 'd10', { placeName: 'Pastéis de Belém', lat: 38.6975, lng: -9.2033 }),
       // The same place written another way, and a few metres off: one place.
@@ -242,9 +266,14 @@ describe('the Overview', () => {
       // The same place as a stop.
       item('eeeee', 'd10', { placeName: 'Lisbon', lat: 38.7, lng: -9.1 }),
     ];
-    const o = overviewOf(view(sets(), items, [], 4), at('2026-06-01T12:00:00Z'), ZONE);
-    expect(o.figures).toEqual({ days: 4, stops: 2, places: 4, shared: 4 });
-    // Lisbon, Sintra, Belém, Castelo.
+    const own = [
+      { id: 'c1', name: 'Pastéis de Belém', lat: 38.6975, lng: -9.2033, date: '2026-06-10' },
+      { id: 'c2', name: 'Castelo', lat: 38.7139, lng: -9.1335, date: '2026-06-11' },
+      { id: 'c3', name: 'Somewhere else', lat: 10, lng: 10, date: '2026-06-11' },
+    ];
+    const o = overviewOf(view(sets(), items, [], own), at('2026-06-01T12:00:00Z'), ZONE);
+    // Planned: Lisbon, Sintra, Belém, Castelo. Visited: Belém (on the 10th) and Castelo (on the 11th). Check-ins: all three.
+    expect(o.figures).toEqual({ days: 4, stops: 2, places: 4, visited: 2, checkins: 3 });
   });
 
   it('has no days while the trip has no dates', () => {
@@ -253,7 +282,7 @@ describe('the Overview', () => {
       0,
       ZONE,
     );
-    expect(o.figures).toEqual({ days: null, stops: 0, places: 0, shared: 0 });
+    expect(o.figures).toEqual({ days: null, stops: 0, places: 0, visited: 0, checkins: 0 });
   });
 
   it('says when the trip starts before it has, and that it ended after', () => {
@@ -291,6 +320,21 @@ describe('the Overview', () => {
     });
     // Done is the reader's own mark: with the later one done as well, nothing is left today.
     expect(overviewOf(view(sets(), items, ['bb']), now, ZONE).next.kind).toBe('nothing');
+    // Or the journal's: a check-in at the place that day makes the item done, as if it had been marked.
+    const placed = [
+      item('t', 'd11', {
+        title: 'Tram 28',
+        start: '14:00',
+        placeName: 'Elétrico 28',
+        lat: 38.71,
+        lng: -9.14,
+      }),
+    ];
+    const checkedIn = [
+      { id: 'c', name: 'Elétrico 28', lat: 38.71, lng: -9.14, date: '2026-06-11' },
+    ];
+    expect(overviewOf(view(sets(), placed), now, ZONE).next.kind).toBe('item');
+    expect(overviewOf(view(sets(), placed, [], checkedIn), now, ZONE).next.kind).toBe('nothing');
     // An item with no title is its place.
     expect(itemTitle(item('x', 'd11', { placeName: 'Castelo' }))).toBe('Castelo');
     expect(itemTitle(item('x', 'd11'))).toBe('Something planned');

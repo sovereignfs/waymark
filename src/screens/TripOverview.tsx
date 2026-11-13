@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Select, StepStrip, useToast } from '@sovereignfs/ui';
+import { journalOfTrip } from '../journal';
 import { useLocal } from '../local/LocalProvider';
 import type { TripData } from '../local/store';
 import type { ShareChoice } from '../sharing/rules';
@@ -49,23 +50,26 @@ export function TripOverview({ data, now }: { data: TripData; now: number }) {
   const local = useLocal();
   const toast = useToast();
   const sets = data.sets;
-  const overview = useMemo(
-    () =>
-      sets
-        ? overviewOf(
-            {
-              sets,
-              items: data.items,
-              days: data.days,
-              done: data.done,
-              sharedCount: data.shared.length,
-            },
-            now,
-            Intl.DateTimeFormat().resolvedOptions().timeZone,
-          )
-        : undefined,
-    [sets, data.items, data.days, data.done, data.shared.length, now],
-  );
+  const overview = useMemo(() => {
+    if (!sets || !local) return undefined;
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const journal = journalOfTrip(
+      data,
+      sets.trip.id,
+      local.checkins,
+      local.places,
+      local.accountId,
+      now,
+      zone,
+    );
+    return journal
+      ? overviewOf(
+          { sets, items: data.items, days: data.days, done: data.done, journal },
+          now,
+          zone,
+        )
+      : undefined;
+  }, [sets, local, data, now]);
   const [saving, setSaving] = useState(false);
   if (!sets || !overview) return null;
   const me = sets.members.find((member) => member.self);
@@ -134,8 +138,12 @@ export function TripOverview({ data, now }: { data: TripData; now: number }) {
             <dd>{figures.places}</dd>
           </div>
           <div>
-            <dt>Check-ins shared</dt>
-            <dd>{figures.shared}</dd>
+            <dt>Places visited</dt>
+            <dd>{figures.visited}</dd>
+          </div>
+          <div>
+            <dt>Check-ins</dt>
+            <dd>{figures.checkins}</dd>
           </div>
         </dl>
       </section>

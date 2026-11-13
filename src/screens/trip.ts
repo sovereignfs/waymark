@@ -1,4 +1,4 @@
-import { isSamePlace } from '../places/match';
+import type { Journal } from '../journal';
 import { type Next, todayOfTrip } from '../today';
 import { dayNumber, orderStops } from '../trips/dates';
 import type { Role } from '../trips/format';
@@ -86,8 +86,10 @@ export interface Figures {
   readonly stops: number;
   /** Distinct places on the plan: the stops' and the items' (the same place by §7.1's rule counts once). */
   readonly places: number;
-  /** The check-ins of other people that were shared with the trip, copies on the device. */
-  readonly shared: number;
+  /** Of those, the places visited: an item there is done on some day (§13). */
+  readonly visited: number;
+  /** The check-ins that count in the journal: the reader's own linked to the trip, and those others shared with it. */
+  readonly checkins: number;
 }
 
 export interface Overview {
@@ -159,7 +161,7 @@ function nextThing(
 
 /**
  * The Overview of a trip from the rows the device holds (`LocalStore.tripView`): the stops in order, the figures, the links and the next thing. **The next thing is Today's** (§14.1, `src/today/`), so the Overview and Trip
- * Mode never disagree: while the trip is on, the first item not done; before it, the date it starts; after it, that it has ended.
+ * Mode never disagree: while the trip is on, the first item not done (by the journal or by the person's own mark); before it, the date it starts; after it, that it has ended.
  */
 export function overviewOf(
   view: {
@@ -167,7 +169,8 @@ export function overviewOf(
     readonly items: readonly ItemRecord[];
     readonly days: readonly DayRecord[];
     readonly done: ReadonlySet<string>;
-    readonly sharedCount: number;
+    /** The journal (§13): its figures are the trip's, and what it has done is done for Today as well. */
+    readonly journal: Journal;
   },
   now: number,
   deviceZone: string,
@@ -177,15 +180,14 @@ export function overviewOf(
   const start = dayNumber(sets.trip.startDate);
   const end = dayNumber(sets.trip.endDate);
 
-  const places: { name: string; lat: number; lng: number }[] = [];
-  const add = (place: { name: string; lat: number; lng: number } | undefined) => {
-    if (place && !places.some((each) => isSamePlace(each, place))) places.push(place);
-  };
-  for (const stop of sets.stops) add(stop.place);
-  for (const item of view.items) add(item.place);
-
   const today = todayOfTrip(
-    { stops: sets.stops, days: view.days, items: view.items, done: view.done },
+    {
+      stops: sets.stops,
+      days: view.days,
+      items: view.items,
+      // Done is the journal's, and the person's own Done press (§14.1).
+      done: new Set([...view.done, ...view.journal.doneItems]),
+    },
     now,
     deviceZone,
   );
@@ -194,8 +196,9 @@ export function overviewOf(
     figures: {
       days: start !== undefined && end !== undefined && end >= start ? end - start + 1 : null,
       stops: sets.stops.length,
-      places: places.length,
-      shared: view.sharedCount,
+      places: view.journal.figures.planned,
+      visited: view.journal.figures.visited,
+      checkins: view.journal.figures.checkins,
     },
     links: linksOf(sets.links),
     next: nextThing(today.next, today, view.days),
