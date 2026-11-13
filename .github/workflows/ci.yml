@@ -10,6 +10,17 @@ on:
   # So that a dependency's new release cannot quietly break the build unnoticed between commits.
   schedule:
     - cron: '0 6 * * 1'
+  # By hand (`gh workflow run ci.yml --ref <branch> -f jobs=browser`, or the Actions tab): everything, or only the browser tests, which are the slowest and
+  # the ones a change to a spec or to a screen most often needs run again by themselves.
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: 'What to run'
+        type: choice
+        options:
+          - all
+          - browser
+        default: all
 
 # A pull request that is a draft, or carries the `skip-ci` label, runs nothing: the `changes` job has the guard, and every other job needs it.
 # A push to main runs, because a rebase-and-merge makes new commits and the pull request's run does not vouch for the one that lands. The weekly
@@ -62,7 +73,8 @@ jobs:
             pull_request) base="$PR_BASE" ;;
             push) base="$PUSH_BEFORE" ;;
           esac
-          # No base to compare with (a schedule, a new branch, a force-push that lost the old tip): run everything rather than guess.
+          # No base to compare with (a schedule, a run by hand, a new branch, a force-push that lost the old tip): run everything rather than guess. (A run by hand that asks for only the browser tests is
+          # narrowed by the `if` of each job, not here.)
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] ||
              ! git cat-file -e "$base^{commit}" 2>/dev/null ||
              [ "$EVENT" = "schedule" ]; then
@@ -77,7 +89,7 @@ jobs:
   check:
     name: format, lint, type-check, test and build
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && (github.event_name != 'workflow_dispatch' || inputs.jobs == 'all')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -118,7 +130,7 @@ jobs:
   tests:
     name: tests (${{ matrix.database }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && (github.event_name != 'workflow_dispatch' || inputs.jobs == 'all')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -288,7 +300,7 @@ jobs:
     name: image (${{ matrix.runner }})
     needs: changes
     # Only when the image can be affected (`scripts/ci-changes.sh` says which changes), and on the weekly schedule.
-    if: needs.changes.outputs.image == 'true'
+    if: needs.changes.outputs.image == 'true' && (github.event_name != 'workflow_dispatch' || inputs.jobs == 'all')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -319,7 +331,7 @@ jobs:
   scripts:
     name: shell scripts
     needs: changes
-    if: needs.changes.outputs.scripts == 'true'
+    if: needs.changes.outputs.scripts == 'true' && (github.event_name != 'workflow_dispatch' || inputs.jobs == 'all')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

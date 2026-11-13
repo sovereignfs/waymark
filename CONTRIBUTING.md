@@ -58,6 +58,8 @@ Co-Authored-By: Claude Code <noreply@anthropic.com>
 
 - **One logical change per PR,** and one task per branch. Open it as a **draft** while it is in progress; mark it _Ready for review_ when it is. CI does
   not run on drafts.
+- To run only the browser tests again (the slowest part of CI) without the rest, on the branch or on `main`: `gh workflow run ci.yml --ref <branch> -f jobs=browser`, or _Run workflow_ on the CI workflow's page in the Actions tab with _What to run_ set to `browser`.
+  _Re-run failed jobs_ on a run re-runs only what failed, but on the commit it ran, so it cannot try a fix. A commit message with `[skip ci]` in it starts no run at all.
 - Before asking for review, make sure `pnpm format:check`, `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, and `pnpm build` for a change that can affect it.
 - If you change behaviour, add a line under `## [Unreleased]` in `CHANGELOG.md`. Do **not** bump a version: releases are their own PR.
 - A finished task is marked done in `ROADMAP.md` and written up in its epic, in the same PR.
