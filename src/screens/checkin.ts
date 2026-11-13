@@ -1,5 +1,5 @@
 /**
- * Where the check-in sheet is (DESIGN.md §20.3): **it opens over any page, and it is in the address** (`?checkin=new`, and later `&t=` and `&item=` from a trip), so that a link opens it, the back button closes it,
+ * Where the check-in sheet is (DESIGN.md §20.3): **it opens over any page, and it is in the address** (`?checkin=new`, and `&t=<trip>&item=<item>` from Trip Mode), so that a link opens it, the back button closes it,
  * and closing it puts the person back on the page they were on, with the rest of their query as it was. Pure, so that what a stray or hostile query does is tested with no browser.
  */
 export const CHECKIN_PARAM = 'checkin';
@@ -12,11 +12,26 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 /**
  * What a query asks the sheet for: `checkin=new` to check in, or `checkin=edit&of=<id>` to change that check-in (9.4). **Exactly these**: anything else, an id that is not an id included, asks for nothing.
  */
-export type CheckInMode = { readonly mode: 'new' } | { readonly mode: 'edit'; readonly id: string };
+export interface CheckInFrom {
+  readonly tripId: string;
+  readonly itemId: string;
+}
+export type CheckInMode =
+  | { readonly mode: 'new'; readonly from?: CheckInFrom }
+  | { readonly mode: 'edit'; readonly id: string };
+export const TRIP_PARAM = 't';
+export const ITEM_PARAM = 'item';
 export function checkInMode(search: string | URLSearchParams): CheckInMode | undefined {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
   const asked = params.get(CHECKIN_PARAM);
-  if (asked === CHECKIN_VALUE) return { mode: 'new' };
+  if (asked === CHECKIN_VALUE) {
+    // From Trip Mode (DESIGN.md §14.2): the item the check-in is for, with its trip. Both are ids, or neither is asked.
+    const tripId = params.get(TRIP_PARAM) ?? '';
+    const itemId = params.get(ITEM_PARAM) ?? '';
+    return ID.test(tripId) && ID.test(itemId)
+      ? { mode: 'new', from: { tripId, itemId } }
+      : { mode: 'new' };
+  }
   const id = params.get(OF_PARAM) ?? '';
   return asked === EDIT_VALUE && ID.test(id) ? { mode: 'edit', id } : undefined;
 }
@@ -39,10 +54,18 @@ export function checkInHref(
 ): string {
   const params = new URLSearchParams(typeof search === 'string' ? search : search.toString());
   params.delete(OF_PARAM);
+  params.delete(TRIP_PARAM);
+  params.delete(ITEM_PARAM);
   if (mode.mode === 'edit') {
     params.set(CHECKIN_PARAM, EDIT_VALUE);
     params.set(OF_PARAM, mode.id);
-  } else params.set(CHECKIN_PARAM, CHECKIN_VALUE);
+  } else {
+    params.set(CHECKIN_PARAM, CHECKIN_VALUE);
+    if (mode.from) {
+      params.set(TRIP_PARAM, mode.from.tripId);
+      params.set(ITEM_PARAM, mode.from.itemId);
+    }
+  }
   return withQuery(pathname, params);
 }
 
@@ -51,6 +74,11 @@ export function closedHref(pathname: string, search: string | URLSearchParams = 
   const params = new URLSearchParams(typeof search === 'string' ? search : search.toString());
   params.delete(CHECKIN_PARAM);
   params.delete(OF_PARAM);
+  // The trip and the item the sheet was opened for go with it, but only when the sheet was what asked for them.
+  if (params.has(TRIP_PARAM) && params.has(ITEM_PARAM)) {
+    params.delete(TRIP_PARAM);
+    params.delete(ITEM_PARAM);
+  }
   return withQuery(pathname, params);
 }
 

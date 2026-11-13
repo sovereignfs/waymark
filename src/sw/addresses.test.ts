@@ -12,6 +12,7 @@ describe('the addresses the offline shell answers', () => {
     expect(offlineScreenOf('/places')).toBe('places');
     expect(offlineScreenOf('/places/p_1-A')).toBe('places');
     expect(offlineScreenOf('/trips')).toBe('trips');
+    expect(offlineScreenOf('/t/0a1b2c3d-1111-4222-8333-444455556666/today')).toBe('tripmode');
     expect(offlineScreenOf('/t/0a1b2c3d-1111-4222-8333-444455556666')).toBe('trip');
   });
 
@@ -28,7 +29,7 @@ describe('the addresses the offline shell answers', () => {
       '/t',
       '/t/',
       '/t/a/b',
-      '/t/a/today',
+      '/t/a/today/x',
       '/checkins/',
       '/checkins/x',
       '/c',

@@ -22,6 +22,7 @@ import {
   selectionOf,
   zoneOfSelection,
 } from './checkin-flow';
+import type { CheckInFrom } from './checkin';
 import { POSITION_SENTENCES, type Position } from './checkin-flow';
 import styles from './CheckIn.module.css';
 import { PhotoImage } from './PhotoImage';
@@ -65,9 +66,12 @@ const nowTime = () => {
 export function CheckInContent({
   onDone,
   editing,
+  from,
 }: {
   onDone: () => void;
   editing?: CheckinView | undefined;
+  /** Opened from Trip Mode for a trip's item: its place is on offer first, and the check-in is of that trip. */
+  from?: CheckInFrom | undefined;
 }) {
   const local = useLocal();
   const toast = useToast();
@@ -85,6 +89,22 @@ export function CheckInContent({
     editing ? `mine:${editing.placeId}` : undefined,
   );
   const [newName, setNewName] = useState('');
+  // The place of the item this check-in is for (from Trip Mode), read from the device, and chosen at first.
+  const [prefill, setPrefill] = useState<{ name: string; point: Position } | undefined>(undefined);
+  useEffect(() => {
+    if (!from || !local) return;
+    let alive = true;
+    void local.trip(from.tripId).then((data) => {
+      const place = data?.items.find((item) => item.id === from.itemId)?.place;
+      if (!alive || !place) return;
+      setPrefill({ name: place.name, point: { lat: place.lat, lng: place.lng } });
+      setChosen('prefill');
+      setNewName(place.name);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [from, local]);
   const [another, setAnother] = useState(false);
   const [date, setDate] = useState(editing ? localDateOf(editing) : today());
   const [time, setTime] = useState(editing ? localTimeOf(editing) : nowTime());
@@ -130,7 +150,13 @@ export function CheckInContent({
       found: search.found,
       reverse: way === 'search' ? undefined : search.reverse,
     });
-    if (!editing) return built;
+    if (!editing)
+      return prefill
+        ? [
+            { key: 'prefill', kind: 'new' as const, point: prefill.point },
+            ...built.filter((option) => option.kind !== 'new'),
+          ]
+        : built;
     // Changing a check-in moves it among the person's own places, with the one it is at first.
     const mine = built.filter((option) => option.kind === 'mine');
     const current = places.find((place) => place.id === editing.placeId);
@@ -140,7 +166,7 @@ export function CheckInContent({
           ...mine,
         ]
       : mine;
-  }, [places, query, way, anchor, search.found, search.reverse, editing]);
+  }, [places, query, way, anchor, search.found, search.reverse, editing, prefill]);
   const selected: Option | undefined = options.find((option) => option.key === chosen);
   const selection = selectionOf(selected, newName);
   const zone = selection ? zoneOfSelection(selection) : undefined;
@@ -166,7 +192,8 @@ export function CheckInContent({
       now: Date.now(),
       deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       // The trip it falls into, decided here so that it shows at once with no network (the server decides again).
-      link: autoLinkFor(local.trips, local.places),
+      // From Trip Mode the trip is the item's; otherwise the one the dates and the place suggest.
+      link: from ? () => ({ tripId: from.tripId }) : autoLinkFor(local.trips, local.places),
     };
     const plan = editing
       ? planEdit(
@@ -321,7 +348,9 @@ export function CheckInContent({
                       : option.kind === 'found'
                         ? option.candidate.name
                         : option.kind === 'new'
-                          ? 'New place here…'
+                          ? option.key === 'prefill'
+                            ? (prefill?.name ?? 'The place')
+                            : 'New place here…'
                           : `A place near ${option.point.lat.toFixed(4)}, ${option.point.lng.toFixed(4)}`}
                   </span>
                   <span className={styles.meta}>
@@ -331,9 +360,11 @@ export function CheckInContent({
                         ? `${option.candidate.address?.city ?? option.candidate.category ?? 'from the place search'}${option.distance !== undefined ? ` · ${metres(option.distance)}` : ''}`
                         : option.kind === 'point'
                           ? 'named later'
-                          : ''}
+                          : option.key === 'prefill'
+                            ? 'from the plan'
+                            : ''}
                   </span>
-                  {option.kind === 'new' && chosen === option.key ? (
+                  {option.kind === 'new' && option.key !== 'prefill' && chosen === option.key ? (
                     <span className={styles.newName}>
                       <Input
                         aria-label="Name of the new place"

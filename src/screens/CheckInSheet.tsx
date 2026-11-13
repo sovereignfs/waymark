@@ -50,7 +50,12 @@ export function CheckInSheet() {
           </p>
         )
       ) : (
-        <CheckInContent onDone={closeCheckIn} />
+        <CheckInContent
+          // From Trip Mode: the item the check-in is for, so its place is on offer first and the check-in is of its trip.
+          key={mode?.mode === 'new' ? (mode.from?.itemId ?? 'new') : 'new'}
+          {...(mode?.mode === 'new' && mode.from ? { from: mode.from } : {})}
+          onDone={closeCheckIn}
+        />
       )}
     </CheckInSurface>
   );

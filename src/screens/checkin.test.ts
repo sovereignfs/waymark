@@ -61,6 +61,44 @@ describe('the check-in sheet’s address', () => {
   });
 });
 
+describe('the sheet opened from Trip Mode', () => {
+  const trip = '0a1b2c3d-1111-4222-8333-444455556666';
+  const item = '1a2b3c4d-1111-4222-8333-444455556666';
+  it('names the trip and the item the check-in is for, and puts them in the address and takes them out', () => {
+    const href = checkInHref('/t/x/today', '', {
+      mode: 'new',
+      from: { tripId: trip, itemId: item },
+    });
+    expect(href).toBe(`/t/x/today?checkin=new&t=${trip}&item=${item}`);
+    expect(checkInMode(href.split('?')[1] as string)).toEqual({
+      mode: 'new',
+      from: { tripId: trip, itemId: item },
+    });
+    expect(closedHref('/t/x/today', href.split('?')[1] as string)).toBe('/t/x/today');
+    // The rest of the query is kept, and a plain opening has none of them.
+    expect(checkInHref('/t/x/today', `view=1&t=${trip}&item=${item}`)).toBe(
+      '/t/x/today?view=1&checkin=new',
+    );
+  });
+
+  it('asks for nothing it is not given in full: a missing, odd or hostile id is a plain check-in', () => {
+    for (const query of [
+      `checkin=new&t=${trip}`,
+      `checkin=new&item=${item}`,
+      `checkin=new&t=${trip}&item=a/b`,
+      `checkin=new&t=${trip}&item=${'x'.repeat(65)}`,
+      `checkin=new&t=%3Cscript%3E&item=${item}`,
+    ])
+      expect(checkInMode(query), query).toEqual({ mode: 'new' });
+  });
+
+  it('does not take a trip’s or an item’s name from a page that has them for itself', () => {
+    // `t` and `item` mean something only with the sheet open.
+    expect(checkInMode(`t=${trip}&item=${item}`)).toBeUndefined();
+    expect(closedHref('/somewhere', `t=${trip}`)).toBe(`/somewhere?t=${trip}`);
+  });
+});
+
 describe('the sheet to change a check-in', () => {
   it('is checkin=edit with the id of the check-in, and nothing else asks for it', () => {
     expect(checkInMode('checkin=edit&of=abc-123')).toEqual({ mode: 'edit', id: 'abc-123' });

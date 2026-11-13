@@ -1,16 +1,11 @@
 import { requireAccount } from '@/src/auth/session';
-import { Placeholder } from '@/src/screens/Placeholder';
+import { TripMode } from '@/src/screens/TripModeScreen';
 
 export const metadata = { title: 'Trip Mode' };
 
-/** Trip Mode (DESIGN.md §14.2), until its screen is built: the rules (`src/today/`) are done, and this says so rather than showing a page that is not found. */
-export default async function Page() {
+/** Trip Mode (DESIGN.md §14.2): today on a trip, drawn on the device from its own store, so there is nothing to fetch here but the page. */
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   await requireAccount();
-  return (
-    <Placeholder
-      icon="route"
-      heading="Trip Mode"
-      description="Today's plan, with what is next and how to get there, is not built yet."
-    />
-  );
+  const { id } = await params;
+  return <TripMode id={id} />;
 }

@@ -3,7 +3,7 @@
  * **One list, for the worker and for the shell**: the worker is a string with no imports, so it is given the patterns' sources, and `OfflineApp` chooses the screen with `offlineScreenOf`, which a test holds to the
  * same patterns. Anything else (Settings, notices, importing, exporting, the sign-in pages) needs a network and gets the offline page.
  */
-export type OfflineScreen = 'home' | 'checkins' | 'map' | 'places' | 'trips' | 'trip';
+export type OfflineScreen = 'home' | 'checkins' | 'map' | 'places' | 'trips' | 'trip' | 'tripmode';
 
 const ID = '[0-9a-zA-Z_-]{1,64}';
 
@@ -19,6 +19,7 @@ export const OFFLINE_ADDRESSES: readonly {
   { screen: 'places', pattern: new RegExp(`^/places/${ID}$`) },
   { screen: 'trips', pattern: /^\/trips$/ },
   { screen: 'trip', pattern: new RegExp(`^/t/${ID}$`) },
+  { screen: 'tripmode', pattern: new RegExp(`^/t/${ID}/today$`) },
 ];
 
 /** Which screen of the offline shell an address is, or `undefined` for one that is not kept (a path with a trailing slash is not the same address). */
