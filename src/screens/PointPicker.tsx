@@ -1,12 +1,13 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { loadMap } from './loadMap';
 import type { Position } from './checkin-flow';
 import { useMapStyle } from './useMapStyle';
 import styles from './PointPicker.module.css';
 
 // MapLibre is loaded only where a map is drawn, and never on the server.
-const Map = dynamic(() => import('@sovereignfs/ui/map').then((mod) => mod.Map), {
+const Map = dynamic(loadMap, {
   ssr: false,
   loading: () => <p className={styles.note}>Loading the map…</p>,
 });

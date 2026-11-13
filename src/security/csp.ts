@@ -10,9 +10,9 @@
  *  - **Style *elements*** carry the nonce too. **Style *attributes* are allowed**: React's `style` props and the design system's overlays position
  *    things with them, and an attribute can change how something looks but cannot run anything.
  *  - **Everything else comes from this origin**: images (and `data:` and `blob:`, for a photo taken offline and not yet sent), fonts (the design
- *    system's own, served from here), `connect-src` (sync and the other APIs), the manifest. **`worker-src` is this origin and `blob:`**: the service
- *    worker, and MapLibre's web worker, which is built from a blob unless the design system serves it as a file (checked in 17.1, and narrowed to
- *    `'self'` if it can be). No frames, no plugins, nobody may frame a page (`frame-ancestors`), forms go only here, `<base>` cannot be changed.
+ *    system's own, served from here), `connect-src` (sync and the other APIs), the manifest. **`worker-src` is this origin alone**: the service
+ *    worker, and MapLibre's web worker, which the app serves as a file of its own (`/api/map/worker/…`, and is given to the map as `workerUrl`), so
+ *    that no worker is made from a blob. No frames, no plugins, nobody may frame a page (`frame-ancestors`), forms go only here, `<base>` cannot be changed.
  *  - **`upgrade-insecure-requests`** only where the app is served over https: on `http://localhost` it would send the page's own requests to a port
  *    that does not speak https.
  *
@@ -40,7 +40,7 @@ export function contentSecurityPolicy({ nonce, secure, development }: PolicyOpti
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
-    "worker-src 'self' blob:",
+    "worker-src 'self'",
     "manifest-src 'self'",
     "frame-src 'none'",
     "object-src 'none'",

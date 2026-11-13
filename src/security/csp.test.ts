@@ -40,8 +40,8 @@ describe('the Content-Security-Policy', () => {
     for (const name of ['default-src', 'font-src', 'connect-src', 'manifest-src']) {
       expect(directive(text, name), name).toEqual(["'self'"]);
     }
-    // The service worker, and MapLibre's worker, which is a blob (narrowed to 'self' alone if 17.1 can serve it as a file).
-    expect(directive(text, 'worker-src')).toEqual(["'self'", 'blob:']);
+    // The service worker, and MapLibre's worker, which the app serves as a file of its own: this origin alone, no blob.
+    expect(directive(text, 'worker-src')).toEqual(["'self'"]);
     expect(directive(text, 'img-src')).toEqual(["'self'", 'data:', 'blob:']);
   });
 

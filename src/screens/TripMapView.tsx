@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { loadMap } from './loadMap';
 import { useMemo, useState } from 'react';
 import { EmptyState, FormField, Icon, Select } from '@sovereignfs/ui';
 import type { TripData } from '../local/store';
@@ -11,7 +12,7 @@ import { usePageLocation } from './useLocation';
 import { useMapStyle } from './useMapStyle';
 
 // MapLibre is only loaded where a map is drawn, and never on the server.
-const Map = dynamic(() => import('@sovereignfs/ui/map').then((mod) => mod.Map), {
+const Map = dynamic(loadMap, {
   ssr: false,
   loading: () => <p className={styles.mapNote}>Loading the map…</p>,
 });
