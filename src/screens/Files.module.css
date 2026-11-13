@@ -1,0 +1,136 @@
+/* A trip's Files (DESIGN.md §10.6, §20.10). */
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  min-width: 0;
+}
+
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-4);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+}
+
+.group h2 {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.thumb,
+.icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sv-radius-sm);
+}
+
+.thumb {
+  object-fit: cover;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sv-color-text-muted);
+  background: var(--sv-color-surface-sunken);
+}
+
+.main {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.muted {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.rowActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-2);
+}
+
+.link {
+  color: var(--sv-color-accent);
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.row2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--sv-space-3);
+}
+
+.problem {
+  margin: 0;
+  color: var(--sv-color-error-text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sv-space-3);
+}

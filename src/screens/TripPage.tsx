@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { EmptyState, type IconName, NavTabs } from '@sovereignfs/ui';
 import { goTo } from './checkin-location';
 import { TripHeader } from './TripHeader';
+import { FilesView } from './FilesView';
 import { JournalView } from './JournalView';
 import { PlanWithMap } from './PlanWithMap';
 import { TripMapView } from './TripMapView';
@@ -16,9 +17,11 @@ import { VIEW_LABEL, type View, viewOf, viewsFor } from './trip';
 import { useEffect, useState } from 'react';
 
 const SOON: Readonly<
-  Record<Exclude<View, 'overview' | 'plan' | 'map' | 'journal'>, { icon: IconName; text: string }>
+  Record<
+    Exclude<View, 'overview' | 'plan' | 'map' | 'journal' | 'files'>,
+    { icon: IconName; text: string }
+  >
 > = {
-  files: { icon: 'folder-lock', text: 'The trip’s files are not built yet.' },
   people: { icon: 'users', text: 'The trip’s people are not built yet.' },
 };
 
@@ -109,6 +112,8 @@ export function TripPage({ id }: { id: string }) {
         <TripMapView data={data} />
       ) : view === 'journal' ? (
         <JournalView data={data} now={now} />
+      ) : view === 'files' ? (
+        <FilesView tripId={id} data={data} />
       ) : (
         <EmptyState
           icon={SOON[view].icon}

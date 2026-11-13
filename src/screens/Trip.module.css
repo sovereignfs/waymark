@@ -193,3 +193,20 @@
   flex-direction: column;
   gap: var(--sv-space-2);
 }
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-2);
+}
+
+.linkActions {
+  display: inline-flex;
+}
+
+.linkAdd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+}

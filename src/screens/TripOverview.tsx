@@ -1,7 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Select, StepStrip, useToast } from '@sovereignfs/ui';
+import { Button, Icon, Select, StepStrip, useToast } from '@sovereignfs/ui';
+import type { LinkView } from '../trips/links';
+import { MAX_LINKS } from '../trips/link-format';
+import { LinkDialog, RemoveLinkDialog } from './LinkDialogs';
+import { isEditor } from './trip';
 import { journalOfTrip } from '../journal';
 import { useLocal } from '../local/LocalProvider';
 import type { TripData } from '../local/store';
@@ -71,6 +75,10 @@ export function TripOverview({ data, now }: { data: TripData; now: number }) {
       : undefined;
   }, [sets, local, data, now]);
   const [saving, setSaving] = useState(false);
+  const [linking, setLinking] = useState<{ link?: LinkView; kind?: 'tally' | 'other' } | undefined>(
+    undefined,
+  );
+  const [removing, setRemoving] = useState<LinkView | undefined>(undefined);
   if (!sets || !overview) return null;
   const me = sets.members.find((member) => member.self);
   const choice: ShareChoice = me?.share ?? 'ask';
@@ -160,15 +168,63 @@ export function TripOverview({ data, now }: { data: TripData; now: number }) {
         ) : (
           <ul className={styles.links}>
             {overview.links.map((link) => (
-              <li key={link.id}>
-                <a href={link.url} target="_blank" rel="noopener noreferrer">
-                  {link.title}
-                </a>
-                {link.kind === 'tally' ? <span className={styles.muted}> · Tally</span> : null}
+              <li key={link.id} className={styles.linkRow}>
+                <span>
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    {link.title}
+                  </a>
+                  {link.kind === 'tally' ? <span className={styles.muted}> · Tally</span> : null}
+                </span>
+                {isEditor(data.role) ? (
+                  <span className={styles.linkActions}>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Change ${link.title}`}
+                      onClick={() => setLinking({ link })}
+                    >
+                      <Icon name="pencil" aria-hidden />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Remove ${link.title}`}
+                      onClick={() => setRemoving(link)}
+                    >
+                      <Icon name="trash-2" aria-hidden />
+                    </Button>
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
+        {isEditor(data.role) ? (
+          overview.links.length >= MAX_LINKS ? (
+            <p className={styles.muted}>A trip has at most {MAX_LINKS} links.</p>
+          ) : (
+            <div className={styles.linkAdd}>
+              {overview.links.some((link) => link.kind === 'tally') ? null : (
+                <Button variant="secondary" onClick={() => setLinking({ kind: 'tally' })}>
+                  Add Expenses in Tally
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setLinking({ kind: 'other' })}>
+                Add a link
+              </Button>
+            </div>
+          )
+        ) : null}
+        <LinkDialog
+          tripId={sets.trip.id}
+          open={Boolean(linking)}
+          link={linking?.link}
+          initialKind={linking?.kind}
+          onClose={() => setLinking(undefined)}
+        />
+        <RemoveLinkDialog
+          tripId={sets.trip.id}
+          link={removing}
+          onClose={() => setRemoving(undefined)}
+        />
       </section>
 
       {sharesChoice(data.role) ? (

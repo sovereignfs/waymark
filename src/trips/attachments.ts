@@ -6,6 +6,7 @@ import { dbAll, dbGet, transaction } from '../db/exec';
 import { readSealed, removeFile } from '../media/files';
 import { type MediaDeps, SENTENCES, type Refusal, putTripMedia, readMedia } from '../media/service';
 import { readSharedPhoto } from '../sharing/read';
+import { ATTACHMENT_KINDS, ATTACHMENT_TITLE_MAX, type AttachmentKind } from './attachment-format';
 import { recordGone } from './gone';
 import { TRIP_ID } from './format';
 import type { TripDeps } from './trips';
@@ -19,9 +20,7 @@ import type { TripDeps } from './trips';
  * may and takes the trip's row; what is written after it is stamped with the trip's counter. The file is stored first and the row last, in the statement that carries the permission, and **a file whose row was not made is removed**
  * (what a crash leaves, the orphan sweep finds). **The title is sealed**; the file is sealed on disk under its own data key. Uploaded online only (§15.7).
  */
-export const ATTACHMENT_KINDS = ['receipt', 'booking', 'accommodation', 'ticket', 'other'] as const;
-export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
-export const ATTACHMENT_TITLE_MAX = 200;
+export { ATTACHMENT_KINDS, ATTACHMENT_TITLE_MAX, type AttachmentKind };
 
 export interface AttachmentDeps extends TripDeps {
   /** The media store the files are in. */

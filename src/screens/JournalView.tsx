@@ -30,8 +30,8 @@ const STATUS: Record<
   planned: { label: 'Planned', status: 'neutral' },
 };
 
-/** The check-ins an entry is made of, with who made them (their initials) and, for the reader's own, their photos. */
-function Checkins({ checkins, me }: { checkins: readonly JournalCheckin[]; me: string }) {
+/** The check-ins an entry is made of, with their photos. */
+function Checkins({ checkins }: { checkins: readonly JournalCheckin[] }) {
   return (
     <ul className={styles.checkins}>
       {checkins.map((checkin) => (
@@ -40,8 +40,8 @@ function Checkins({ checkins, me }: { checkins: readonly JournalCheckin[]; me: s
             {timeOf(checkin)}
             {checkin.note ? ` · ${checkin.note}` : ''}
           </span>
-          {/* Only the reader's own photos: the files of others' check-ins are not theirs to be given. */}
-          {checkin.authorId === me && checkin.photos.length > 0 ? (
+          {/* The reader's own photos, and those of check-ins shared with the trip, which `/api/media` serves to its members (§11.3). */}
+          {checkin.photos.length > 0 ? (
             <span className={styles.photos}>
               {checkin.photos.map((id) => (
                 <span key={id} className={styles.photo}>
@@ -56,7 +56,7 @@ function Checkins({ checkins, me }: { checkins: readonly JournalCheckin[]; me: s
   );
 }
 
-function Entry({ entry, me }: { entry: JournalEntry; me: string }) {
+function Entry({ entry }: { entry: JournalEntry }) {
   if (entry.kind === 'found')
     return (
       <li className={`${styles.entry} ${styles.found}`} data-entry="found">
@@ -70,7 +70,7 @@ function Entry({ entry, me }: { entry: JournalEntry; me: string }) {
               Found on the way
             </Badge>
           </div>
-          <Checkins checkins={[entry.checkin]} me={me} />
+          <Checkins checkins={[entry.checkin]} />
           <span className={styles.who}>
             <Avatar name={entry.by.name} size="sm" /> {entry.by.name}
           </span>
@@ -94,7 +94,7 @@ function Entry({ entry, me }: { entry: JournalEntry; me: string }) {
           </Badge>
         </div>
         {item.title && item.place ? <span className={styles.muted}>{item.place.name}</span> : null}
-        {entry.checkins.length > 0 ? <Checkins checkins={entry.checkins} me={me} /> : null}
+        {entry.checkins.length > 0 ? <Checkins checkins={entry.checkins} /> : null}
         {entry.by.length > 0 ? (
           <span className={styles.who}>
             {entry.by.map((who) => (
@@ -171,7 +171,6 @@ export function JournalView({ data, now }: { data: TripData; now: number }) {
                 <Entry
                   key={entry.kind === 'found' ? `f${entry.checkin.id}` : `i${entry.item.id}`}
                   entry={entry}
-                  me={local.accountId}
                 />
               ))}
             </ol>
