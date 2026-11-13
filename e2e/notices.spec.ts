@@ -6,7 +6,8 @@ import { signedIn } from './helpers';
  * the screens ask (`/api/notices`); what the server does with them is held by the server's own tests (`src/notices/*.test.ts`). Here: the count on the bell (and "99+"), the panel, opening a notice and marking it
  * read, *Mark all read*, the page by day, and what happens with no network.
  */
-test.use({ actionTimeout: 15_000 });
+// The notices the server would hold are given by the test at the address the screens ask, which a worker that controls the page would bypass in WebKit (`page.route` does not see a request a worker makes): no worker here.
+test.use({ actionTimeout: 15_000, serviceWorkers: 'block' });
 expect.configure({ timeout: 15_000 });
 
 interface Held {

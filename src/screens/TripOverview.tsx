@@ -29,7 +29,7 @@ const inText = (minutes: number): string =>
       : `on ${dateText(new Date(Date.now() + minutes * 60_000).toISOString().slice(0, 10))}`;
 
 /** The one line for the next thing (the Overview and Trip Mode agree: both are `src/today/`'s). */
-function nextSentence(next: NextThing): string {
+export function nextSentence(next: NextThing): string {
   switch (next.kind) {
     case 'item':
       return next.timed && next.inMinutes !== null

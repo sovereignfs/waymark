@@ -74,6 +74,13 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
             icon: 'bell',
             onSelect: () => router.push('/notifications'),
           },
+          // The phone's footer has no room for Places, and an import is a settings matter: the menu holds them (DESIGN.md §20.12).
+          { label: 'Places', icon: 'pin', onSelect: () => router.push('/places') },
+          {
+            label: 'Import',
+            icon: 'upload',
+            onSelect: () => router.push('/settings?section=data'),
+          },
           { label: 'Settings', icon: 'settings', onSelect: () => router.push('/settings') },
           {
             label: leaving ? 'Signing out…' : 'Sign out',

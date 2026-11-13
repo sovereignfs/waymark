@@ -263,6 +263,7 @@ test('a position that is refused removes Here, with a sentence, and searching st
 test('a note, companions and photos: kept with the check-in, and the photos reach the server', async ({
   page,
   context,
+  browserName,
 }) => {
   await signedIn(page);
   await mockPosition(context, { latitude: 51.5, longitude: -0.12 });
@@ -316,7 +317,8 @@ test('a note, companions and photos: kept with the check-in, and the photos reac
   await expect(viewer.locator('img').first()).toHaveAttribute('src', /\/api\/media\//);
   await page.keyboard.press('Escape');
   await expect(viewer).toHaveCount(0);
-  await expect(thumb).toBeFocused();
+  // Safari does not focus a button that was clicked, so there is no focus to give back there.
+  if (browserName !== 'webkit') await expect(thumb).toBeFocused();
 });
 
 test('the keyboard alone: C opens it, typing searches, Enter checks in', async ({ page }) => {

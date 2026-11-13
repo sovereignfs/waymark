@@ -146,7 +146,12 @@ test('an address with checkin=new opens the sheet on load, over its page, and a 
   expect(url(page)).toBe('/checkins?year=2026');
   for (const query of ['?checkin', '?checkin=old', '?checkin=NEW']) {
     await page.goto(`/map${query}`);
-    await expect(page.getByRole('heading', { name: 'Map' })).toBeVisible();
+    // The map's own screen (its filters, or the empty state of a person with no check-in) is there, and no sheet.
+    await expect(
+      page
+        .getByRole('search', { name: 'Filter check-ins' })
+        .or(page.getByRole('heading', { name: 'Nothing on the map yet' })),
+    ).toBeVisible();
     await expect(sheet(page)).toHaveCount(0);
   }
 });

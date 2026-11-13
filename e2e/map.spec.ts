@@ -106,7 +106,8 @@ test('the places are markers and a list, the filters narrow both, and a place ch
   await signedIn(page);
   await page.goto('/map');
   await seed(page);
-  await page.goto('/map');
+  // Only this test's places (the instance is shared, and others are near them): the search is the filter of the timeline's, in the address.
+  await page.goto(`/map?q=${tag}`);
 
   const list = page.getByRole('list', { name: 'Places on the map' });
   const mine = list.getByRole('button').filter({ hasText: tag });
@@ -150,7 +151,7 @@ test('the places are markers and a list, the filters narrow both, and a place ch
   await expect(mine).toHaveCount(1);
   await expect(mine.first()).toContainText('Tokyo Tower');
   await expect.poll(async () => (await markerLabels()).length).toBe(1);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByLabel('Country').selectOption('');
   await page.getByLabel('Year').selectOption('2025');
   await expect(mine).toHaveCount(2);
   await expect(list.getByRole('button').filter({ hasText: `Lisbon Café ${tag}` })).toContainText(
