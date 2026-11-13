@@ -8,9 +8,10 @@ Each release's section is also its GitHub release notes: the release workflow re
 
 ## [Unreleased]
 
+The first release, and the whole of the app: check-ins, places, the map and Home; trips with a plan, people in three roles, invitations, sharing and files; Trip Mode with reminders, Web Push and a trip's map kept on the device; export and import of your own data; and signing in on its own or through a Sovereign instance. Importing from Swarm (Foursquare) is not in it. Web Push from a real push service, Directions on an iPhone and the directory against a real Sovereign core have not been tried yet.
+
 ### Added
 
-- On an instance with Sovereign, inviting to a trip can start from the instance's directory: typing a name offers its people beside the ones you already share a trip with. A person who has never used Waymark is told by Sovereign's bell, and their first sign-in with Sovereign puts them in the trip with the role you chose; one who already has an account is told as any account is, and accepts. Where the directory is not granted, not there or not answering, inviting is as it was.
 - The repository's conventions: licence, contributing guide, pull request template, dependency updates, and the package that the app is built in.
 - Settings, all named `WAYMARK_…`, checked when the server starts: a wrong or missing one stops it, naming every problem and no value. `WAYMARK_ENCRYPTION_KEY` is required.
 - The database: sqld (the default), a SQLite file or PostgreSQL, chosen with `WAYMARK_DB_DIALECT`, provisioned and migrated when the server starts; it waits for a database that is still starting and stops, saying why, if it cannot use it. `/api/health` answers for it.
@@ -20,7 +21,7 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Waymark installs as an app, and a service worker keeps its own files and nothing of anyone's: no page, no answer, no place or note is ever in its cache. With no connection a page says it needs one.
 - One image for all three database forms, with `/data` a volume in each of the three Compose setups (`deploy/`).
 - Signing in with an email and password, when `WAYMARK_AUTH_LOCAL=1`: the first account is made on the sign-up page, and `WAYMARK_AUTH_SIGNUP=closed` (the default) refuses every later one; `open` lets anyone make one. With local sign-in off the sign-in pages and routes do not exist. With `WAYMARK_SMTP_HOST` set an address is confirmed by a link and a forgotten password is reset by one.
-- Passkeys and an authenticator app are supported by the sign-in; setting them up is in Settings, which is to come.
+- Passkeys and an authenticator app are supported by the sign-in; setting them up is in Settings.
 - Sealed rows: every field that says where or what (a place's name and point, a note, a trip's name, a person's name and address) is written into one encrypted envelope per row, under `WAYMARK_ENCRYPTION_KEY`, bound to its table and row, so that a copy of the database holds none of it.
 - Every account has a profile of its own: its name and address are kept by Waymark, sealed, from the day the account is made, and are what the app shows of a person; an address is seen only by its owner and, once there are trips, by a trip's Organizers.
 - The front address is a short page about Waymark for a visitor, with a way to sign in (and to sign up, where the server takes sign-ups), and Home for someone signed in; Home's own address, `/home`, goes to `/`.
@@ -86,17 +87,10 @@ Each release's section is also its GitHub release notes: the release workflow re
 - Home: on an ongoing trip its card with what is next and _Open Trip Mode_, otherwise _Check in_, large, with the nearest of your places; the next trip with how long until it and who is going; your last ten check-ins with their photos; this year's figures and a small map; and, for someone new, _Check in where you are_ and _Plan a trip_ side by side. On a phone, _Check in_ is a floating button above the footer, which has Map and Trips, and the avatar menu holds Places, Notifications, Import and Settings.
 - Trip Mode: on a trip that is on, `/t/<id>/today` shows the day and the stop, a map of the day's items numbered with your own position, what is next with its countdown, Directions in your phone's maps and Check in already filled in with that item's place and the trip, and the day's items with Done on each. Outside the trip's dates, or for someone who is not going, it says so.
 - A trip offline: _Download for offline_ on a trip that is coming up or on keeps the map around its stops on your device, so Trip Mode and the map draw with no connection; Settings shows what is kept and removes it, and it is let go of when the trip ends and at sign-out.
-
-[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.0.0...HEAD
-
-### Changed
-
-- The page's policy no longer allows a worker made from a `blob:` (`worker-src 'self'`): the map's worker is served by the app itself.
-
-### Fixed
-
-- A map that could not load its code (no network at that moment, or a file gone after an update) took the whole screen with it; now the map draws nothing and the list beside it stays.
+- On an instance with Sovereign, inviting to a trip can start from the instance's directory: typing a name offers its people beside the ones you already share a trip with. A person who has never used Waymark is told by Sovereign's bell, and their first sign-in with Sovereign puts them in the trip with the role you chose; one who already has an account is told as any account is, and accepts. Where the directory is not granted, not there or not answering, inviting is as it was.
 
 ### Security
 
-- Written reviews of what each phase adds (`docs/security/0.1.0.md`, `0.2.0.md`, `0.3.0.md`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
+- The page's policy allows no worker made from a `blob:` (`worker-src 'self'`): the map's worker is a file the app serves. A written security review of what this release contains, in three parts (`docs/security/`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
+
+[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.0.0...HEAD

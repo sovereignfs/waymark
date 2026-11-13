@@ -16,7 +16,7 @@ people following, and look back on everywhere you have been, on a map. Check-ins
 Sovereign instance can host it, and **it runs fully on its own, with every feature, needing no instance**: its own accounts, mail, notices, files and map.
 It replaces the legacy plugin `sovereignfs/sovereign-plugin-travellog`, whose behaviour is the starting point and none of whose code, data or interface is
 carried over. It is a PWA on Next.js, with its own database (sqld, a SQLite file or PostgreSQL) and files under `/data`, signing people in locally,
-through a Sovereign core, or both, from one image. Three phases, a release each: check-ins, trips, Trip Mode.
+through a Sovereign core, or both, from one image. Three phases (check-ins, trips, Trip Mode), published together as 0.1.0.
 
 **What is built is in `ROADMAP.md`** (its state line and the ✅ rows). `DESIGN.md` is the design, `ROADMAP.md` the order, and Milestone A copied Tusk's infrastructure (`DESIGN.md` §5.1).
 

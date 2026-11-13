@@ -205,10 +205,10 @@ The trip page the plugin deferred. **Done when** a trip goes from a name to a co
 
 **Done when** 0.2.0 is published and hosted.
 
-| #   | ID                                | Task                              | Priority | Depends on       | Status |
-| --- | --------------------------------- | --------------------------------- | -------- | ---------------- | ------ |
-| 85  | [15.3](docs/epics/portability.md) | Trips in export and import        | P2       | 15.2, 9.6, 10.3  | ✅     |
-| 86  | [16.6](docs/epics/release.md)     | Security review and release 0.2.0 | P2       | 11.8, 15.3, 14.2 | ⏳     |
+| #   | ID                                | Task                                 | Priority | Depends on       | Status |
+| --- | --------------------------------- | ------------------------------------ | -------- | ---------------- | ------ |
+| 85  | [15.3](docs/epics/portability.md) | Trips in export and import           | P2       | 15.2, 9.6, 10.3  | ✅     |
+| 86  | [16.6](docs/epics/release.md)     | Security review of phase 2, in 0.1.0 | P2       | 11.8, 15.3, 14.2 | ⏳     |
 
 ## Phase 3 — Trip Mode (0.3.0)
 
@@ -228,9 +228,9 @@ reminder arrives by Web Push once, and the day's plan and map open offline.
 
 ### Milestone M — 0.3.0
 
-| #   | ID                            | Task                              | Priority | Depends on       | Status |
-| --- | ----------------------------- | --------------------------------- | -------- | ---------------- | ------ |
-| 93  | [16.7](docs/epics/release.md) | Security review and release 0.3.0 | P2       | 13.3, 13.4, 13.5 | ⏳     |
+| #   | ID                            | Task                                 | Priority | Depends on       | Status |
+| --- | ----------------------------- | ------------------------------------ | -------- | ---------------- | ------ |
+| 93  | [16.7](docs/epics/release.md) | Security review of phase 3, in 0.1.0 | P2       | 13.3, 13.4, 13.5 | ⏳     |
 
 ## Later — candidates
 

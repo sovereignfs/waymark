@@ -14,11 +14,11 @@ Everything that says where you were or what you wrote is encrypted before it is 
 
 ## Status
 
-**Phase 1, check-ins (0.1.0), is being finished.** Built: sign-in on its own or through a Sovereign core, check-ins that work offline and sync, places, the Check-ins and Places screens, photos, the map's
-server, notices (the bell, mail, and a core's bell), export and import of your own data, rotating the encryption key, and the deployment setups. Waiting on `@sovereignfs/ui` (the map, the photo viewer and the phone's
-button, built in `sovereign`) are the Map, Home and phone screens; importing from Swarm waits on a real export. [`DESIGN.md`](DESIGN.md) is the design, [`ROADMAP.md`](ROADMAP.md) the order of work and the status of
-every task, and [`docs/epics/`](docs/epics/) the detail of each. The app has three phases, a release each: check-ins (0.1.0), trips (0.2.0), Trip Mode (0.3.0). **Nothing is released yet**;
-[`RELEASING.md`](RELEASING.md) says how a release is made.
+**0.1.0 is the first release, and it is the whole of the app's three phases:** check-ins, places, Home, the map of everywhere you have been and the timeline, photos, import and export of your own data (a Waymark file); **trips**
+(a plan with stops and days, a trip's map, people in three roles, invitations, sharing check-ins with a trip, the journal of what was planned against what happened, files and links); and **Trip Mode** (today on a trip,
+Directions, reminders, Web Push and a trip's map kept on the device). It works offline, on its own or on a Sovereign instance (sign-in, the bell, mail, the activity page and the directory). **Not in it:** importing from
+Swarm (Foursquare), which waits on a real export. **Not tried yet:** Web Push received from a real push service, Directions on an iPhone, and the directory against a real Sovereign core, which can only be proved on a live
+instance. [`DESIGN.md`](DESIGN.md) is the design, [`ROADMAP.md`](ROADMAP.md) the order of work and the status of every task, and [`docs/epics/`](docs/epics/) the detail of each. [`RELEASING.md`](RELEASING.md) says how a release is made, and [`docs/security/`](docs/security/) holds the written security review of what each part builds.
 
 ## Running it on its own
 
@@ -48,7 +48,9 @@ starts, stops naming every wrong one (never its value), makes and migrates its d
 ## Hosting it on a Sovereign instance
 
 `./sv app add waymark --image ghcr.io/sovereignfs/waymark:<version>` in the instance's repository hosts it from `sovereign.manifest.json`, which is also the image's label: the instance gives it a database and `/data`, tells it
-its address and its core, and makes its two keys once. Grant the app's three scopes (they are in the manifest), set the map source and the mail in `suite.yml`, then `./sv push && ./sv deploy`. People sign in through the
+its address and its core, and makes its secrets once (the sign-in secret, the encryption key and Web Push's key). Grant the app what the manifest asks of it: the app's own scopes (its bell, its email and its activity
+page) and, for signing in, **`offline_access` and `directory`**, which let people invite the instance's people by name; if they are not granted, signing in and inviting work exactly as they do alone. Set the map source and the
+mail in `suite.yml`, then `./sv push && ./sv deploy`. People sign in through the
 instance and nobody has a password here (`WAYMARK_AUTH_LOCAL` is unset); the instance's bell and email carry Waymark's notices, and a core that cannot do that changes nothing else.
 [`deploy/README.md`](deploy/README.md) § On a Sovereign instance has the rest.
 

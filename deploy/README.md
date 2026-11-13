@@ -10,7 +10,7 @@ database. They are the same app; only where it keeps its data differs (`DESIGN.m
 | **PostgreSQL**         | `compose.yaml` + `compose.postgres.yaml` | PostgreSQL, or one you already run                   | An operator who prefers it, or has one                                                                                                                          |
 
 Whatever the database, **`/data`** is where everything else lives: the database file in the file setup, and the photos and files people add, the imports and
-the map's cache as later releases bring them. It is a volume in every setup here; back it up with the database.
+the map's cache. It is a volume in every setup here; back it up with the database.
 
 ## Start
 
@@ -61,8 +61,8 @@ WAYMARK_POSTGRES_URL=postgres://user:password@host:5432/waymark
 
 `sv app add` hosts Waymark from `sovereign.manifest.json`, which is also the image's label: the instance builds nothing of its own, gives the app a database
 and `/data`, and tells it where it is. What it sets is the settings above under Waymark's own names: `WAYMARK_URL`, `WAYMARK_CORE_URL`, `WAYMARK_CORE_CLIENT_ID` and
-`WAYMARK_CORE_CLIENT_SECRET` (or `_FILE`), the database (`WAYMARK_DB_DIALECT` and its address) and `PORT`, and it makes `WAYMARK_AUTH_SECRET` and
-`WAYMARK_ENCRYPTION_KEY` once and keeps them. With `WAYMARK_AUTH_LOCAL` unset, people sign in through the instance only: there is no password, sign-up or reset to find.
+`WAYMARK_CORE_CLIENT_SECRET` (or `_FILE`), the database (`WAYMARK_DB_DIALECT` and its address) and `PORT`, and it makes `WAYMARK_AUTH_SECRET`,
+`WAYMARK_ENCRYPTION_KEY` and `WAYMARK_VAPID_PRIVATE_KEY` once and keeps them. With `WAYMARK_AUTH_LOCAL` unset, people sign in through the instance only: there is no password, sign-up or reset to find.
 
 ## Keys
 
@@ -83,12 +83,12 @@ The database and `/data` are the whole of it, apart from the key above.
   auth database, `waymark_auth.db`, is beside it and is part of it.
 - **PostgreSQL:** `pg_dump`, or your usual process, and a snapshot of `/data`.
 
-Each person can also export their own data from Settings (as that release brings it), which is neither a substitute for these nor the reverse.
+Each person can also export their own data from Settings, which is neither a substitute for these nor the reverse.
 
 ## Updating
 
 Pull or build the new image and `docker compose up -d`. Migrations apply when the new server starts. A patch release has none and changes no setting; a
-minor may, and going back is restoring the backup you took before it.
+minor may, and going back is restoring the backup you took before it. **0.1.0 is the first release**, so there is nothing to update from; take the backup before the update after it.
 
 ## Checking a setup
 

@@ -43,13 +43,13 @@ public travel blog.
 
 ## 2. Phases
 
-The owner's direction: **all three parts are planned now and built one after another,** each a release.
+The owner's direction: **all three parts are planned now and built one after another.** They were planned as a release each; **they are published together as 0.1.0** (decided when all three were built, since the later phases' migrations and screens were already in the same history), and the column below says which part each belongs to.
 
-| Phase                     | Release | What it delivers                                                                                                                                                                                                                                                                        |
+| Phase                     | Part of | What it delivers                                                                                                                                                                                                                                                                        |
 | ------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1, Check-ins**          | 0.1.0   | On the web, responsive and installable: sign-in, locally and through core; places with search; the map; checking in by search, GPS or hand, with a note and photos, offline too; the timeline; a place's page; figures; importing a Swarm export; notices; export, import and deletion. |
-| **2, Trips**              | 0.2.0   | Trips of stops, days and itinerary items; planning until ready; attachments; a link to the trip's Tally group; sharing with Organizers, Travelers and Followers by invitation; check-ins shared with a trip; auto-link; the trip page with its map and planned versus actual.           |
-| **3, Trip Mode**          | 0.3.0   | Today on a trip: the day's plan, where you are, what is next and when, a hand-off to the device's maps, reminders through the bell, email and Web Push, and the day's plan and map offline.                                                                                             |
+| **2, Trips**              | 0.1.0   | Trips of stops, days and itinerary items; planning until ready; attachments; a link to the trip's Tally group; sharing with Organizers, Travelers and Followers by invitation; check-ins shared with a trip; auto-link; the trip page with its map and planned versus actual.           |
+| **3, Trip Mode**          | 0.1.0   | Today on a trip: the day's plan, where you are, what is next and when, a hand-off to the device's maps, reminders through the bell, email and Web Push, and the day's plan and map offline.                                                                                             |
 | **Later, none committed** | —       | Reordering a day by distance, then by real routing; importers for GPX, KML, GeoJSON, CSV and Google Takeout; live updates; §26 outlines each.                                                                                                                                           |
 
 ### 2.1 What is carried over

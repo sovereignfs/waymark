@@ -2,12 +2,16 @@
 
 ## Status
 
-📋 Planned.
+⏳ In progress.
 
 ## Overview
 
 What each phase needs before it is published: a seed to develop and demonstrate with, documents, a written security review, the release itself, and
 hosting on the live instance. Releases as Tusk's (`scripts/release.sh`, a `vX.Y.Z` tag publishes the image); a patch has no migration.
+
+**Decided 2026-11-13: the three phases are published together, as one release, 0.1.0.** The phases were built in order on `main`, and their migrations and screens cannot be separated, so a 0.1.0 of phase 1 alone would not be a
+commit anyone could build. 16.6 and 16.7 are therefore the second and third parts of 0.1.0's review (`docs/security/`), not releases of their own, and 16.4 publishes all of it; the Swarm import (8.2, 8.3) is not in it, and
+what could not be tried without a live instance (Web Push from a real push service, Directions on an iPhone, the directory against a real core) is said so in the notes and tried in 16.5.
 
 ## Related
 
@@ -71,7 +75,7 @@ booted; the package made public.
 
 **Accepts when:** Waymark answers at its subdomain on the live instance and a person signed in through core can check in.
 
-#### ⏳ 16.6 — Security review and release 0.2.0
+#### ⏳ 16.6 — Security review of phase 2 (published in 0.1.0)
 
 **Goal:** phase 2 published. **Design:** §2, §25 Security. **Depends on:** 11.8, 15.3, 14.2.
 
@@ -82,7 +86,7 @@ for Followers, auto-link across members; then the release and `./sv app update w
 
 **Done so far:** `docs/security/0.2.0.md`: roles in every statement (one fragment and three sets of roles; each operation called as each lower role), the stream and the device, sharing (§11.3), invitations (a token that is 32 random bytes kept as its hash, the same page for every link that cannot be used), attachments that Followers never receive (list, file, thumbnail and the stream), auto-link, and trips in export, import and deletion. No code change was needed; the findings are recorded with their costs, among them that an unaccepted invitation link can make more than one account. **Core's directory (14.2) was added to it (§8):** the refresh token kept sealed and moved out of the sign-in store, a rotation never lost, an invitation by `sub` looked up again by the server and taken at sign-in by the `sub` and nothing else; four findings recorded, one a decision to flag (a person with no account is put in the trip at their first sign-in through core). The sqld and PostgreSQL legs of the data-layer tests were run for it. **Not done:** the live instance's update (with `./sv backup`), the scopes granted in the Console, and the release itself, which are 16.5's and the developer's.
 
-#### ⏳ 16.7 — Security review and release 0.3.0
+#### ⏳ 16.7 — Security review of phase 3 (published in 0.1.0)
 
 **Goal:** phase 3 published. **Design:** §2, §25 Security. **Depends on:** 13.3, 13.4, 13.5.
 
