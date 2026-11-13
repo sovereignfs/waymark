@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { EmptyState, type IconName, NavTabs } from '@sovereignfs/ui';
+import { EmptyState, NavTabs } from '@sovereignfs/ui';
 import { goTo } from './checkin-location';
 import { TripHeader } from './TripHeader';
 import { FilesView } from './FilesView';
 import { JournalView } from './JournalView';
+import { PeopleView } from './PeopleView';
 import { PlanWithMap } from './PlanWithMap';
 import { TripMapView } from './TripMapView';
 import { TripOverview } from './TripOverview';
@@ -15,15 +16,6 @@ import { useTripData } from './useTrip';
 import { useTripCards } from './useTrips';
 import { VIEW_LABEL, type View, viewOf, viewsFor } from './trip';
 import { useEffect, useState } from 'react';
-
-const SOON: Readonly<
-  Record<
-    Exclude<View, 'overview' | 'plan' | 'map' | 'journal' | 'files'>,
-    { icon: IconName; text: string }
-  >
-> = {
-  people: { icon: 'users', text: 'The trip’s people are not built yet.' },
-};
 
 /** `/t/<id>`'s id, from the address. */
 export const tripIdOf = (path: string): string | undefined =>
@@ -114,13 +106,9 @@ export function TripPage({ id }: { id: string }) {
         <JournalView data={data} now={now} />
       ) : view === 'files' ? (
         <FilesView tripId={id} data={data} />
-      ) : (
-        <EmptyState
-          icon={SOON[view].icon}
-          heading={VIEW_LABEL[view]}
-          description={SOON[view].text}
-        />
-      )}
+      ) : view === 'people' ? (
+        <PeopleView tripId={id} data={data} />
+      ) : null}
     </div>
   );
 }

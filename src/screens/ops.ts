@@ -11,6 +11,24 @@ export interface OpAnswer {
   readonly days?: readonly string[];
   readonly trip?: { readonly id: string };
   readonly choice?: string;
+  /** For `invite.create`: the invitation made, with its link (shown once) and whether this server can send mail. */
+  readonly invitation?: {
+    readonly id: string;
+    readonly link: string;
+    readonly mail: boolean;
+    readonly via: 'link' | 'account' | 'email';
+    readonly expiresAt: number;
+  };
+  /** For `invite.list`. */
+  readonly invitations?: readonly {
+    readonly id: string;
+    readonly role: 'organizer' | 'traveler' | 'follower';
+    readonly via: 'link' | 'account' | 'email';
+    readonly email: string | undefined;
+    readonly createdAt: number;
+    readonly lastSentAt: number;
+    readonly expiresAt: number;
+  }[];
   readonly deletion?: {
     readonly name: string;
     readonly members: number;

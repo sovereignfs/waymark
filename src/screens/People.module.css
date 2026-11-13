@@ -1,0 +1,133 @@
+/* A trip's People (DESIGN.md §11, §20.10). */
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.head h2,
+.waiting h3 {
+  margin: 0;
+}
+
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sv-space-2);
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.who {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.muted {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.going {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+}
+
+.waiting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.qr {
+  display: flex;
+  justify-content: center;
+  padding: var(--sv-space-2);
+}
+
+.found {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+}
+
+.found button {
+  display: block;
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.found button:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.chosen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+}
+
+.problem {
+  margin: 0;
+  color: var(--sv-color-error-text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sv-space-3);
+}
