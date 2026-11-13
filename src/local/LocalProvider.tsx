@@ -12,8 +12,8 @@ import {
 } from 'react';
 import { editCheckin } from '../actions/checkins';
 import type { CheckinView, PlaceView } from '../actions/types';
-import { LIMITS, type Mutation } from '../sync/format';
-import { type Refused, type TripEntry, deleteLocal, openLocal } from './db';
+import { LIMITS } from '../sync/format';
+import { type AnyMutation, type Refused, type TripEntry, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
 import { requestPersistence } from './persist';
 import { LocalStore, type TripData } from './store';
@@ -53,7 +53,7 @@ export interface LocalContext {
   /** Where to show a photo from: the file on this device while it is only here, and the server's otherwise. */
   photoSrc(id: string): Promise<string>;
   /** Records what a person did: it shows at once and is sent when there is a network. */
-  record(mutation: Mutation): Promise<void>;
+  record(mutation: AnyMutation): Promise<void>;
   /** Sends what can be sent now, for sign-out. Says how it ended, or `undefined` when another tab is syncing. */
   syncNow(): Promise<SyncState | undefined>;
   /** What the device holds that the server has not taken: waiting to be sent, and refused (Couldn't sync). */

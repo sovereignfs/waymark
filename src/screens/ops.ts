@@ -5,6 +5,10 @@
 export interface OpAnswer {
   readonly ok: boolean;
   readonly reason?: string;
+  /** The sentence for a refusal other than `not_found`. */
+  readonly sentence?: string;
+  /** For `reason: 'items'`: the ids of the days that have items. */
+  readonly days?: readonly string[];
   readonly trip?: { readonly id: string };
   readonly choice?: string;
   readonly deletion?: {

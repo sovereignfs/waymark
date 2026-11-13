@@ -40,6 +40,8 @@ export interface TripData {
   shared: SharedCheckin[];
   /** The items this account has marked done, with what is waiting in the outbox. */
   done: Set<string>;
+  /** The ids of the items and days this account has changed that the server has not taken yet (the clock mark, §15.6). */
+  pending: Set<string>;
 }
 
 export class LocalStore {
@@ -130,6 +132,12 @@ export class LocalStore {
         (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
       ),
       done: new Set(seen.done),
+      pending: new Set(
+        outbox
+          .map((each) => each.mutation)
+          .filter((each) => each.stream === `trip:${tripId}`)
+          .flatMap((each) => ('changes' in each ? each.changes.map((change) => change.id) : [])),
+      ),
       shared: shared.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id)),
     };
   }
