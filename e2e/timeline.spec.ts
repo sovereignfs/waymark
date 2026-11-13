@@ -161,6 +161,7 @@ test('a decade of check-ins: only the rows in view are drawn, the oldest is reac
 
 test('a check-in opens beside the list on a wide screen and as a page on a narrow one, at the same address; a reload keeps it', async ({
   page,
+  context,
 }) => {
   await signedIn(page);
   await seed(page, decade(60));
@@ -182,18 +183,16 @@ test('a check-in opens beside the list on a wide screen and as a page on a narro
   // The back button goes back to the timeline with its filter.
   await page.goBack();
   await expect(page).toHaveURL(/\/checkins\?year=2025$/);
-  // The step back is finished (WebKit reports the address before the page is done, and a `goto` then interrupts it).
-  await page.waitForLoadState('load');
-  await expect(page.getByRole('list', { name: 'Check-ins' })).toBeVisible();
-
   // Narrow: the same address is a page of its own, with a way back.
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto(href as string);
-  await expect(page.getByRole('article', { name: 'Check-in' })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Check-ins' })).toHaveCount(0);
-  await page.getByRole('button', { name: '← Check-ins' }).click();
-  await expect(page).toHaveURL(/\/checkins\?year=2025$/);
-  await expect(page.getByRole('list', { name: 'Check-ins' })).toBeVisible();
+  // A page of its own, at a phone's width: the wide one's step back may still be finishing in WebKit, where `goBack` reports the address before the page is done and a `goto` on that page is interrupted by it.
+  const phone = await context.newPage();
+  await phone.setViewportSize({ width: 375, height: 812 });
+  await phone.goto(href as string);
+  await expect(phone.getByRole('article', { name: 'Check-in' })).toBeVisible();
+  await expect(phone.getByRole('list', { name: 'Check-ins' })).toHaveCount(0);
+  await phone.getByRole('button', { name: '← Check-ins' }).click();
+  await expect(phone).toHaveURL(/\/checkins\?year=2025$/);
+  await expect(phone.getByRole('list', { name: 'Check-ins' })).toBeVisible();
 });
 
 test('a check-in whose place the page does not hold is a page that says so, with a way back', async ({

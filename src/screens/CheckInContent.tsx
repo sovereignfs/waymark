@@ -167,7 +167,10 @@ export function CheckInContent({
         ]
       : mine;
   }, [places, query, way, anchor, search.found, search.reverse, editing, prefill]);
-  const selected: Option | undefined = options.find((option) => option.key === chosen);
+  // What is chosen, by its key, or by the key it had before the place was the person's own (a place the search offered arrives on the device while the sheet is open).
+  const selected: Option | undefined =
+    options.find((option) => option.key === chosen) ??
+    options.find((option) => option.kind === 'mine' && chosen && option.aliases?.includes(chosen));
   const selection = selectionOf(selected, newName);
   const zone = selection ? zoneOfSelection(selection) : undefined;
   const photoUrls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
@@ -342,7 +345,7 @@ export function CheckInContent({
                   <input
                     type="radio"
                     name="where"
-                    checked={chosen === option.key}
+                    checked={selected?.key === option.key}
                     onChange={() => choose(option.key)}
                   />
                   <span className={styles.name}>

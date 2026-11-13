@@ -162,6 +162,32 @@ describe('which places are offered', () => {
   });
 });
 
+describe('a place the search offered that turns out to be the person’s own', () => {
+  it('keeps the choice: the person’s place answers to the key the search’s copy had, and the copy is not offered twice', () => {
+    const found = [candidate('Café de Flore', 48.854, 2.3326, 'node/1')];
+    // The device has not got the place yet: the search's copy is what is offered, and what is chosen.
+    const before = buildOptions({
+      places: [],
+      query: 'flore',
+      position: HERE,
+      found,
+      reverse: undefined,
+    });
+    expect(before.map((o) => o.key)).toContain('found:node/1');
+    // It arrives (the sheet is open on a device that has just synced): the person's own is offered, and answers to the chosen key.
+    const after = buildOptions({
+      places: PLACES,
+      query: 'flore',
+      position: HERE,
+      found,
+      reverse: undefined,
+    });
+    expect(after.map((o) => o.key)).not.toContain('found:node/1');
+    const mine = after.find((o) => o.key === 'mine:flore');
+    expect(mine?.kind === 'mine' && mine.aliases).toEqual(['found:node/1']);
+  });
+});
+
 describe('what a choice is', () => {
   it('is the place, the candidate, the point, or a new place only once it has a name', () => {
     const options = buildOptions({

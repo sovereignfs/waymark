@@ -39,6 +39,11 @@ export type Option =
       readonly kind: 'mine';
       readonly place: PlaceView;
       readonly distance: number | undefined;
+      /**
+       * The keys of the search's places that are this one: a place the search offered, and the person chose, **is theirs once the device has it** (it can arrive while the sheet is open), and the choice stays with it
+       * under its new key.
+       */
+      readonly aliases?: readonly string[];
     }
   | {
       readonly key: string;
@@ -88,13 +93,18 @@ export function buildOptions(input: {
       .slice(0, MINE_LIMIT)
       .map((place) => ({ place, distance: undefined }));
   }
-  for (const each of mine)
+  const aliases = new Map<string, string[]>();
+  for (const each of mine) {
+    const list: string[] = [];
+    aliases.set(each.place.id, list);
     out.push({
       key: `mine:${each.place.id}`,
       kind: 'mine',
       place: each.place,
       distance: each.distance,
+      aliases: list,
     });
+  }
 
   // The place search's, with what the person has already taken out: a place found that is one of theirs is theirs, listed above.
   const candidates = [...input.found, ...(input.reverse && query === '' ? [input.reverse] : [])];
@@ -102,7 +112,12 @@ export function buildOptions(input: {
   let foundCount = 0;
   for (const candidate of candidates) {
     if (foundCount >= FOUND_LIMIT) break;
-    if (seen.has(candidate.sourceId) || findSamePlace(candidate, places)) continue;
+    const same = findSamePlace(candidate, places);
+    if (same) {
+      aliases.get(same.id)?.push(`found:${candidate.sourceId}`);
+      continue;
+    }
+    if (seen.has(candidate.sourceId)) continue;
     seen.add(candidate.sourceId);
     foundCount++;
     out.push({
