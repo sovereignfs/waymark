@@ -11,6 +11,7 @@ import { removeFile } from '../media/files';
 import type { MediaDeps } from '../media/service';
 import type { Delivery } from '../notices/notices';
 import { getProfile } from '../profile/profile';
+import { SHARE_CHOICES, type ShareChoice } from '../sharing/rules';
 import { notifyMembers } from './notify';
 import { type TripStatus, statusOf } from './status';
 import {
@@ -66,6 +67,8 @@ export interface MemberView {
   readonly going: boolean;
   readonly joinedAt: number;
   readonly self: boolean;
+  /** **The caller's own choice only** (DESIGN.md §11.3): whether their check-ins on this trip are shared with its members. Never given for another member. */
+  readonly share?: ShareChoice;
 }
 
 export interface TripDeps {
@@ -239,9 +242,10 @@ export async function getTrip(
     role: string;
     going: boolean | number;
     joinedAt: number | string;
+    share: string;
   }>(
     deps.database,
-    sql`SELECT m.account_id AS "accountId", m.role AS role, m.going AS going, m.joined_at AS "joinedAt"
+    sql`SELECT m.account_id AS "accountId", m.role AS role, m.going AS going, m.joined_at AS "joinedAt", m.share_checkins AS share
         FROM ${tableOf(deps.database, 'trip_member')} m
         WHERE m.trip_id = ${tripId} AND m.left_at IS NULL
           AND ${memberOf(deps.database, sql`${tripId}`, accountId, MEMBERS)}
@@ -263,6 +267,10 @@ export async function getTrip(
       going: Boolean(member.going),
       joinedAt: Number(member.joinedAt),
       self,
+      // Another member's choice is theirs: it is not read into the answer at all.
+      ...(self && SHARE_CHOICES.includes(member.share as ShareChoice)
+        ? { share: member.share as ShareChoice }
+        : {}),
     });
   }
   return { trip, members: views };

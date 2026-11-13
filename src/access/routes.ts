@@ -46,6 +46,8 @@ export const ROUTES: RouteRule[] = [
   // The trips (DESIGN.md §20.9): the list, drawn on the device. One trip (§20.10) is the page at /t/<id>; what a person may see of it is decided by their role in the statements that fetch it (`/api/ops`), not by this page.
   { route: '/trips', page: { kind: 'account' } },
   { route: '/t/[id]', page: { kind: 'account' } },
+  // Trip Mode (DESIGN.md §14.2): a page of the trip's, drawn on the device; its screen is not built yet.
+  { route: '/t/[id]/today', page: { kind: 'account' } },
   // Settings (DESIGN.md §21): the profile, sign-in and data, for the signed-in account only.
   { route: '/settings', page: { kind: 'account' } },
 

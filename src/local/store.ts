@@ -31,6 +31,17 @@ type SettleTx = IDBPTransaction<
 
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+/** What a trip's screens read (`LocalStore.tripView`). */
+export interface TripData {
+  role: string;
+  sets: TripSets | undefined;
+  items: ItemRecord[];
+  days: DayRecord[];
+  shared: SharedCheckin[];
+  /** The items this account has marked done, with what is waiting in the outbox. */
+  done: Set<string>;
+}
+
 export class LocalStore {
   constructor(
     readonly db: LocalDb,
@@ -82,21 +93,7 @@ export class LocalStore {
    * What a trip's screens show (DESIGN.md §15.1): the trip's small sets, its items with the outbox laid over them, its days with their edited words, and the check-ins others have shared with it. Read in **one transaction** for the
    * reason `view` is. `me` is the account, who made what is in the outbox. `undefined` for a trip the device does not hold.
    */
-  async tripView(
-    tripId: string,
-    me: string,
-  ): Promise<
-    | {
-        role: string;
-        sets: TripSets | undefined;
-        items: ItemRecord[];
-        days: DayRecord[];
-        shared: SharedCheckin[];
-        /** The items this account has marked done, with what is waiting in the outbox. */
-        done: Set<string>;
-      }
-    | undefined
-  > {
+  async tripView(tripId: string, me: string): Promise<TripData | undefined> {
     const tx = this.db.transaction(['trips', 'tripItems', 'tripShared', 'outbox'], 'readonly');
     const [entry, items, shared, outbox] = await Promise.all([
       tx.objectStore('trips').get(tripId),

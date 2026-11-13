@@ -4,35 +4,11 @@ import { type FormEvent, useState } from 'react';
 import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
 import { useLocal } from '../local/LocalProvider';
 import type { Candidate } from '../places/providers';
-import { DEFAULT_COLOR, TRIP_COLORS, TRIP_NAME_MAX, type TripColor } from '../trips/format';
+import { DEFAULT_COLOR, TRIP_NAME_MAX, type TripColor } from '../trips/format';
 import styles from './Trips.module.css';
-import { DOT } from './trips';
+import { TripColorPicker } from './TripColorPicker';
+import { askOp as ask } from './ops';
 import { usePlaceSearch } from './usePlaceSearch';
-
-const COLOR_NAME: Readonly<Record<TripColor, string>> = {
-  accent: 'Accent',
-  info: 'Blue',
-  success: 'Green',
-  warning: 'Amber',
-  error: 'Red',
-  neutral: 'Grey',
-};
-
-/** Asks `/api/ops` for one operation. `undefined` when it could not be reached; the body otherwise (an operation that is refused is a `200` with its reason). */
-async function ask(body: unknown): Promise<{ ok: boolean; trip?: { id: string } } | undefined> {
-  try {
-    const reply = await fetch('/api/ops', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!reply.ok) return { ok: false };
-    return (await reply.json()) as { ok: boolean; trip?: { id: string } };
-  } catch {
-    return undefined;
-  }
-}
 
 /**
  * _New trip_ (DESIGN.md §20.9): a name, a colour and, if the person has one in mind, the first stop. **An online operation** (trips are the server's to decide, §15.7): it needs a connection and says so in a sentence when
@@ -117,25 +93,7 @@ export function NewTripDialog({ open, onClose }: { open: boolean; onClose: () =>
             />
           )}
         </FormField>
-        <div role="radiogroup" aria-label="Colour">
-          <ul className={styles.swatches}>
-            {TRIP_COLORS.map((each) => (
-              <li key={each}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={color === each}
-                  aria-label={COLOR_NAME[each]}
-                  title={COLOR_NAME[each]}
-                  className={styles.swatch}
-                  onClick={() => setColor(each)}
-                >
-                  <span className={styles.dot} style={{ background: DOT[each] }} aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <TripColorPicker value={color} onChange={setColor} />
         {stop ? (
           <div className={styles.chosen}>
             <span>

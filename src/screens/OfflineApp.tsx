@@ -9,6 +9,7 @@ import { HomeScreen } from './HomeScreen';
 import { MapScreen } from './MapScreen';
 import { PlacesView } from './PlacesView';
 import { SignedInArea } from './SignedInArea';
+import { TripPage, tripIdOf } from './TripPage';
 import { TripsView } from './TripsView';
 import { usePageLocation } from './useLocation';
 
@@ -26,6 +27,10 @@ function Screen() {
       return <PlacesView />;
     case 'trips':
       return <TripsView />;
+    case 'trip': {
+      const id = tripIdOf(path);
+      return id ? <TripPage id={id} /> : <TripsView />;
+    }
     case 'map':
       return <MapScreen />;
     default:

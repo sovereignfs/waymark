@@ -16,7 +16,7 @@ import { LIMITS, type Mutation } from '../sync/format';
 import { type Refused, type TripEntry, deleteLocal, openLocal } from './db';
 import { type Loop, browserEnv, startLoop } from './loop';
 import { requestPersistence } from './persist';
-import { LocalStore } from './store';
+import { LocalStore, type TripData } from './store';
 import { type SyncState, fetchTransport } from './sync';
 
 /**
@@ -31,6 +31,10 @@ export interface LocalContext {
   readonly checkins: readonly CheckinView[];
   /** The trips the account is in, as the device last had them (DESIGN.md §15.3): the streams the Trips screen and the sidebar are drawn from. */
   readonly trips: readonly TripEntry[];
+  /** Counts up whenever the store has been read again (a sync, a change of the outbox): a screen that reads a trip's rows asks again when it changes. */
+  readonly revision: number;
+  /** What a trip's screens show (`LocalStore.tripView`), read in one transaction; `undefined` for a trip the device does not hold. */
+  trip(tripId: string): Promise<TripData | undefined>;
   readonly state: SyncState | 'starting';
   /** What the server refused, with the reason in a sentence, kept until the person sends it again or discards it (Couldn't sync, §15.5). */
   readonly refused: readonly Refused[];
@@ -68,6 +72,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     checkins: [],
   });
   const [trips, setTrips] = useState<TripEntry[]>([]);
+  const [revision, setRevision] = useState(0);
   const [state, setState] = useState<SyncState | 'starting'>('starting');
   const [refused, setRefused] = useState<Refused[]>([]);
   const store = useRef<LocalStore | undefined>(undefined);
@@ -81,6 +86,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
     try {
       setRows(await current.view());
       setTrips(await current.trips());
+      setRevision((each) => each + 1);
       setRefused(await current.refused());
       setReady(true);
     } catch {
@@ -130,6 +136,10 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
       places: rows.places,
       checkins: rows.checkins,
       trips,
+      revision,
+      async trip(tripId) {
+        return store.current?.tripView(tripId, accountId);
+      },
       state,
       refused,
       async retry(mutationId) {
@@ -208,7 +218,7 @@ export function LocalProvider({ accountId, children }: { accountId: string; chil
         await deleteLocal(accountId);
       },
     }),
-    [accountId, ready, rows, trips, state, refused, read],
+    [accountId, ready, rows, trips, revision, state, refused, read],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

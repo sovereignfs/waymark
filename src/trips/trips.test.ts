@@ -9,6 +9,7 @@ import type { Database } from '../db/client';
 import { dbAll, dbGet } from '../db/exec';
 import { makeStore, testTarget } from '../db/test-support';
 import { createProfile } from '../profile/profile';
+import { setShareChoice } from '../sharing/choice';
 import { TripError } from './format';
 import {
   LimitReached,
@@ -111,6 +112,22 @@ describe(`making and reading a trip (${leg})`, () => {
         email: 'ada@example.com',
       }),
     ]);
+  });
+
+  it('gives each member only their own sharing choice, and it follows a change of it', async () => {
+    const trip = await createTrip(deps, ADA, { name: 'Choices' });
+    await join(trip.id, GRACE, 'traveler');
+    // Ada chooses; Grace has not.
+    await setShareChoice(deps, ADA, trip.id, 'on');
+    const asAda = (await getTrip(deps, ADA, trip.id))?.members ?? [];
+    expect(asAda.find((m) => m.accountId === ADA)?.share).toBe('on');
+    expect(asAda.find((m) => m.accountId === GRACE)).not.toHaveProperty('share');
+    // Grace sees her own, which is not Ada's, and not Ada's at all.
+    const asGrace = (await getTrip(deps, GRACE, trip.id))?.members ?? [];
+    expect(asGrace.find((m) => m.accountId === GRACE)?.share).toBe('ask');
+    expect(asGrace.find((m) => m.accountId === ADA)).not.toHaveProperty('share');
+    await setShareChoice(deps, GRACE, trip.id, 'off');
+    expect((await getTrip(deps, GRACE, trip.id))?.members.find((m) => m.self)?.share).toBe('off');
   });
 
   it('seals what a trip is called: the database holds neither the name nor the description', async () => {
