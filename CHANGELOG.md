@@ -8,6 +8,8 @@ Each release's section is also its GitHub release notes: the release workflow re
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-13
+
 The first release, and the whole of the app: check-ins, places, the map and Home; trips with a plan, people in three roles, invitations, sharing and files; Trip Mode with reminders, Web Push and a trip's map kept on the device; export and import of your own data; and signing in on its own or through a Sovereign instance. Importing from Swarm (Foursquare) is not in it. Web Push from a real push service, Directions on an iPhone and the directory against a real Sovereign core have not been tried yet.
 
 ### Added
@@ -93,4 +95,5 @@ The first release, and the whole of the app: check-ins, places, the map and Home
 
 - The page's policy allows no worker made from a `blob:` (`worker-src 'self'`): the map's worker is a file the app serves. A written security review of what this release contains, in three parts (`docs/security/`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
 
-[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.0.0...HEAD
+[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/sovereignfs/waymark/releases/tag/v0.1.0
