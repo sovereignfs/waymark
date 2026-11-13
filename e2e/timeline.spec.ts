@@ -182,6 +182,9 @@ test('a check-in opens beside the list on a wide screen and as a page on a narro
   // The back button goes back to the timeline with its filter.
   await page.goBack();
   await expect(page).toHaveURL(/\/checkins\?year=2025$/);
+  // The step back is finished (WebKit reports the address before the page is done, and a `goto` then interrupts it).
+  await page.waitForLoadState('load');
+  await expect(page.getByRole('list', { name: 'Check-ins' })).toBeVisible();
 
   // Narrow: the same address is a page of its own, with a way back.
   await page.setViewportSize({ width: 375, height: 812 });
