@@ -5,15 +5,16 @@ import { Badge, Button, ConfirmDialog, EmptyState, useToast } from '@sovereignfs
 import { deleteCheckin } from '../actions/checkins';
 import { useLocal } from '../local/LocalProvider';
 import { goTo, openCheckIn } from './checkin-location';
-import { PhotoImage } from './PhotoImage';
+import { CheckinTrip } from './CheckinTrip';
+import { PhotoGalleryOf } from './PhotoGalleryOf';
 import styles from './Timeline.module.css';
 import { carriedQuery, localDateOf, localTimeOf } from './timeline';
 import { usePageLocation } from './useLocation';
 
 /**
  * A check-in's page (DESIGN.md §9.4, §20.6): the place, the moment on the clock where it was made, the note, the photos, who was there, and **Edit** (the sheet, filled in) and **Delete** (asked about, and for good,
- * with its photos). Both work with no network: they are changes recorded on the device and sent when there is one. The trip link and sharing rows join with 9.7 and 10.3, and the place links to its page with 7.5.
- * The photo viewer is 17.6's: here the photos are shown as they are, from the device while they are only there.
+ * with its photos). Both work with no network: they are changes recorded on the device and sent when there is one. **The trip it is part of and who it is shared with** are `CheckinTrip`'s.
+ * The photos are the design system's gallery (`PhotoGalleryOf`): thumbnails that open a full-screen viewer, from the device while they are only there.
  */
 export function CheckinDetail({ id }: { id: string }) {
   const local = useLocal();
@@ -108,15 +109,8 @@ export function CheckinDetail({ id }: { id: string }) {
         {date}, {localTimeOf(checkin)} ({checkin.tz})
       </p>
       {checkin.note ? <p className={styles.note}>{checkin.note}</p> : null}
-      {photos.length > 0 ? (
-        <ul className={styles.photos} aria-label="Photos">
-          {photos.map((photo, index) => (
-            <li key={photo}>
-              <PhotoImage id={photo} alt={`Photo ${index + 1} of ${photos.length}`} />
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {photos.length > 0 ? <PhotoGalleryOf ids={photos} /> : null}
+      <CheckinTrip checkin={checkin} />
       {checkin.companions.length > 0 ? (
         <ul className={styles.chips} aria-label="With">
           {checkin.companions.map((name) => (

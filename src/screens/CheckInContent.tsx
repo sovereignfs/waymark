@@ -12,6 +12,7 @@ import {
   useToast,
 } from '@sovereignfs/ui';
 import type { CheckinView } from '../actions/types';
+import { autoLinkFor } from '../autolink/device';
 import { useLocal } from '../local/LocalProvider';
 import {
   type Option,
@@ -21,11 +22,13 @@ import {
   selectionOf,
   zoneOfSelection,
 } from './checkin-flow';
-import { POSITION_SENTENCES } from './checkin-flow';
+import { POSITION_SENTENCES, type Position } from './checkin-flow';
 import styles from './CheckIn.module.css';
 import { PhotoImage } from './PhotoImage';
+import { PointPicker } from './PointPicker';
 import { localDateOf, localTimeOf } from './timeline';
 import { usePlaceSearch } from './usePlaceSearch';
+import { useMapStyle } from './useMapStyle';
 import { usePosition } from './usePosition';
 
 /**
@@ -36,7 +39,7 @@ import { usePosition } from './usePosition';
  * are searched on the device; _Here_ is asked for when first used and left out, with a sentence, when it is refused; a place search that is off or out of reach says so; a new place can be made by name at the position, or a
  * point alone can be saved to be named later. _On the map_ is 17.1's, and is not offered until it exists.
  */
-type Way = 'here' | 'search';
+type Way = 'here' | 'search' | 'map';
 
 const metres = (m: number | undefined) =>
   m === undefined
@@ -72,7 +75,12 @@ export function CheckInContent({
   const [way, setWay] = useState<Way>('search');
   const [query, setQuery] = useState('');
   const here = !editing && position.status === 'granted' ? position.position : undefined;
-  const search = usePlaceSearch(way === 'search' && !editing ? query : '', here);
+  // _On the map_: a point the person chose, which the places on offer are near, as _Here_'s position is. Offered only where the server has a map.
+  const mapStyle = useMapStyle();
+  const canMap = !editing && mapStyle.status === 'on';
+  const [picked, setPicked] = useState<Position | undefined>(undefined);
+  const anchor = way === 'map' ? picked : here;
+  const search = usePlaceSearch(way === 'search' && !editing ? query : '', anchor);
   const [chosen, setChosen] = useState<string | undefined>(
     editing ? `mine:${editing.placeId}` : undefined,
   );
@@ -117,10 +125,10 @@ export function CheckInContent({
   const options = useMemo(() => {
     const built = buildOptions({
       places,
-      query: way === 'here' ? '' : query,
-      position: here,
+      query: way === 'search' ? query : '',
+      position: anchor,
       found: search.found,
-      reverse: way === 'here' ? search.reverse : undefined,
+      reverse: way === 'search' ? undefined : search.reverse,
     });
     if (!editing) return built;
     // Changing a check-in moves it among the person's own places, with the one it is at first.
@@ -132,7 +140,7 @@ export function CheckInContent({
           ...mine,
         ]
       : mine;
-  }, [places, query, way, here, search.found, search.reverse, editing]);
+  }, [places, query, way, anchor, search.found, search.reverse, editing]);
   const selected: Option | undefined = options.find((option) => option.key === chosen);
   const selection = selectionOf(selected, newName);
   const zone = selection ? zoneOfSelection(selection) : undefined;
@@ -157,6 +165,8 @@ export function CheckInContent({
       ids: { newId: () => crypto.randomUUID() },
       now: Date.now(),
       deviceZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      // The trip it falls into, decided here so that it shows at once with no network (the server decides again).
+      link: autoLinkFor(local.trips, local.places),
     };
     const plan = editing
       ? planEdit(
@@ -237,6 +247,7 @@ export function CheckInContent({
           options={[
             ...(canHere ? [{ value: 'here' as const, label: 'Here' }] : []),
             { value: 'search' as const, label: 'Search' },
+            ...(canMap ? [{ value: 'map' as const, label: 'On the map' }] : []),
           ]}
         />
       )}
@@ -262,6 +273,15 @@ export function CheckInContent({
             />
           )}
         </FormField>
+      ) : way === 'map' ? (
+        <PointPicker
+          value={picked}
+          start={here}
+          onPick={(point) => {
+            setPicked(point);
+            setChosen(undefined);
+          }}
+        />
       ) : position.status === 'asking' ? (
         <p className={styles.hint} role="status">
           Finding where you are…
@@ -276,9 +296,13 @@ export function CheckInContent({
               ? query.trim() === ''
                 ? 'Type a name to search.'
                 : 'Nothing found yet.'
-              : position.status === 'granted'
-                ? ''
-                : 'Choose Search, or allow your position.'}
+              : way === 'map'
+                ? picked
+                  ? ''
+                  : 'Choose a point on the map.'
+                : position.status === 'granted'
+                  ? ''
+                  : 'Choose Search, or allow your position.'}
           </p>
         ) : (
           <ul className={styles.options}>

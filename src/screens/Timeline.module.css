@@ -281,3 +281,47 @@
   vertical-align: middle;
   border-radius: var(--sv-radius-full);
 }
+
+/* A check-in's trip and its sharing (DESIGN.md §11.3, §12). */
+.trip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-3);
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.tripLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sv-space-2);
+  margin: 0;
+}
+
+.tripActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sv-space-3);
+}
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-3);
+  background: var(--sv-color-accent-subtle);
+  border-radius: var(--sv-radius-md);
+}
+
+.ask p {
+  margin: 0;
+}
+
+.muted {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}

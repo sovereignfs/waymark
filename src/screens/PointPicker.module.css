@@ -1,0 +1,14 @@
+/* The map a point is chosen on (DESIGN.md §20.5). */
+.picker {
+  position: relative;
+  height: 16rem;
+  overflow: hidden;
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-lg);
+}
+
+.note {
+  margin: 0;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}

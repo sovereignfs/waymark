@@ -6,7 +6,7 @@ import { goOffline, goOnline, mockPosition, signedIn } from './helpers';
 
 /**
  * Checking in (DESIGN.md §9.2, §20.5), in real browsers, on an instance whose place search is the fake of `src/places/fake.ts` (a few real places, answered as Nominatim answers, reaching nothing): each way of
- * checking in with the position mocked, offline with the position alone, another time on the place's clock, a refused position, photos and companions, and the keyboard alone. _On the map_ is 17.1's, and is not offered.
+ * checking in with the position mocked, offline with the position alone, another time on the place's clock, a refused position, photos and companions, and the keyboard alone.  _On the map_ chooses a point on the app's own map.
  */
 const ORIGIN = `http://localhost:${PORTS.app}`;
 const TOKYO = { latitude: 35.6586, longitude: 139.7454 }; // at Tokyo Tower, which the fake knows
@@ -305,6 +305,18 @@ test('a note, companions and photos: kept with the check-in, and the photos reac
   await expect
     .poll(async () => (await page.request.get(`/api/media/${made.photos?.[0]}`)).status())
     .toBe(200);
+
+  // On the check-in's page the photo is a thumbnail that opens the design system's viewer, which closes by Escape and gives the focus back.
+  await page.goto(`/c/${made.id}`);
+  const thumb = page.getByRole('button', { name: /Photo 1 of 1/ });
+  await expect(thumb).toBeVisible();
+  await thumb.click();
+  const viewer = page.getByRole('dialog', { name: 'Photos' });
+  await expect(viewer).toBeVisible();
+  await expect(viewer.locator('img').first()).toHaveAttribute('src', /\/api\/media\//);
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(thumb).toBeFocused();
 });
 
 test('the keyboard alone: C opens it, typing searches, Enter checks in', async ({ page }) => {
@@ -337,4 +349,43 @@ test('at a phone’s width the same way of checking in works in the drawer', asy
   await sheet(page).getByRole('button', { name: 'Check in' }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect.poll(() => checkinWith(page, note)).toBeDefined();
+});
+
+test('On the map: a point is chosen by a click, a place is named there, and the check-in is at the point', async ({
+  page,
+  context,
+}) => {
+  await signedIn(page);
+  // The map opens where the position is; the point chosen is the middle of it, which a click on the map's middle chooses.
+  await mockPosition(context, { latitude: 51.5, longitude: -0.12 });
+  await open(page, '/checkins');
+  const how = sheet(page).getByRole('radiogroup', { name: 'How to find the place' });
+  await expect(how.getByRole('radio', { name: 'On the map' })).toBeVisible();
+  await how.getByRole('radio', { name: 'On the map' }).click();
+  const map = sheet(page).getByRole('region', { name: 'Choose a point on the map' });
+  await expect(map).toBeVisible();
+  const box = (await map.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  // A new place there is offered (and any of the person's own places near it).
+  await expect(sheet(page).getByRole('radio', { name: /New place here/ })).toBeVisible();
+  await sheet(page)
+    .getByRole('radio', { name: /New place here/ })
+    .check();
+  const name = unique('Map Corner');
+  await sheet(page).getByLabel('Name of the new place').fill(name);
+  const note = unique('on the map');
+  await sheet(page).getByLabel('Note').fill(note);
+  await sheet(page).getByRole('button', { name: 'Check in' }).click();
+  await expect(sheet(page)).toHaveCount(0);
+  await expect
+    .poll(async () => (await server(page)).places.some((p) => p.name === name))
+    .toBe(true);
+  const made = (await server(page)).places.find((p) => p.name === name) as unknown as {
+    lat: number;
+    lng: number;
+  };
+  // The point chosen is where the map was centred (the person's position), to within what a click on a map's middle gives.
+  expect(Math.abs(made.lat - 51.5)).toBeLessThan(0.02);
+  expect(Math.abs(made.lng - -0.12)).toBeLessThan(0.02);
+  expect(await checkinWith(page, note)).toBeDefined();
 });
