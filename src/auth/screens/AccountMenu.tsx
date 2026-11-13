@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ConfirmDialog, UserMenu } from '@sovereignfs/ui';
 import { forgetIdentity } from '../../identity';
+import { forgetKeptMaps } from '../../sw/kept';
 import { useLocal } from '../../local/LocalProvider';
 import { authClient } from '../client';
 
@@ -47,6 +48,8 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
     }
     // The session is over, and so is this account's copy on the device.
     await local?.destroy().catch(() => undefined);
+    // The maps kept for trips are this account's too: they go with the rest (DESIGN.md §14.5, §15.8).
+    await forgetKeptMaps(local?.accountId);
     forgetIdentity();
     window.location.assign('/');
   }

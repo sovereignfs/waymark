@@ -101,7 +101,7 @@ export function TripPage({ id }: { id: string }) {
         )}
       />
       {view === 'overview' ? (
-        <TripOverview data={data} now={now} />
+        <TripOverview data={data} now={now} status={card.status} />
       ) : view === 'plan' ? (
         <PlanWithMap tripId={id} data={data} />
       ) : view === 'map' ? (

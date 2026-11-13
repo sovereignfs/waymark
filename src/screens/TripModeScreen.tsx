@@ -187,6 +187,14 @@ export function TripMode({ id }: { id: string }) {
       )
     : undefined;
 
+  // Opens where the day is, so that no tile of the whole world is asked for first (with no network the kept ones are the ones around the stops).
+  const first = map?.markers[0];
+  const start = first
+    ? { lat: first.lat, lng: first.lng }
+    : position.status === 'granted'
+      ? position.position
+      : undefined;
+
   const toggle = async (view: TodayItemView<ItemRecord>) => {
     const made = markDone(id, view.item.id, !data.done.has(view.item.id), actionContext());
     if (made.ok) await local.record(made.mutation);
@@ -210,6 +218,7 @@ export function TripMode({ id }: { id: string }) {
               selected: marker.id === (next ? `item:${next.item.id}` : ''),
             }))}
             {...(position.status === 'granted' ? { position: position.position } : {})}
+            {...(start ? { center: start, zoom: 13 } : {})}
             fitKey={`${current?.day.id ?? ''}:${map.markers.length}`}
             {...(map.line.length > 1 ? { line: map.line } : {})}
           />

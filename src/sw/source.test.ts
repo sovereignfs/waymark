@@ -21,7 +21,7 @@ type Listener = (event: Record<string, unknown>) => void;
 
 function load(version = 'v1', files: readonly string[] = FILES) {
   const stores = new Map<string, Map<string, Response>>();
-  const state = { online: true };
+  const state = { online: true, missing: new Set<string>() };
   const network = async (input: Request | string): Promise<Response> => {
     const request = typeof input === 'string' ? new Request(`${ORIGIN}${input}`) : input;
     if (!state.online) throw new TypeError('no network');
@@ -30,6 +30,10 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     if (/^\/(icons\/|manifest\.webmanifest|icon\.svg|favicon\.ico)/.test(path))
       return new Response('an icon');
     if (path.startsWith('/_next/static/')) return new Response('file');
+    if (path.startsWith('/api/map/')) {
+      if (state.missing.has(path)) return new Response(null, { status: 404 });
+      return new Response(`bytes of ${path}`);
+    }
     if (path.startsWith('/api/')) return new Response('{"name":"Ada","email":"ada@example.com"}');
     return new Response(`<html>Ada Lovelace, ada@example.com ${path}</html>`);
   };
@@ -42,6 +46,8 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     return {
       match: async (r: Request | string) => kept.get(keyOf(r))?.clone(),
       put: async (r: Request | string, response: Response) => void kept.set(keyOf(r), response),
+      keys: async () => [...kept.keys()].map((url) => new Request(url)),
+      delete: async (r: Request | string) => kept.delete(keyOf(r)),
       add: async (r: Request | string) => {
         const request = typeof r === 'string' ? new Request(`${ORIGIN}${r}`) : r;
         const response = await network(request);
@@ -116,11 +122,24 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     return response;
   }
 
+  /** A message from a page to the worker, with the port it answers on: what it said, in order. */
+  async function message(data: unknown) {
+    const said: Record<string, unknown>[] = [];
+    let waiting: Promise<unknown> = Promise.resolve();
+    listeners.message?.({
+      data,
+      ports: [{ postMessage: (m: Record<string, unknown>) => void said.push(m) }],
+      waitUntil: (p: Promise<unknown>) => (waiting = p),
+    });
+    await waiting;
+    return said;
+  }
+
   const kept = () =>
     [...stores.entries()].flatMap(([cache, store]) =>
       [...store.keys()].map((url) => ({ cache, path: new URL(url).pathname })),
     );
-  return { lifecycle, ask, kept, stores, state, self, listeners, shown, windows, opened };
+  return { lifecycle, ask, message, kept, stores, state, self, listeners, shown, windows, opened };
 }
 
 describe('the service worker', () => {
@@ -413,5 +432,139 @@ describe('the worker of a server that is not a production build', () => {
     expect(text).toContain('unregister');
     expect(text).not.toContain('cache.add');
     expect(text).toContain(CACHE_PREFIX);
+  });
+});
+
+/**
+ * A trip's map tiles (DESIGN.md §14.5): **the one public thing kept beyond the shell's allow-list.** A page names the files it wants kept; the worker keeps those that are the map's own, in a cache of its own, and answers the map's
+ * requests for them with no network. Nothing else is kept, whatever is asked.
+ */
+describe('a trip’s map tiles', () => {
+  const TILE = '/api/map/tiles/14/7776/6277';
+  const STYLE = '/api/map/style/light.json';
+  const GLYPHS = '/api/map/glyphs/Noto%20Sans%20Regular/0-255.pbf';
+
+  it('are kept when a page asks, and answered from the cache with no network', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    const said = await w.message({ type: 'keep-map', urls: [TILE, STYLE, GLYPHS] });
+    expect(said.at(-1)).toMatchObject({ done: true, kept: 3, failed: 0, total: 3 });
+    expect(
+      w
+        .kept()
+        .filter((k) => k.cache === 'waymark-tiles-v1')
+        .map((k) => k.path)
+        .sort(),
+    ).toEqual([GLYPHS, STYLE, TILE].sort());
+    w.state.online = false;
+    for (const path of [TILE, STYLE, GLYPHS]) {
+      const answer = await w.ask(path);
+      expect(answer?.status).toBe(200);
+      expect(await answer?.text()).toBe(`bytes of ${path}`);
+    }
+  });
+
+  it('are not kept just because the map asked: a tile that was not named goes to the network and is not stored', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    expect(await (await w.ask(TILE))?.text()).toBe(`bytes of ${TILE}`);
+    expect(w.kept().some((k) => k.path === TILE)).toBe(false);
+    // With no network and not kept: a gap, not an error page.
+    w.state.online = false;
+    expect((await w.ask(TILE))?.status).toBe(503);
+  });
+
+  it('are only the map’s own: any other address, another origin’s and a path that only looks like a tile are left out', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    const said = await w.message({
+      type: 'keep-map',
+      urls: [
+        '/api/notices',
+        '/api/settings',
+        '/api/media/abc',
+        'https://evil.example/api/map/tiles/1/1/1',
+        '//evil.example/api/map/tiles/1/1/1',
+        '/api/map/tiles/1/1/1/extra',
+        '/api/map/tiles/a/b/c',
+        '/api/map/style/other.json',
+        '/api/map/glyphs/../../etc/0-255.pbf',
+        `${TILE}?x=1`,
+        42,
+        null,
+        TILE,
+      ],
+    });
+    expect(said.at(-1)).toMatchObject({ kept: 1, total: 1 });
+    expect(
+      w
+        .kept()
+        .filter((k) => k.cache === 'waymark-tiles-v1')
+        .map((k) => k.path),
+    ).toEqual([TILE]);
+    // And the shell's allow-list is as it was: nothing of the map in it.
+    expect(
+      w
+        .kept()
+        .filter((k) => k.cache !== 'waymark-tiles-v1')
+        .every((k) => ALLOWED.test(k.path)),
+    ).toBe(true);
+  });
+
+  it('are kept up to a bound, and a file the server does not have is counted and not kept', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    w.state.missing.add('/api/map/tiles/14/1/1');
+    const said = await w.message({ type: 'keep-map', urls: [TILE, '/api/map/tiles/14/1/1'] });
+    expect(said.at(-1)).toMatchObject({ kept: 1, failed: 1, total: 2 });
+    // More addresses than one message may name are not taken past the limit.
+    const many = Array.from({ length: 1500 }, (_, i) => `/api/map/tiles/14/${i}/1`);
+    const bigger = await w.message({ type: 'keep-map', urls: many });
+    expect((bigger.at(-1) as { total: number }).total).toBe(1000);
+  });
+
+  it('are forgotten when a page says: some, or all', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    await w.message({ type: 'keep-map', urls: [TILE, STYLE, GLYPHS] });
+    await w.message({ type: 'drop-map', urls: [TILE, '/api/notices'] });
+    expect(
+      w
+        .kept()
+        .filter((k) => k.cache === 'waymark-tiles-v1')
+        .map((k) => k.path)
+        .sort(),
+    ).toEqual([GLYPHS, STYLE].sort());
+    await w.message({ type: 'drop-map' });
+    expect(w.kept().filter((k) => k.cache === 'waymark-tiles-v1')).toEqual([]);
+  });
+
+  it('say how many are kept and how big, and survive a new version of the worker', async () => {
+    const w = load('v1');
+    await w.lifecycle('install');
+    await w.message({ type: 'keep-map', urls: [TILE, STYLE] });
+    const status = await w.message({ type: 'map-status' });
+    expect(status.at(-1)).toMatchObject({ done: true, files: 2 });
+    expect((status.at(-1) as { bytes: number }).bytes).toBe(
+      `bytes of ${TILE}`.length + `bytes of ${STYLE}`.length,
+    );
+    // The shell's clean-up deletes the old shell caches by their prefix; the tiles' cache is not one of them.
+    await w.lifecycle('activate');
+    expect(w.kept().some((k) => k.cache === 'waymark-tiles-v1')).toBe(true);
+  });
+
+  it('ignore a message that is not one', async () => {
+    const w = load();
+    await w.lifecycle('install');
+    for (const data of [
+      null,
+      'x',
+      {},
+      { type: 7 },
+      { type: 'something-else' },
+      { type: 'keep-map', urls: 'not a list' },
+    ])
+      await w.message(data);
+    expect(w.kept().some((k) => k.cache === 'waymark-tiles-v1')).toBe(false);
   });
 });

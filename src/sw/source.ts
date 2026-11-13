@@ -9,7 +9,7 @@
  *
  * **With no network,** Home, Check-ins, a check-in, Map, Places and a place (`src/sw/addresses.ts`) are answered with the kept shell page, which carries the policy and the nonce it was sent
  * with (the headers are kept with the body, so the two agree), and which draws the screen from the device's own store (`OfflineApp`). Every other address is answered with a page the worker
- * builds itself, saying that it needs a connection. (A trip's map tiles, the one public thing kept beyond this list, are 13.5; Background Sync is 6.2.) It also shows a **push** (12.4) as a notification whose words it writes itself from the kind the push names, and opens the path the push names when it is tapped: a push carries nothing of a person's. A new
+ * builds itself, saying that it needs a connection. **A trip's map tiles** are the one public thing kept beyond this list (13.5, DESIGN.md §14.5): the page asks for the tiles around a trip's stops by a message, the worker fetches them and keeps them in a cache of their own, and answers the map's requests for them from it, with no network too. The map files are public (the same for everyone), only the ones the page named are kept, and **only** addresses of the map (`/api/map/tiles/…`, the style for a theme and a font's glyphs) are taken. (Background Sync is 6.2.) It also shows a **push** (12.4) as a notification whose words it writes itself from the kind the push names, and opens the path the push names when it is tapped: a push carries nothing of a person's. A new
  * version waits until the pages that use the old one are closed (no `skipWaiting`), so what is in flight and the outbox are not disturbed.
  */
 import { offlineAddressSources } from './addresses';
@@ -23,6 +23,13 @@ const PREFIX = ${JSON.stringify(CACHE_PREFIX)};
 /** The build's own files, which are kept when the worker installs: the allow-list of what a shell needs to start with no network. */
 const FILES_OF_THE_BUILD = ${JSON.stringify(files)};
 const BUILT = /^\\/_next\\/static\\//;
+/** A trip's map tiles: a cache of their own, which the shell's clean-up does not touch (its name has no shell prefix). The map's public files and nothing else. */
+const TILES = 'waymark-tiles-v1';
+const MAP_FILE = /^\\/api\\/map\\/(tiles\\/\\d{1,2}\\/\\d{1,7}\\/\\d{1,7}|style\\/(light|dark)\\.json|glyphs\\/[A-Za-z0-9%._ -]{1,64}\\/\\d{1,5}-\\d{1,5}\\.pbf)$/;
+/** The most map files the worker keeps, whatever it is asked: a trip asks for a few hundred. */
+const MAX_KEPT = 6000;
+/** The most addresses one message may name. */
+const MAX_ASKED = 1000;
 const FILES = /^\\/(icon\\.svg|favicon\\.ico|manifest\\.webmanifest|icons\\/[a-z0-9._-]+)$/;
 
 /** The addresses the kept shell answers when there is no network (the app's screens, which read the device's own store). */
@@ -75,7 +82,9 @@ self.addEventListener('fetch', (event) => {
   }
   if (BUILT.test(url.pathname) || FILES.test(url.pathname)) {
     event.respondWith(kept(event, request));
+    return;
   }
+  if (MAP_FILE.test(url.pathname)) event.respondWith(mapFile(request));
   // Anything else is not the worker's: it goes to the network as it would without one, and is never stored.
 });
 
@@ -124,6 +133,89 @@ self.addEventListener('notificationclick', (event) => {
       return self.clients.openWindow(self.location.origin + path);
     }),
   );
+});
+
+/** A map file the page named earlier: from the cache if it is there (with no network too), else from the network as it would be without a worker, and not kept. */
+async function mapFile(request) {
+  const cache = await caches.open(TILES);
+  const found = await cache.match(request);
+  if (found) return found;
+  try {
+    return await fetch(request);
+  } catch (error) {
+    // With no network and the file not kept: a map draws what it has, and a tile that is not there is a gap.
+    return new Response(null, { status: 503 });
+  }
+}
+
+/** The addresses in a message that are the map's own and are of this origin, once each. A path is all that is taken: a whole address, another origin's or any other file is left out. */
+function asked(urls) {
+  if (!Array.isArray(urls)) return [];
+  const out = [];
+  for (const each of urls.slice(0, MAX_ASKED)) {
+    if (typeof each === 'string' && MAP_FILE.test(each) && !out.includes(each)) out.push(each);
+  }
+  return out;
+}
+
+/** Fetches the files a page asked for and keeps those the network gave, a few at a time, up to the bound. Says what was kept and what was not. */
+async function keepMap(urls, port) {
+  const cache = await caches.open(TILES);
+  const wanted = asked(urls);
+  const have = (await cache.keys()).map((request) => new URL(request.url).pathname);
+  const fresh = wanted.filter((path) => !have.includes(path));
+  const room = Math.max(0, MAX_KEPT - have.length);
+  const take = fresh.slice(0, room);
+  let done = 0;
+  let failed = fresh.length - take.length;
+  for (let i = 0; i < take.length; i += 6) {
+    await Promise.all(
+      take.slice(i, i + 6).map(async (path) => {
+        try {
+          const response = await fetch(new Request(self.location.origin + path));
+          if (response.ok) {
+            await cache.put(new Request(self.location.origin + path), response);
+            done += 1;
+          } else failed += 1;
+        } catch (error) {
+          failed += 1;
+        }
+      }),
+    );
+    if (port) port.postMessage({ progress: Math.min(i + 6, take.length), total: take.length });
+  }
+  if (port) port.postMessage({ done: true, kept: wanted.length - failed, failed, total: wanted.length });
+}
+
+/** Forgets the files a page named, or all of them with none named: after a trip, and at sign-out. */
+async function dropMap(urls, port) {
+  if (urls === undefined || urls === null) await caches.delete(TILES);
+  else {
+    const cache = await caches.open(TILES);
+    for (const path of asked(urls)) await cache.delete(new Request(self.location.origin + path));
+  }
+  if (port) port.postMessage({ done: true });
+}
+
+/** How many map files are kept and how many bytes they are, for Settings. */
+async function mapStatus(port) {
+  const cache = await caches.open(TILES);
+  const requests = await cache.keys();
+  let bytes = 0;
+  for (const request of requests) {
+    const response = await cache.match(request);
+    if (response) bytes += (await response.clone().arrayBuffer()).byteLength;
+  }
+  if (port) port.postMessage({ done: true, files: requests.length, bytes });
+}
+
+self.addEventListener('message', (event) => {
+  const data = event.data;
+  const port = event.ports && event.ports[0];
+  if (!data || typeof data.type !== 'string') return;
+  if (data.type === 'keep-map') event.waitUntil(keepMap(data.urls, port));
+  else if (data.type === 'drop-map') event.waitUntil(dropMap(data.urls, port));
+  else if (data.type === 'map-status') event.waitUntil(mapStatus(port));
 });
 
 /** A built file or an icon: from the cache if it is there, else from the network and kept. They are the same for everyone. */

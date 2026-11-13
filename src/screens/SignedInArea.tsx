@@ -12,6 +12,7 @@ import { SidebarToggle } from '../ui/SidebarToggle';
 import { AppFrame } from './AppFrame';
 import { CheckInSheet } from './CheckInSheet';
 import { DrawerNavigation } from './AppSidebar';
+import { KeptMaps } from './KeptMaps';
 import { NoticeBell } from './NoticeBell';
 import { NoticesProvider } from './NoticesProvider';
 import { PhoneFooter } from './PhoneFooter';
@@ -43,6 +44,7 @@ export function SignedInArea({
   const area = (
     <MobileNavProvider>
       <RegisterWorker />
+      {accountId ? <KeptMaps /> : null}
       <AppShell
         name={site.name}
         toolbar={<SidebarToggle />}

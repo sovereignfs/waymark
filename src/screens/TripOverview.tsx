@@ -5,6 +5,8 @@ import { Button, Icon, Select, StepStrip, useToast } from '@sovereignfs/ui';
 import type { LinkView } from '../trips/links';
 import { MAX_LINKS } from '../trips/link-format';
 import { LinkDialog, RemoveLinkDialog } from './LinkDialogs';
+import { OfflineTrip } from './OfflineTrip';
+import type { TripStatus } from '../trips/status';
 import { isEditor } from './trip';
 import { journalOfTrip } from '../journal';
 import { useLocal } from '../local/LocalProvider';
@@ -50,7 +52,15 @@ export function nextSentence(next: NextThing): string {
  * The Overview (DESIGN.md §20.10): the stops in order with their dates (`StepStrip`), the trip's figures, the next thing for the reader, the links with Tally's first, and for a Traveler their choice about sharing check-ins
  * with the trip. Everything but the sharing choice reads the device. **The stops are not yet on a map:** the map waits for the app's own (7.4, 11.4), and the list of the same is here.
  */
-export function TripOverview({ data, now }: { data: TripData; now: number }) {
+export function TripOverview({
+  data,
+  now,
+  status,
+}: {
+  data: TripData;
+  now: number;
+  status: TripStatus;
+}) {
   const local = useLocal();
   const toast = useToast();
   const sets = data.sets;
@@ -160,6 +170,10 @@ export function TripOverview({ data, now }: { data: TripData; now: number }) {
         <h2>Next</h2>
         <p>{nextSentence(overview.next)}</p>
       </section>
+
+      {status === 'upcoming' || status === 'ongoing' ? (
+        <OfflineTrip tripId={sets.trip.id} stops={sets.stops} endDate={sets.trip.endDate} />
+      ) : null}
 
       <section aria-label="Links" className={styles.section}>
         <h2>Links</h2>
