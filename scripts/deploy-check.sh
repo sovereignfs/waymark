@@ -96,7 +96,11 @@ check_compose() {
   docker compose -p "$project" $files down >/dev/null 2>&1 || fail "$1: could not stop"
   up "$1 (again)"
   [ "$(database)" = "$3" ] || fail "$1: after a restart the database is '$(database)', not '$3'"
-  docker compose -p "$project" $files logs web 2>&1 | grep -q 'migrations applied' || fail "$1: the migrations were not reported as applied"
+  # The logs are read whole before they are searched: `logs | grep -q` ends the pipe at the first match, and with `pipefail` a producer that is still writing gets SIGPIPE and fails the
+  # pipeline although the line was found (the arm64 job failed this way, with the line in the log it printed next).
+  local logs
+  logs=$(docker compose -p "$project" $files logs web 2>&1) || fail "$1: could not read the logs"
+  case "$logs" in *'migrations applied'*) ;; *) fail "$1: the migrations were not reported as applied" ;; esac
 
   stop_and_check "$(docker compose -p "$project" $files ps -q web)" "$1"
   docker compose -p "$project" $files down -v --remove-orphans >/dev/null 2>&1 || true
