@@ -558,7 +558,7 @@ The trip's **Journal** (§20.10): each day, the plan beside what happened. Pure,
 - **Done:** an item whose place matches a check-in on that day by a going member (the same source id, or the same name within 50 metres, §7.1).
 - **Skipped:** an item with a place that nothing matched, once its day has passed.
 - **Found on the way:** a check-in on that day that matches no item.
-- **Placeless items** show as planned, never judged. An **untimed** item that has a place is judged like any other: the plan's time plays no part in a match, and most of what is planned has none (`judgeUntimed` in `src/journal/` is the switch if the other reading is wanted).
+- **Placeless items** show as planned, never judged. An **untimed** item that has a place is judged like any other: the plan's time plays no part in a match, and most of what is planned has none (the owner's decision; `judgeUntimed` in `src/journal/` is the switch if it is ever reversed).
 - A day reads as a sentence and a list: "5 planned, 3 done, 1 skipped, 2 found on the way", then the items and check-ins in time order, each with who
   checked in (initials) and their photos.
 - Figures for the whole trip on its overview: days, stops, places planned and visited, check-ins by everyone who shared.
