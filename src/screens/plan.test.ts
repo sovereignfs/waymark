@@ -10,6 +10,7 @@ import {
   daysOfStop,
   dropOf,
   nudgeOf,
+  selectedDay,
   selectedStop,
   tripPlaces,
 } from './plan';
@@ -177,6 +178,19 @@ describe('where a drop puts an item', () => {
       // The untimed item is shown where it was asked, except that the timed slots decide where they are.
       expect(shown, `index ${index}`).toBe(index);
     }
+  });
+});
+
+describe('the day a narrow screen shows', () => {
+  it('is the one asked for, else today’s in the stop’s own zone, else the first, and none for a stop with no days', () => {
+    const got = plan();
+    expect(selectedDay(got, 'd11')?.day.id).toBe('d11');
+    expect(selectedDay(got, 'd11', '2026-06-12')?.day.id).toBe('d11');
+    expect(selectedDay(got, null, '2026-06-11')?.day.id).toBe('d11');
+    // A day that is not this stop’s is not shown; today outside the stop is the first.
+    expect(selectedDay(got, 'e12', '2026-07-01')?.day.id).toBe('d10');
+    expect(selectedDay(got, undefined)?.day.id).toBe('d10');
+    expect(selectedDay([], 'd10', '2026-06-10')).toBeUndefined();
   });
 });
 

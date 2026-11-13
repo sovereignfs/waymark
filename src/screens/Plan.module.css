@@ -120,6 +120,7 @@
 
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sv-space-2);
   padding: var(--sv-space-2);
@@ -158,7 +159,7 @@
 
 .itemMain {
   display: flex;
-  flex: 1;
+  flex: 1 1 8rem;
   flex-direction: column;
   min-width: 0;
 }
@@ -182,6 +183,7 @@
 .itemActions {
   display: inline-flex;
   flex: none;
+  margin-left: auto;
 }
 
 .srOnly {
@@ -260,4 +262,53 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--sv-space-3);
+}
+
+/* The days, to choose one on a narrow screen (DESIGN.md §20.12). A wide screen draws every day in columns and has no use for them. */
+.dayStrip {
+  display: none;
+  gap: var(--sv-space-2);
+  padding-bottom: var(--sv-space-1);
+  overflow-x: auto;
+}
+
+.dayChip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sv-space-2);
+  min-height: 40px;
+  padding: 0 var(--sv-space-3);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  white-space: nowrap;
+  background: var(--sv-color-surface-raised);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-full);
+  cursor: pointer;
+}
+
+.dayChip[aria-pressed='true'] {
+  background: var(--sv-color-accent-subtle);
+  border-color: var(--sv-color-accent);
+}
+
+.dayChip:focus-visible {
+  outline: 2px solid var(--sv-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* **One day at a time, with the stops above** on a narrow screen: the same page and the same data at every width, and only what is drawn differs. The breakpoint is the design system's own (768px). */
+@media (max-width: 767px) {
+  .dayStrip {
+    display: flex;
+  }
+
+  .day[data-selected='false'] {
+    display: none;
+  }
+
+  .stopActions {
+    margin-left: 0;
+  }
 }

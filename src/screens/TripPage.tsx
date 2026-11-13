@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { EmptyState, NavTabs } from '@sovereignfs/ui';
+import { EmptyState, Icon, NavTabs } from '@sovereignfs/ui';
 import { goTo } from './checkin-location';
 import { TripHeader } from './TripHeader';
 import { FilesView } from './FilesView';
@@ -65,6 +65,10 @@ export function TripPage({ id }: { id: string }) {
 
   return (
     <div className={styles.page}>
+      {/* A way back to the list for a screen with no sidebar (the style shows it only there). */}
+      <Link href="/trips" className={styles.back}>
+        <Icon name="chevron-left" aria-hidden /> Trips
+      </Link>
       <TripHeader card={card} data={data} />
       <NavTabs
         aria-label="Views of the trip"

@@ -30,15 +30,23 @@ import {
   daysOfStop,
   dropOf,
   nudgeOf,
+  selectedDay,
   selectedStop,
   stopsInOrder,
   type PlanDay,
 } from './plan';
+import { localDate } from '../places/tz';
 import { actionContext } from './planContext';
 import styles from './Plan.module.css';
 import { isEditor } from './trip';
 import { datesText } from './trips';
 import { usePageLocation } from './useLocation';
+
+/** A day on its button: "Thu 12". */
+const dayShort = (date: string) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric' }).format(
+    new Date(`${date}T12:00:00Z`),
+  );
 
 const dateText = (date: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -147,6 +155,7 @@ function ItemRow({
 function DayColumn({
   plan,
   index,
+  selected,
   data,
   editable,
   onAdd,
@@ -157,6 +166,8 @@ function DayColumn({
 }: {
   plan: PlanDay;
   index: number;
+  /** The day a narrow screen shows; a wide one shows them all (the style decides, nothing here asks how wide the screen is). */
+  selected: boolean;
   data: TripData;
   editable: boolean;
   onAdd: () => void;
@@ -171,6 +182,7 @@ function DayColumn({
       className={styles.day}
       aria-label={`Day ${index + 1}, ${dateText(plan.day.date)}`}
       data-day={plan.day.id}
+      data-selected={selected}
     >
       <header className={styles.dayHead}>
         <div>
@@ -318,6 +330,15 @@ export function PlanView({ tripId, data }: { tripId: string; data: TripData }) {
     [stop, data.days, data.items],
   );
 
+  // On a narrow screen one day is drawn: the one asked for, else today's in the stop's own zone, else the first.
+  const current = stop
+    ? selectedDay(
+        plan,
+        new URLSearchParams(loc.search).get('day'),
+        localDate(Date.now(), stop.place.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
+      )
+    : undefined;
+
   const [adding, setAdding] = useState(false);
   const [dates, setDates] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -363,7 +384,7 @@ export function PlanView({ tripId, data }: { tripId: string; data: TripData }) {
       await local?.syncNow();
     }
   };
-  const choose = (id: string) => loc.setQuery({ stop: id });
+  const choose = (id: string) => loc.setQuery({ stop: id, day: undefined });
 
   const undated = ordered.filter((each) => each.arrive === null);
   const at = stop ? undated.findIndex((each) => each.id === stop.id) : -1;
@@ -462,12 +483,28 @@ export function PlanView({ tripId, data }: { tripId: string; data: TripData }) {
             />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+              {/* The days, to choose one on a narrow screen, where only that day is drawn (DESIGN.md §20.12); a wide screen draws them all and hides this. */}
+              <nav className={styles.dayStrip} aria-label="Days of the stop">
+                {plan.map((each) => (
+                  <button
+                    key={each.day.id}
+                    type="button"
+                    className={styles.dayChip}
+                    aria-pressed={each.day.id === current?.day.id}
+                    onClick={() => loc.setQuery({ day: each.day.id })}
+                  >
+                    <span>{dayShort(each.day.date)}</span>
+                    <span className={styles.muted}>{each.items.length}</span>
+                  </button>
+                ))}
+              </nav>
               <div className={styles.days}>
                 {plan.map((each, index) => (
                   <DayColumn
                     key={each.day.id}
                     plan={each}
                     index={index}
+                    selected={each.day.id === current?.day.id}
                     data={data}
                     editable={editable}
                     onAdd={() => setItem({ dayId: each.day.id })}

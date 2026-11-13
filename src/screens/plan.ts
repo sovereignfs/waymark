@@ -172,3 +172,19 @@ export function tripPlaces(
   for (const item of items) if (item.place) seen.set(item.place.id, item.place.name);
   return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/**
+ * The day a narrow screen shows (DESIGN.md §20.12): **one day at a time, with the stops above**. The one asked for (`?day=`) if it is a day of this stop; else **today's** if the stop has it (in the stop's own zone: `today` is given as a
+ * date); else the first. Every width has the same data and the same address; a wide screen draws every day and a narrow one only this.
+ */
+export function selectedDay(
+  plan: readonly PlanDay[],
+  asked: string | null | undefined,
+  today?: string,
+): PlanDay | undefined {
+  return (
+    plan.find((each) => each.day.id === asked) ??
+    (today ? plan.find((each) => each.day.date === today) : undefined) ??
+    plan[0]
+  );
+}

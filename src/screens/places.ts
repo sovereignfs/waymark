@@ -24,3 +24,13 @@ export const isUnder = (pathname: string, prefixes: readonly string[]) =>
   prefixes.some(
     (prefix) => pathname === prefix || (prefix !== '/' && pathname.startsWith(`${prefix}/`)),
   );
+
+/**
+ * Trips, for the phone's footer (DESIGN.md §20.12). **Not one of `PLACES`**: in the sidebar Trips is a section with the trips themselves under it, and the list is its heading; the footer has room for one button, and it goes to the list.
+ */
+export const TRIPS_PLACE: Place = {
+  href: '/trips',
+  label: 'Trips',
+  icon: 'luggage',
+  under: ['/trips', '/t'],
+};
