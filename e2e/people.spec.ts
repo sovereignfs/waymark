@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { PORTS } from './ports';
-import { signedIn } from './helpers';
+import { signedIn, trySignIn } from './helpers';
 
 /**
  * A trip's People (DESIGN.md §11, §20.10), in real browsers: an Organizer sees who is in the trip and what they may do about each, makes invitations (a link with its QR code, an address) and withdraws them; and **an invitation made
@@ -131,13 +131,22 @@ test('an invitation made here is accepted in a second browser, and the new membe
   browser,
 }) => {
   const origin = `http://localhost:${PORTS.invite}`;
+  // An address of this run's own: the instance keeps its accounts between the two browsers.
+  const graceEmail = `grace-${randomUUID().slice(0, 6)}@example.com`;
   const owner = await person(browser);
   const guest = await person(browser);
   const stranger = await person(browser);
   try {
-    // The first account is made with no invitation; sign-up is then not offered to someone with none.
+    // The first account is made with no invitation; sign-up is then not offered to someone with none. The instance keeps its accounts between the two browsers, so the second browser's run finds Ada there and signs in.
     await owner.page.goto('/sign-up');
-    await signUp(owner.page, 'Ada', 'ada@example.com');
+    const first = owner.page.getByLabel('Name');
+    const closed = owner.page.getByRole('heading', { name: 'Sign-up is closed' });
+    await expect(first.or(closed)).toBeVisible();
+    if (await first.isVisible()) {
+      await signUp(owner.page, 'Ada', 'ada@example.com');
+    } else {
+      await trySignIn(owner.page, 'ada@example.com', PASSWORD);
+    }
     await expect(owner.page.getByRole('button', { name: 'User menu' })).toBeVisible();
     await stranger.page.goto('/sign-up');
     await expect(stranger.page.getByRole('heading', { name: 'Sign-up is closed' })).toBeVisible();
@@ -165,7 +174,7 @@ test('an invitation made here is accepted in a second browser, and the new membe
     // They create an account from it (sign-up is by invitation here), and come back to it to join.
     await guest.page.getByRole('link', { name: 'create an account' }).click();
     await expect(guest.page).toHaveURL(/\/sign-up\?invite=/);
-    await signUp(guest.page, 'Grace', 'grace@example.com');
+    await signUp(guest.page, 'Grace', graceEmail);
     await expect(guest.page).toHaveURL(new RegExp(`${invitePath}$`));
     await guest.page.getByRole('button', { name: 'Join the trip' }).click();
     await expect(guest.page).toHaveURL(new RegExp(`/t/${trip.id}$`));
@@ -181,7 +190,7 @@ test('an invitation made here is accepted in a second browser, and the new membe
       'No one is waiting',
     );
     // An Organizer sees an address; the Traveler does not see one of the Organizer.
-    await expect(grace).toContainText('grace@example.com');
+    await expect(grace).toContainText(graceEmail);
     await guest.page.goto(`/t/${trip.id}?view=people`);
     await expect(guest.page.getByRole('list', { name: 'Members' })).toContainText('Ada');
     await expect(guest.page.getByRole('list', { name: 'Members' })).not.toContainText(

@@ -9,6 +9,7 @@ import { signedIn, watchOrigin } from './helpers';
 test.use({ viewport: { width: 1280, height: 900 }, actionTimeout: 15_000 });
 expect.configure({ timeout: 20_000 });
 
+// The names are ones the place search never offers (`scripts/fake-places.mjs`), so that another test that looks for a place by its name does not find these, which are in the same account.
 const tag = randomUUID().slice(0, 6);
 type Seeded = {
   id: string;
@@ -21,7 +22,7 @@ type Seeded = {
 const PLACES: [Seeded, Seeded, Seeded] = [
   {
     id: `mp-lisbon-${tag}`,
-    name: `Lisbon Café ${tag}`,
+    name: `Alfama Café ${tag}`,
     lat: 38.72,
     lng: -9.14,
     countryCode: 'PT',
@@ -29,7 +30,7 @@ const PLACES: [Seeded, Seeded, Seeded] = [
   },
   {
     id: `mp-tokyo-${tag}`,
-    name: `Tokyo Tower ${tag}`,
+    name: `Shiba Tower ${tag}`,
     lat: 35.66,
     lng: 139.75,
     countryCode: 'JP',
@@ -37,7 +38,7 @@ const PLACES: [Seeded, Seeded, Seeded] = [
   },
   {
     id: `mp-lima-${tag}`,
-    name: `Lima Plaza ${tag}`,
+    name: `Miraflores Plaza ${tag}`,
     lat: -12.05,
     lng: -77.04,
     countryCode: 'PE',
@@ -113,7 +114,7 @@ test('the places are markers and a list, the filters narrow both, and a place ch
   const mine = list.getByRole('button').filter({ hasText: tag });
   await expect(mine).toHaveCount(3);
   // Most visited first: Lisbon has three.
-  await expect(mine.first()).toContainText('Lisbon Café');
+  await expect(mine.first()).toContainText('Alfama Café');
   await expect(mine.first()).toContainText('3 visits');
 
   // The markers are the places, each once, saying how often: three far apart are three buttons.
@@ -128,13 +129,13 @@ test('the places are markers and a list, the filters narrow both, and a place ch
     );
   await expect.poll(async () => (await markerLabels()).length).toBe(3);
   const labels = await markerLabels();
-  expect(labels).toContain(`Lisbon Café ${tag}, 3 visits`);
-  expect(labels).toContain(`Tokyo Tower ${tag}, 1 visit`);
+  expect(labels).toContain(`Alfama Café ${tag}, 3 visits`);
+  expect(labels).toContain(`Shiba Tower ${tag}, 1 visit`);
 
   // Choosing a row chooses the place: its visits, its first and last, and a way to open it.
   await mine.first().click();
   const chosen = page.getByRole('region', { name: 'The place chosen' });
-  await expect(chosen).toContainText(`Lisbon Café ${tag}`);
+  await expect(chosen).toContainText(`Alfama Café ${tag}`);
   await expect(chosen).toContainText("You've been here 3 times");
   await expect(chosen.getByRole('link', { name: 'Open the place' })).toHaveAttribute(
     'href',
@@ -149,12 +150,12 @@ test('the places are markers and a list, the filters narrow both, and a place ch
   await page.getByLabel('Country').selectOption('JP');
   await expect(page).toHaveURL(/country=JP/);
   await expect(mine).toHaveCount(1);
-  await expect(mine.first()).toContainText('Tokyo Tower');
+  await expect(mine.first()).toContainText('Shiba Tower');
   await expect.poll(async () => (await markerLabels()).length).toBe(1);
   await page.getByLabel('Country').selectOption('');
   await page.getByLabel('Year').selectOption('2025');
   await expect(mine).toHaveCount(2);
-  await expect(list.getByRole('button').filter({ hasText: `Lisbon Café ${tag}` })).toContainText(
+  await expect(list.getByRole('button').filter({ hasText: `Alfama Café ${tag}` })).toContainText(
     '1 visit',
   );
 

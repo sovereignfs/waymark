@@ -38,12 +38,16 @@ test('a check-in on a trip’s day falls into it, is unlinked and linked by hand
   context,
 }) => {
   await signedIn(page);
+  // Somewhere near London, a point of this run's own: the account is shared with every other test of the run (and with the other browser's run of this one), whose trips are on the same days, and the one with the
+  // nearest stop is the one a check-in falls into (stops within a kilometre of each other do not decide, DESIGN.md §12), so this run's stop is a kilometre or more from the others'.
+  const latitude = 51 + Math.floor(Math.random() * 100_000) / 100_000;
+  const longitude = -0.5 + Math.floor(Math.random() * 100_000) / 100_000;
   const name = `Link ${randomUUID().slice(0, 6)}`;
   const { trip } = await op(page, { op: 'trip.create', name });
   await op(page, {
     op: 'stop.add',
     tripId: trip?.id,
-    place: { name: 'London', lat: 51.5, lng: -0.12, tz: 'Europe/London', source: 'manual' },
+    place: { name: 'London', lat: latitude, lng: longitude, tz: 'Europe/London', source: 'manual' },
     arrive: day(-1),
     depart: day(1),
   });
@@ -51,7 +55,7 @@ test('a check-in on a trip’s day falls into it, is unlinked and linked by hand
   await page.goto('/trips');
   await expect(page.locator(`[data-trip="${trip?.id}"]`)).toBeVisible();
 
-  await mockPosition(context, { latitude: 51.5, longitude: -0.12 });
+  await mockPosition(context, { latitude, longitude });
   await page.goto('/checkins?checkin=new');
   const sheet = page.getByRole('dialog', { name: 'Check in' });
   await expect(sheet).toBeVisible();

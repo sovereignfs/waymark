@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { PORTS } from './ports';
-import { signedIn } from './helpers';
+import { mockClock, signedIn } from './helpers';
 
 /**
  * Home (DESIGN.md §20.4), in real browsers: a new person sees two empty states side by side; someone with check-ins and a trip sees _Now_ (Check in, large), _Next trip_, _Recently_ (the last ten, as links) and the year's
@@ -10,8 +10,12 @@ import { signedIn } from './helpers';
 test.use({ viewport: { width: 1280, height: 900 }, actionTimeout: 15_000 });
 expect.configure({ timeout: 20_000 });
 
+// The second test's day is one nothing else in the account is on, and not on again by the other browser's run of it: the other tests make trips around the real today, and Home shows an ongoing trip in place of
+// _Check in_, and the next trip is the earliest. A spring or summer day of some year in the 2030s, so that a trip a few weeks on, and the seed a day on, stay in the same year.
+const pick = (from: number, count: number) => from + Math.floor(Math.random() * count);
+const TODAY = new Date(Date.UTC(pick(2030, 10), pick(2, 7), pick(1, 28), 10)).toISOString();
 const day = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  new Date(Date.parse(TODAY) + offset * 86_400_000).toISOString().slice(0, 10);
 
 test('a new person sees Check in where you are and Plan a trip, side by side, with Import from Swarm under the first', async ({
   browser,
@@ -75,8 +79,8 @@ async function seed(page: Page, tag: string) {
   const checkins = Array.from({ length: 12 }, (_, i) => ({
     id: `hc${i}-${tag}`,
     placeId: places[i % 2]?.id,
-    // Newer than anything another test made on this shared account (a day ahead, one minute apart): this is a seed, and Home shows the newest ten.
-    at: Date.now() + 86_400_000 + (12 - i) * 60_000,
+    // Newer than anything another test made on this shared account (a day ahead of the test's clock, one minute apart): this is a seed, and Home shows the newest ten.
+    at: Date.parse(TODAY) + 86_400_000 + (12 - i) * 60_000,
     tz: 'UTC',
     offsetMin: 0,
     companions: [],
@@ -121,6 +125,7 @@ test('with check-ins and a trip: Now, Next trip, Recently (the last ten) and the
   page,
 }) => {
   await signedIn(page);
+  await mockClock(page, TODAY);
   const tag = randomUUID().slice(0, 6);
   // A trip that is ready and starts in a few weeks.
   const origin = `http://localhost:${PORTS.app}`;

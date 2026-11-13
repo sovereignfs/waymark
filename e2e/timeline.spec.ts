@@ -249,8 +249,8 @@ test('editing a check-in with the network off changes it at once, and the server
   await expect(sheet.getByLabel('Note')).toHaveValue(note);
   const changed = `${note} changed`;
   await sheet.getByLabel('Note').fill(changed);
+  // The name is taken when the field is left (the Save button's press leaves it); Enter here was a second way to the same thing, and in one browser it was also a way to submit the form before Save was pressed.
   await sheet.getByLabel('With…').fill('Ada');
-  await page.keyboard.press('Enter');
   await sheet.getByRole('button', { name: 'Save' }).click();
   await expect(sheet).toHaveCount(0);
   await expect(page.getByRole('article', { name: 'Check-in' }).getByText(changed)).toBeVisible();
