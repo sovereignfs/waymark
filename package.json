@@ -31,7 +31,9 @@
     "e2e": "playwright test",
     "e2e:fast": "node scripts/e2e-shard.mjs --all",
     "manifest:check": "sovereign-manifest check",
-    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts"
+    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm manifest:check",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "~1.7.16",
@@ -62,6 +64,7 @@
     "@eslint/js": "^10.0.1",
     "@maplibre/maplibre-gl-style-spec": "^26.5.1",
     "@playwright/test": "1.64.1",
+    "@sovereignfs/create": "0.14.0",
     "@sovereignfs/manifest": "^0.1.0",
     "@types/node": "^24.19.2",
     "@types/nodemailer": "8.0.2",
@@ -83,5 +86,13 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0"
+  },
+  "sovereign": {
+    "tagPrefix": "",
+    "requiredChecks": [
+      "what changed",
+      "format, lint, type-check, test and build"
+    ],
+    "unmanaged": []
   }
 }

@@ -27,9 +27,7 @@ expect() {
 NONE="code=false scripts=false image=false"
 CODE="code=true scripts=false image=false"
 IMAGE="code=true scripts=false image=true"
-SCRIPTS="code=false scripts=true image=false"
 ALL="code=true scripts=true image=true"
-BOTH="code=true scripts=true image=false"
 
 printf '\nchanges that need nothing\n'
 expect "no changes at all" "$NONE"
@@ -54,12 +52,8 @@ expect "the README, which a test reads" "$CODE" README.md
 expect "a document and a source file together" "$CODE" CHANGELOG.md src/today/index.ts
 expect "an unknown kind of file" "$CODE" something/new.thing
 
-printf '\nchanges that need only the script checks\n'
-expect "a release script" "$SCRIPTS" scripts/release.sh
-expect "the release library" "$SCRIPTS" scripts/lib/release.sh
-expect "a release file" "$SCRIPTS" scripts/release/waymark.sh
-expect "the release tests" "$SCRIPTS" scripts/test-release.sh
-expect "other scripts are the app's" "$CODE" scripts/seed-run.mjs
+printf '\nscripts that are the app'"'"'s\n'
+expect "a script the app runs" "$CODE" scripts/seed-run.mjs
 
 printf '\nchanges that need the image too\n'
 expect "the lockfile" "$IMAGE" pnpm-lock.yaml
@@ -79,9 +73,6 @@ printf '\nthe classifier itself\n'
 expect "changing the classifier runs everything" "$ALL" scripts/ci-changes.sh
 expect "changing its tests runs everything" "$ALL" scripts/test-ci-changes.sh
 
-printf '\nboth kinds at once\n'
-expect "a source file and a release script" "$BOTH" src/today/index.ts scripts/release.sh
-expect "a document and a release script" "$SCRIPTS" ROADMAP.md scripts/release.sh
 
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]

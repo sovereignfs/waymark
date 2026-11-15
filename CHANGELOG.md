@@ -3,10 +3,8 @@
 All notable changes to Waymark are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-Each release's section is also its GitHub release notes: the release workflow reads this file when a release is cut. Write the notes under
-`## [Unreleased]` as you go; a release turns them into the version's section.
-
-## [Unreleased]
+Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
+titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
 ## [0.1.0] - 2026-11-13
 
@@ -95,5 +93,4 @@ The first release, and the whole of the app: check-ins, places, the map and Home
 
 - The page's policy allows no worker made from a `blob:` (`worker-src 'self'`): the map's worker is a file the app serves. A written security review of what this release contains, in three parts (`docs/security/`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
 
-[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/sovereignfs/waymark/releases/tag/v0.1.0

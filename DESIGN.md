@@ -1167,7 +1167,7 @@ docker run -v waymark:/data -e WAYMARK_DB_DIALECT=sqlite -e WAYMARK_SQLITE_URL=f
 - **Hosted:** `sv app add waymark`, from the manifest; the operator grants the three app scopes, sets `WAYMARK_SMTP_*` to email people not on the instance and
   `WAYMARK_AUTH_LOCAL=1` to let them make an account, and chooses the map source.
 - **A PMTiles file** is the operator's to place under `/data/map`; the README says where to get one (Protomaps' builds) and how large a region is.
-- **Releases** as Tusk's: `scripts/release.sh`, a `vX.Y.Z` tag publishes amd64 and arm64 to `ghcr.io`; a patch has no migration.
+- **Releases** as every app's: a promotion titled `Release vX.Y.Z` tags and publishes amd64 and arm64 to `ghcr.io` on merge (`RELEASING.md`); a patch has no migration.
 - `/api/health` answers `200` once the database is ready and `/data` is writable.
 
 ### Testing
