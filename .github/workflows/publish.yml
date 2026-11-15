@@ -1,6 +1,7 @@
 name: Publish
 
-# A `vX.Y.Z` tag, pushed by scripts/release.sh once the release PR has merged and CI is green on the merged commit (RELEASING.md), starts this. It checks that the
+# Called by .github/workflows/release.yml with the tag a merged `Release vX.Y.Z` promotion made (RELEASING.md), or started by a `vX.Y.Z` tag
+# pushed by hand. It checks that the
 # app still builds at the tag, builds the image (the Dockerfile) for linux/amd64 and linux/arm64 on a runner of each kind, publishes it to GitHub's container
 # registry as ghcr.io/<owner>/waymark:X.Y.Z (and :X.Y, and :latest) with a signed build-provenance attestation, brings the published image up as an operator would and
 # as a Sovereign instance would host it (scripts/deploy-check.sh), and only then publishes a GitHub release whose notes are the version's section of CHANGELOG.md
@@ -14,6 +15,12 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag to publish, such as v1.2.0; it exists already, on the promotion's merge commit.
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -32,14 +39,19 @@ jobs:
       publish: ${{ steps.version.outputs.publish }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
 
       # A tag must name the version in package.json. A manual run has no tag: it uses the version as it is, and publishes nothing.
       - name: The tag must name the version in package.json
         id: version
+        env:
+          # The tag the release workflow passed, or the one this run was started by; empty for a manual run.
+          TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name || '') }}
         run: |
           declared="$(jq -r .version package.json)"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then
-            version="${GITHUB_REF_NAME#v}"
+          if [ -n "$TAG" ]; then
+            version="${TAG#v}"
             if [ "$version" != "$declared" ]; then
               echo "::error::the tag says $version but package.json says $declared"
               exit 1
@@ -83,6 +95,8 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -161,6 +175,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -235,9 +251,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
 
       # The version's section of the changelog: from its heading to the next heading or to the link references at the foot of the file. The same rule as
-      # scripts/lib/release.sh's section_body.
+      # `npm create @sovereignfs app release notes`, which the promotion check uses.
       - name: Take the release notes from the changelog
         env:
           VERSION: ${{ needs.check.outputs.version }}
@@ -260,7 +278,7 @@ jobs:
             echo '```'
             echo
             echo "For linux/amd64 and linux/arm64. Its build provenance is attested: \`gh attestation verify oci://$IMAGE:$VERSION --owner ${{ github.repository_owner }}\`."
-            echo "Upgrading is in [deploy/README.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/deploy/README.md#updating)."
+            echo "Upgrading is in [deploy/README.md](https://github.com/${{ github.repository }}/blob/v${VERSION}/deploy/README.md#updating)."
           } >>"$RUNNER_TEMP/notes.md"
 
       # The title is the name and the version, with no date, as for every release here (RELEASING.md).
@@ -269,7 +287,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.check.outputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "v$VERSION" \
             --title "waymark $VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             --verify-tag \
