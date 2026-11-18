@@ -3,6 +3,8 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # Work lands on `develop`; `main` changes only by promotion (CONTRIBUTING.md).
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
@@ -23,10 +25,14 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    # Work lands on `develop`; `main` changes only by promotion (CONTRIBUTING.md).
+    target-branch: develop
     schedule:
       interval: monthly
 
   - package-ecosystem: docker
     directory: /
+    # Work lands on `develop`; `main` changes only by promotion (CONTRIBUTING.md).
+    target-branch: develop
     schedule:
       interval: monthly
