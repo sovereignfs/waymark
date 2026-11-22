@@ -1,5 +1,6 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
+import { TAKE_OVER_MESSAGE } from '@sovereignfs/pwa';
 import { CACHE_PREFIX, inertWorkerSource, workerSource } from './source';
 
 /**
@@ -21,8 +22,11 @@ type Listener = (event: Record<string, unknown>) => void;
 
 function load(version = 'v1', files: readonly string[] = FILES) {
   const stores = new Map<string, Map<string, Response>>();
-  const state = { online: true, missing: new Set<string>() };
-  const network = async (input: Request | string): Promise<Response> => {
+  const state = { online: true, missing: new Set<string>(), tookOver: false };
+  /** What a browser's fetch gives for a same-origin request: a response of type `basic`, which is the only kind the worker keeps. */
+  const network = async (input: Request | string): Promise<Response> =>
+    Object.defineProperty(await answer(input), 'type', { value: 'basic' });
+  const answer = async (input: Request | string): Promise<Response> => {
     const request = typeof input === 'string' ? new Request(`${ORIGIN}${input}`) : input;
     if (!state.online) throw new TypeError('no network');
     const path = new URL(request.url).pathname;
@@ -37,8 +41,8 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     if (path.startsWith('/api/')) return new Response('{"name":"Ada","email":"ada@example.com"}');
     return new Response(`<html>Ada Lovelace, ada@example.com ${path}</html>`);
   };
-  const keyOf = (r: Request | string) =>
-    (typeof r === 'string' ? new Request(`${ORIGIN}${r}`) : r).url;
+  // The worker names what it keeps by its whole address (`self.location.origin + path`) or by its request.
+  const keyOf = (r: Request | string) => (typeof r === 'string' ? new URL(r, ORIGIN).href : r.url);
   const cacheOf = (name: string) => {
     let store = stores.get(name);
     if (!store) stores.set(name, (store = new Map()));
@@ -56,6 +60,8 @@ function load(version = 'v1', files: readonly string[] = FILES) {
       },
     };
   };
+  // The package's worker and Waymark's additions may each listen for the same event (`fetch`, `message`): every listener of a type hears it, as in a browser.
+  const every: Record<string, Listener[]> = {};
   const listeners: Record<string, Listener> = {};
   const shown: { title: string; options: Record<string, unknown> }[] = [];
   const windows: { url: string; navigated?: string; focused?: boolean }[] = [];
@@ -77,9 +83,15 @@ function load(version = 'v1', files: readonly string[] = FILES) {
           focus: async () => void (each.focused = true),
         })),
       openWindow: async (url: string) => void opened.push(url),
+      claim: async () => undefined,
     },
-    addEventListener: (type: string, listener: Listener) => (listeners[type] = listener),
-    skipWaitingCalled: false,
+    addEventListener: (type: string, listener: Listener) => {
+      (every[type] ??= []).push(listener);
+      listeners[type] = (event) => {
+        for (const each of every[type] ?? []) each(event);
+      };
+    },
+    skipWaiting: () => void (state.tookOver = true),
   };
   const context = vm.createContext({
     self,
@@ -91,7 +103,11 @@ function load(version = 'v1', files: readonly string[] = FILES) {
     fetch: (input: Request) => network(input),
     Request,
     Response,
+    Headers,
     URL,
+    AbortController,
+    setTimeout,
+    clearTimeout,
     TypeError,
   });
   vm.runInContext(workerSource(version, files), context);
@@ -210,7 +226,7 @@ describe('the service worker', () => {
     expect(await worker.ask('/c/abc')).toBeUndefined();
   });
 
-  it('answers a page from the network as it would without a worker, and with none, says that it needs a connection', async () => {
+  it('answers a page from the network as it would without a worker, and with none, answers the shell, which says it needs a connection', async () => {
     const worker = load();
     await worker.lifecycle('install');
     const online = await worker.ask('/settings', { mode: 'navigate' });
@@ -218,11 +234,9 @@ describe('the service worker', () => {
     worker.state.online = false;
     const offline = await worker.ask('/settings', { mode: 'navigate' });
     const body = (await offline?.text()) ?? '';
-    expect(body).toContain('This needs a connection');
-    // The page it builds says nothing of anyone, and allows no script.
+    // The shell (`OfflineApp` says the address needs a connection), the same for everyone: nothing of anyone.
+    expect(body).toBe('<html>the shell, for everyone</html>');
     expect(body).not.toContain('Ada');
-    expect(offline?.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(offline?.headers.get('cache-control')).toBe('no-store');
     // And it kept none of what it was asked for.
     expect(worker.kept().some((each) => each.path === '/settings')).toBe(false);
   });
@@ -247,7 +261,7 @@ describe('the service worker', () => {
     expect(worker.kept().every((each) => ALLOWED.test(each.path))).toBe(true);
   });
 
-  it('with no network, answers every other address with the page that needs a connection, never the shell', async () => {
+  it('with no network, answers every other address with the shell too, which says it needs a connection (`OfflineApp`)', async () => {
     const worker = load();
     await worker.lifecycle('install');
     worker.state.online = false;
@@ -265,16 +279,19 @@ describe('the service worker', () => {
     ]) {
       const answer = await worker.ask(path, { mode: 'navigate' });
       const body = (await answer?.text()) ?? '';
-      expect(body, path).toContain('This needs a connection');
-      expect(body, path).not.toContain('the shell');
+      expect(body, path).toBe('<html>the shell, for everyone</html>');
     }
   });
 
-  it('with no network and no shell kept, still says that it needs a connection', async () => {
+  it('with no network and no shell kept, says it is offline, in the suite’s page, with no script', async () => {
     const worker = load();
     worker.state.online = false;
     const answer = await worker.ask('/checkins', { mode: 'navigate' });
-    expect(await answer?.text()).toContain('This needs a connection');
+    const body = (await answer?.text()) ?? '';
+    expect(answer?.status).toBe(503);
+    expect(body).toContain('You’re offline');
+    expect(body).not.toMatch(/<script/i);
+    expect(answer?.headers.get('content-security-policy')).toContain("default-src 'none'");
   });
 
   it('with a network, answers a screen from the network as it would without a worker', async () => {
@@ -293,15 +310,20 @@ describe('the service worker', () => {
     expect([...worker.stores.keys()].sort()).toEqual([`${CACHE_PREFIX}v2`, 'someone-elses'].sort());
   });
 
-  it('waits for the pages that use the old version to close: it never takes over by itself', () => {
-    const text = workerSource('v1');
-    expect(text).not.toContain('skipWaiting');
-    expect(text).not.toContain('clients.claim');
+  it('does not take over the pages that are open until one asks, which the registration does when the person chooses Reload', async () => {
+    const worker = load('v2');
+    await worker.lifecycle('install');
+    await worker.message('something else');
+    expect(worker.state.tookOver).toBe(false);
+    await worker.message(TAKE_OVER_MESSAGE);
+    expect(worker.state.tookOver).toBe(true);
   });
 
-  it('is the build’s: a new build is a new cache', () => {
-    expect(workerSource('abc')).toContain(`${CACHE_PREFIX}abc`);
-    expect(workerSource('abd')).not.toContain(`${CACHE_PREFIX}abc`);
+  it('is the build’s: a new build is a new cache', async () => {
+    const worker = load('abc');
+    await worker.lifecycle('install');
+    expect(worker.kept().every((each) => each.cache === `${CACHE_PREFIX}abc`)).toBe(true);
+    expect(workerSource('abd')).not.toContain('abc');
   });
 
   it('reads no device store and names no check-in, address or note: the source says none of them', () => {

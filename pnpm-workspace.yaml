@@ -20,10 +20,14 @@ supportedArchitectures:
 # A release of a package younger than pnpm's minimum age is installed only by being listed here. These two are ours and exact-pinned, and
 # are listed in the commit that bumps them; any other needs an argument.
 minimumReleaseAgeExclude:
-  - '@sovereignfs/ui@0.96.1'
+  - '@sovereignfs/ui@0.105.0'
+  - '@sovereignfs/sdk@2.11.0'
+  - '@sovereignfs/create@0.27.1'
+  - '@sovereignfs/manifest@0.4.0'
+  - '@sovereignfs/pwa@0.2.0'
+  # A dependency of @sovereignfs/sdk 2.11.0, ours and exact.
+  - '@sovereignfs/export@0.3.0'
   - '@sovereignfs/config@0.1.0'
-  - '@sovereignfs/sdk@2.1.0'
-  - '@sovereignfs/create@0.14.0'
 
 # eslint-plugin-jsx-a11y declares ESLint ^3..^9 but works on 10; allow exactly that one mismatch rather than silencing peer warnings in general.
 peerDependencyRules:

@@ -16,7 +16,7 @@ import { KeptMaps } from './KeptMaps';
 import { NoticeBell } from './NoticeBell';
 import { NoticesProvider } from './NoticesProvider';
 import { PhoneFooter } from './PhoneFooter';
-import { RegisterWorker } from './RegisterWorker';
+import { ServiceWorkerRegistration } from '@sovereignfs/pwa/client';
 
 /**
  * Everything for someone who is signed in (DESIGN.md §20.2): the shell and the page. **It is the one composition**, made by the server's layout from the
@@ -43,7 +43,8 @@ export function SignedInArea({
   }, [accountId, name, email]);
   const area = (
     <MobileNavProvider>
-      <RegisterWorker />
+      {/* Registers the service worker in production, and says when a new version is ready (`@sovereignfs/pwa`). */}
+      <ServiceWorkerRegistration appName={site.name} />
       {accountId ? <KeptMaps /> : null}
       <AppShell
         name={site.name}

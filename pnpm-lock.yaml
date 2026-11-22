@@ -26,12 +26,15 @@ importers:
       '@sovereignfs/config':
         specifier: 0.1.0
         version: 0.1.0
+      '@sovereignfs/pwa':
+        specifier: 0.2.0
+        version: 0.2.0(@sovereignfs/ui@0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       '@sovereignfs/sdk':
-        specifier: 2.1.0
-        version: 2.1.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
+        specifier: 2.11.0
+        version: 2.11.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
       '@sovereignfs/ui':
-        specifier: 0.96.1
-        version: 0.96.1(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 0.105.0
+        version: 0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       better-auth:
         specifier: ~1.7.16
         version: 1.7.18(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1))(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.1.0(@types/node@24.19.2)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)))
@@ -88,11 +91,11 @@ importers:
         specifier: 1.64.1
         version: 1.64.1
       '@sovereignfs/create':
-        specifier: 0.14.0
-        version: 0.14.0
+        specifier: 0.27.1
+        version: 0.27.1
       '@sovereignfs/manifest':
-        specifier: ^0.1.0
-        version: 0.1.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -1126,8 +1129,24 @@ packages:
     resolution: {integrity: sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw==}
     engines: {node: '>= 20.19.0'}
 
+  '@noble/curves@2.0.1':
+    resolution: {integrity: sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/curves@2.4.0':
+    resolution: {integrity: sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.0.1':
+    resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/hashes@2.4.0':
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/post-quantum@0.5.4':
+    resolution: {integrity: sha512-leww0zzIirrvwaYMPI9fj6aRIlA/c6Y0/lifQQ1YOOyHEr0MNH3yYpjXeiVG+tWdPps4XxGclFWX2INPO3Yo5w==}
     engines: {node: '>= 20.19.0'}
 
   '@oxc-project/types@0.156.0':
@@ -1288,6 +1307,9 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
+  '@scure/base@2.4.0':
+    resolution: {integrity: sha512-thZ1TuJwFwBblOhgsjDKvvGirBxNp+wSvY/DR6tJBJOTDhdAAcHJ8Vbr2eFnqaxeca4+t0i9KBf+uHYGWwZORg==}
+
   '@simplewebauthn/browser@13.3.0':
     resolution: {integrity: sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ==}
 
@@ -1299,18 +1321,29 @@ packages:
     resolution: {integrity: sha512-PEZ+pW9sMUzlmZu0K0VsUarXLhUsLnBD5TXkCrQ2gNZ52t95ddYlSB3qzZ4Moys2bDKx0a3NoSg4dYAk2ryMdg==}
     engines: {node: '>=22.3'}
 
-  '@sovereignfs/create@0.14.0':
-    resolution: {integrity: sha512-V3y/W3oRerE5UkHxmXjiSJE22igmGFTFfcnsmIl964MpBxVCpY5leV+X2HCNeJAc+tbSCJiNfznOW4DjqCAYmQ==}
+  '@sovereignfs/create@0.27.1':
+    resolution: {integrity: sha512-6fN1SOK4qhAd9G9PDuu42lu8hXNZFXzVqwYjM01KyBvkCvvQLUDvuTXj3oeWDRzkS82gAV+xv5WRZUHsU/jz5w==}
     engines: {node: '>=24.15'}
     hasBin: true
 
-  '@sovereignfs/manifest@0.1.1':
-    resolution: {integrity: sha512-r8/uFpC3qFhMCmouY+Hf1eMYPC2Tu/SvOBxModkij2zb5JkeLp3cF/8zN6WJJujpb8SCG5DjykzcQ+GWuSQ1FQ==}
+  '@sovereignfs/export@0.3.0':
+    resolution: {integrity: sha512-12swov5KcPD7B2ZvJKvEQQan9pTdSMmwgW6BNRqXTgtdG5k7OCy9E/AdLpKaogTvmBrm1VRue+WBkTlhd6AtdQ==}
+    engines: {node: '>=22.3'}
+
+  '@sovereignfs/manifest@0.4.0':
+    resolution: {integrity: sha512-RqmfZW03RQVD7XoLIurr8V6AAKgsjq3iYrEf/hy5IskVTsbGEu+kulDufXxuwVP0bIbNuFRjFjMGtAjhodgPHg==}
     engines: {node: '>=22.3'}
     hasBin: true
 
-  '@sovereignfs/sdk@2.1.0':
-    resolution: {integrity: sha512-fZ/VejE8bh7vwo6TBFmTon1m3LszQd3UnNgKXv/xh0hZ9CaceJXMho2rWHGgJB+Cn+JtVuyFqz6rd9I08ocWqQ==}
+  '@sovereignfs/pwa@0.2.0':
+    resolution: {integrity: sha512-xOmSM+9xFgFdJtw8fitARgUJoB5Zwnz8V6kvk8Bsnr0E3WODTqI90jshkbflNgN0nxJMdjS7L+vchvh2Ynd/Hw==}
+    engines: {node: '>=22.3'}
+    peerDependencies:
+      '@sovereignfs/ui': '>=0.100.0 <1.0.0'
+      react: ^19.0.0
+
+  '@sovereignfs/sdk@2.11.0':
+    resolution: {integrity: sha512-2ENRTZ2TwzYmghaXh5Cmke54An9Wn1p+Yr7fe8BB8Tqr1Bhz9gte04Ijp2VHyivwTR2FO0Qj6po/YHaMARok2Q==}
     engines: {node: '>=22.3'}
     peerDependencies:
       next: '>=15'
@@ -1318,12 +1351,12 @@ packages:
       next:
         optional: true
 
-  '@sovereignfs/ui@0.96.1':
-    resolution: {integrity: sha512-sa+EL5C1lDkZWomcVsqanMEar1Z0XG5u/8GjIPKTqGOjJZnEZoGXvyGQ5iKb/9UN/510DxGp6nnc8UfiTX8Z6Q==}
+  '@sovereignfs/ui@0.105.0':
+    resolution: {integrity: sha512-F2WbjeNAh7AW1Ao8ce5MCvn2M+Ohb6htfjuHFRs99LF3s6/QEDrgJMSyuDuz+alL+9zgc9dMLW5b0K6CbDkBKg==}
     peerDependencies:
       '@dnd-kit/core': ^6.3.1
       '@dnd-kit/sortable': ^10.0.0
-      maplibre-gl: ^6.17.0
+      maplibre-gl: ^6.18.0
       react: ^19.0.0
       react-dom: ^19.0.0
     peerDependenciesMeta:
@@ -1463,6 +1496,9 @@ packages:
     resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  age-encryption@0.3.1:
+    resolution: {integrity: sha512-bYgd7lxM7tEANmb9bXf7xTFB3Qpq+JGKinVSdFh5MV+t2fJJZSTdKhWkvXTFJQGysZd+K9Dt3F+n+4DKazXlnQ==}
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -3615,7 +3651,22 @@ snapshots:
 
   '@noble/ciphers@2.4.0': {}
 
+  '@noble/curves@2.0.1':
+    dependencies:
+      '@noble/hashes': 2.0.1
+
+  '@noble/curves@2.4.0':
+    dependencies:
+      '@noble/hashes': 2.4.0
+
+  '@noble/hashes@2.0.1': {}
+
   '@noble/hashes@2.4.0': {}
+
+  '@noble/post-quantum@0.5.4':
+    dependencies:
+      '@noble/curves': 2.0.1
+      '@noble/hashes': 2.0.1
 
   '@oxc-project/types@0.156.0': {}
 
@@ -3770,6 +3821,8 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
+  '@scure/base@2.4.0': {}
+
   '@simplewebauthn/browser@13.3.0': {}
 
   '@simplewebauthn/server@13.3.3':
@@ -3785,18 +3838,28 @@ snapshots:
 
   '@sovereignfs/config@0.1.0': {}
 
-  '@sovereignfs/create@0.14.0': {}
+  '@sovereignfs/create@0.27.1': {}
 
-  '@sovereignfs/manifest@0.1.1': {}
-
-  '@sovereignfs/sdk@2.1.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
+  '@sovereignfs/export@0.3.0':
     dependencies:
+      age-encryption: 0.3.1
+
+  '@sovereignfs/manifest@0.4.0': {}
+
+  '@sovereignfs/pwa@0.2.0(@sovereignfs/ui@0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@sovereignfs/ui': 0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      react: 19.3.1
+
+  '@sovereignfs/sdk@2.11.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
+    dependencies:
+      '@sovereignfs/export': 0.3.0
       jose: 6.2.16
       openid-client: 6.8.9
     optionalDependencies:
       next: 16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
 
-  '@sovereignfs/ui@0.96.1(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@sovereignfs/ui@0.105.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -3963,6 +4026,14 @@ snapshots:
       acorn: 8.19.0
 
   acorn@8.19.0: {}
+
+  age-encryption@0.3.1:
+    dependencies:
+      '@noble/ciphers': 2.4.0
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      '@noble/post-quantum': 0.5.4
+      '@scure/base': 2.4.0
 
   agent-base@7.1.4: {}
 

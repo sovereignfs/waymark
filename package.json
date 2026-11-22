@@ -1,6 +1,6 @@
 {
   "name": "@sovereignfs/waymark",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -42,8 +42,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@libsql/client": "^0.18.0",
     "@sovereignfs/config": "0.1.0",
-    "@sovereignfs/sdk": "2.1.0",
-    "@sovereignfs/ui": "0.96.1",
+    "@sovereignfs/pwa": "0.2.0",
+    "@sovereignfs/sdk": "2.11.0",
+    "@sovereignfs/ui": "0.105.0",
     "better-auth": "~1.7.16",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "3.4.0",
@@ -64,8 +65,8 @@
     "@eslint/js": "^10.0.1",
     "@maplibre/maplibre-gl-style-spec": "^26.5.1",
     "@playwright/test": "1.64.1",
-    "@sovereignfs/create": "0.14.0",
-    "@sovereignfs/manifest": "^0.1.0",
+    "@sovereignfs/create": "0.27.1",
+    "@sovereignfs/manifest": "0.4.0",
     "@types/node": "^24.19.2",
     "@types/nodemailer": "8.0.2",
     "@types/pg": "^8.23.1",
@@ -93,6 +94,10 @@
       "what changed",
       "format, lint, type-check, test and build"
     ],
-    "unmanaged": []
+    "unmanaged": [
+      "Dockerfile",
+      ".dockerignore",
+      "compose.yml"
+    ]
   }
 }

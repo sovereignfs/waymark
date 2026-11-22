@@ -69,67 +69,73 @@ async function makeTrip(page: Page, name: string, stops: [string, number, number
   return { tripId, stops: plan.plan.stops };
 }
 
-test('a trip is planned from nothing with the keyboard alone', async ({ page }) => {
-  await signedIn(page);
-  await stubSearch(page);
-  const { trip } = await op<{ trip: { id: string } }>(page, {
-    op: 'trip.create',
-    name: `Keys ${randomUUID().slice(0, 6)}`,
+// The place search is rewritten by the test (`page.route`), which WebKit does not apply to a page a service worker controls: the worker claims
+// the page as it starts, so this test runs without one, as it is about planning and not the worker.
+test.describe(() => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('a trip is planned from nothing with the keyboard alone', async ({ page }) => {
+    await signedIn(page);
+    await stubSearch(page);
+    const { trip } = await op<{ trip: { id: string } }>(page, {
+      op: 'trip.create',
+      name: `Keys ${randomUUID().slice(0, 6)}`,
+    });
+    await page.goto(`/t/${trip.id}?view=plan`);
+    await expect(page.getByRole('heading', { name: 'No stops yet' })).toBeVisible();
+
+    // Add a stop: the button by the keyboard, the place by typing and choosing, the dates by the calendar's keys.
+    await page.getByRole('button', { name: 'Add a stop' }).focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Add a stop' });
+    await dialog.getByLabel('Place').fill('Lisbon');
+    await dialog.getByRole('list', { name: 'Places found' }).getByRole('button').first().focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByText('Place:')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Arrival and departure' }).focus();
+    await page.keyboard.press('Enter');
+    // The calendar opens beside the field; Tab reaches its grid, whose keys are its own.
+    await expect(page.getByRole('grid')).toBeVisible();
+    const inGrid = () =>
+      page.evaluate(() => document.activeElement?.closest('[role="grid"]') !== null);
+    for (let i = 0; i < 6 && !(await inGrid()); i++) await page.keyboard.press('Tab');
+    expect(await inGrid()).toBe(true);
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('grid')).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Add the stop' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+
+    // The stop and its three days are there.
+    await expect(page.getByRole('heading', { level: 2, name: 'Lisbon' })).toBeVisible();
+    await expect(page.locator('[data-day]')).toHaveCount(3);
+
+    // An item on the first day, by the keyboard.
+    const first = page.locator('[data-day]').first();
+    await first.getByRole('button', { name: 'Add an item' }).focus();
+    await page.keyboard.press('Enter');
+    const item = page.getByRole('dialog', { name: 'Add an item' });
+    await item.getByLabel('Title').fill('Pastéis de Belém');
+    await page.keyboard.press('Enter');
+    await expect(item).toHaveCount(0);
+    await expect(first.getByRole('listitem').filter({ hasText: 'Pastéis de Belém' })).toBeVisible();
+    // A second, then moved above the first with the keyboard.
+    await first.getByRole('button', { name: 'Add an item' }).focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('dialog', { name: 'Add an item' }).getByLabel('Title').fill('Castelo');
+    await page.keyboard.press('Enter');
+    const rows = first.getByRole('listitem');
+    await expect(rows).toHaveText([/Pastéis de Belém/, /Castelo/]);
+    await first.getByRole('button', { name: 'Move Castelo up' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(rows).toHaveText([/Castelo/, /Pastéis de Belém/]);
+    // The first cannot go up and the last cannot go down.
+    await expect(first.getByRole('button', { name: 'Move Castelo up' })).toBeDisabled();
+    await expect(first.getByRole('button', { name: 'Move Pastéis de Belém down' })).toBeDisabled();
   });
-  await page.goto(`/t/${trip.id}?view=plan`);
-  await expect(page.getByRole('heading', { name: 'No stops yet' })).toBeVisible();
-
-  // Add a stop: the button by the keyboard, the place by typing and choosing, the dates by the calendar's keys.
-  await page.getByRole('button', { name: 'Add a stop' }).focus();
-  await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: 'Add a stop' });
-  await dialog.getByLabel('Place').fill('Lisbon');
-  await dialog.getByRole('list', { name: 'Places found' }).getByRole('button').first().focus();
-  await page.keyboard.press('Enter');
-  await expect(dialog.getByText('Place:')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Arrival and departure' }).focus();
-  await page.keyboard.press('Enter');
-  // The calendar opens beside the field; Tab reaches its grid, whose keys are its own.
-  await expect(page.getByRole('grid')).toBeVisible();
-  const inGrid = () =>
-    page.evaluate(() => document.activeElement?.closest('[role="grid"]') !== null);
-  for (let i = 0; i < 6 && !(await inGrid()); i++) await page.keyboard.press('Tab');
-  expect(await inGrid()).toBe(true);
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('grid')).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Add the stop' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(dialog).toHaveCount(0);
-
-  // The stop and its three days are there.
-  await expect(page.getByRole('heading', { level: 2, name: 'Lisbon' })).toBeVisible();
-  await expect(page.locator('[data-day]')).toHaveCount(3);
-
-  // An item on the first day, by the keyboard.
-  const first = page.locator('[data-day]').first();
-  await first.getByRole('button', { name: 'Add an item' }).focus();
-  await page.keyboard.press('Enter');
-  const item = page.getByRole('dialog', { name: 'Add an item' });
-  await item.getByLabel('Title').fill('Pastéis de Belém');
-  await page.keyboard.press('Enter');
-  await expect(item).toHaveCount(0);
-  await expect(first.getByRole('listitem').filter({ hasText: 'Pastéis de Belém' })).toBeVisible();
-  // A second, then moved above the first with the keyboard.
-  await first.getByRole('button', { name: 'Add an item' }).focus();
-  await page.keyboard.press('Enter');
-  await page.getByRole('dialog', { name: 'Add an item' }).getByLabel('Title').fill('Castelo');
-  await page.keyboard.press('Enter');
-  const rows = first.getByRole('listitem');
-  await expect(rows).toHaveText([/Pastéis de Belém/, /Castelo/]);
-  await first.getByRole('button', { name: 'Move Castelo up' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(rows).toHaveText([/Castelo/, /Pastéis de Belém/]);
-  // The first cannot go up and the last cannot go down.
-  await expect(first.getByRole('button', { name: 'Move Castelo up' })).toBeDisabled();
-  await expect(first.getByRole('button', { name: 'Move Pastéis de Belém down' })).toBeDisabled();
 });
 
 test('an item edited with no network shows at once with a clock, and the server has it when the network is back', async ({
