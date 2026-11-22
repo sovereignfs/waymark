@@ -1,6 +1,6 @@
 {
   "name": "@sovereignfs/waymark",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -31,7 +31,9 @@
     "e2e": "playwright test",
     "e2e:fast": "node scripts/e2e-shard.mjs --all",
     "manifest:check": "sovereign-manifest check",
-    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts"
+    "test:zones": "TZ=UTC vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=Pacific/Auckland vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts && TZ=America/Los_Angeles vitest run src/places/tz.test.ts src/figures src/trips/status.test.ts src/trips/dates.test.ts src/autolink/decide.test.ts src/today/today.test.ts",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm manifest:check",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "~1.7.16",
@@ -40,8 +42,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@libsql/client": "^0.18.0",
     "@sovereignfs/config": "0.1.0",
-    "@sovereignfs/sdk": "2.1.0",
-    "@sovereignfs/ui": "0.96.1",
+    "@sovereignfs/pwa": "0.2.0",
+    "@sovereignfs/sdk": "2.11.0",
+    "@sovereignfs/ui": "0.105.0",
     "better-auth": "~1.7.16",
     "drizzle-orm": "^0.45.4",
     "fractional-indexing": "3.4.0",
@@ -62,7 +65,8 @@
     "@eslint/js": "^10.0.1",
     "@maplibre/maplibre-gl-style-spec": "^26.5.1",
     "@playwright/test": "1.64.1",
-    "@sovereignfs/manifest": "^0.1.0",
+    "@sovereignfs/create": "0.27.1",
+    "@sovereignfs/manifest": "0.4.0",
     "@types/node": "^24.19.2",
     "@types/nodemailer": "8.0.2",
     "@types/pg": "^8.23.1",
@@ -83,5 +87,17 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0"
+  },
+  "sovereign": {
+    "tagPrefix": "",
+    "requiredChecks": [
+      "what changed",
+      "format, lint, type-check, test and build"
+    ],
+    "unmanaged": [
+      "Dockerfile",
+      ".dockerignore",
+      "compose.yml"
+    ]
   }
 }

@@ -114,6 +114,16 @@ export const ROUTES: RouteRule[] = [
       },
     },
   },
+  // Core asks for a person's part of their export (`signIn.export`): a signed token, checked by the SDK, a replay refused.
+  {
+    route: '/api/sovereign/export',
+    methods: {
+      POST: {
+        kind: 'public',
+        because: 'a signed token from core, verified by the SDK, and a replay refused',
+      },
+    },
+  },
   // Exports (DESIGN.md §22): the account's own, listed, asked for (limited for each account), downloaded while ready and deleted; every statement names the account, so another person's are not found.
   { route: '/api/exports', methods: { GET: { kind: 'account' }, POST: { kind: 'account' } } },
   {

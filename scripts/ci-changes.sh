@@ -28,7 +28,7 @@ document='^(CHANGELOG|CONTRIBUTING|AGENTS|CLAUDE|DESIGN|ROADMAP|SECURITY|RELEASI
 
 # What goes into the image or decides how it starts: the Dockerfile and what it copies, the dependencies and Next's config, the migrations and the database and settings
 # code that runs at start-up (and the one file Next compiles for it), the manifest an instance reads, the public files, the setups it is brought up in and the script that
-# brings them up, and the workflow that runs it. The weekly schedule, and a run with nothing to compare, run it whatever changed (`.github/workflows/ci.yml`).
+# brings them up, and the workflow that runs it. A run with nothing to compare (a manual run) runs it whatever changed (`.github/workflows/ci.yml`).
 image_paths='^(Dockerfile|\.dockerignore|\.node-version|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|next\.config\.ts|sovereign\.manifest\.json|instrumentation(-node)?\.ts|proxy\.ts)$|^(deploy|migrations|public|src/db|src/config|src/jobs)/|^scripts/(deploy-check\.sh|serve-standalone\.mjs|boot-check\.mjs|lib/standalone\.mjs)$|^\.github/workflows/ci\.yml$'
 
 while IFS= read -r path; do
@@ -46,8 +46,6 @@ while IFS= read -r path; do
       scripts=true
       image=true
       ;;
-    # The release scripts have their own checks, and nothing in the app reads them.
-    scripts/release.sh | scripts/lib/* | scripts/release/* | scripts/test-release.sh) scripts=true ;;
     *) code=true ;;
   esac
 done

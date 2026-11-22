@@ -3,10 +3,25 @@
 All notable changes to Waymark are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-Each release's section is also its GitHub release notes: the release workflow reads this file when a release is cut. Write the notes under
-`## [Unreleased]` as you go; a release turns them into the version's section.
+Each version's section is also its GitHub release notes. It is written in the change that sets the version, dated that day, and a promotion
+titled `Release vX.Y.Z` is refused without it (RELEASING.md).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-22
+
+### Added
+
+- Core's export of a person now holds their Waymark data: Sovereign's "Your data" download includes their places, check-ins, settings and every trip they organize or travel on, with the photos and attachments they may see, as Waymark's own export has them. Needs core 0.126.0 or later, which the manifest now asks for.
+
+### Changed
+
+- The service worker, the web manifest and the worker's registration are the suite's, from `@sovereignfs/pwa`. A new version of Waymark is announced with a Reload button instead of waiting for every window to close. With no connection, every page opens Waymark's offline screens, and a page they cannot show (Settings, notices, importing) says it needs a connection there; before a first visit has kept them, the suite's offline page says so. A trip's map kept for offline and notifications work as before. Nothing of a person is kept in a cache.
+- On the suite's current packages: `@sovereignfs/sdk` 2.11.0, `@sovereignfs/ui` 0.105.0, `@sovereignfs/manifest` 0.4.0 (manifest 5) and `@sovereignfs/create` 0.27.1, whose shared rules are now in `AGENTS.md` and `CONTRIBUTING.md`. Waymark keeps its own `Dockerfile`, `.dockerignore` and Compose setups, for its three databases.
+
+- 2026-11-18
+
+### Added
+
+- Opened from Sovereign's launcher, or from any link to it, an installed Waymark now opens as itself on desktop Chrome and Edge and on Android Chrome, on the page the link names, rather than in a browser view. On an iPhone, an iPad and in Safari the link opens a browser view, as before.
 
 ## [0.1.0] - 2026-11-13
 
@@ -95,5 +110,6 @@ The first release, and the whole of the app: check-ins, places, the map and Home
 
 - The page's policy allows no worker made from a `blob:` (`worker-src 'self'`): the map's worker is a file the app serves. A written security review of what this release contains, in three parts (`docs/security/`): access, sealing, files, outbound requests, the CSP, sign-in, invitations, sharing, attachments, push, reminders and the kept maps, each finding fixed or recorded with its cost.
 
-[Unreleased]: https://github.com/sovereignfs/waymark/compare/v0.1.0...HEAD
+[0.3.0]: https://github.com/sovereignfs/waymark/releases/tag/v0.3.0
+[0.2.0]: https://github.com/sovereignfs/waymark/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sovereignfs/waymark/releases/tag/v0.1.0

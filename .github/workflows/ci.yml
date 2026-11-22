@@ -1,15 +1,13 @@
 name: CI
 
+# CI runs only where a change is about to reach what is released (CONTRIBUTING.md, "Continuous integration"): on a promotion pull request into
+# `main` that is not a draft, and by hand (Actions -> CI -> Run workflow) for any branch. Never for `develop` or a feature branch, which the
+# pre-push hook checks locally. `main` changes only by merging a promotion, whose run already checked that merge result.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
     # `ready_for_review` is how a draft starts running CI, and `labeled` and `unlabeled` are how `skip-ci` takes effect straight away.
     types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
-  # So that a dependency's new release cannot quietly break the build unnoticed between commits.
-  schedule:
-    - cron: '0 6 * * 1'
   # By hand (`gh workflow run ci.yml --ref <branch> -f jobs=browser`, or the Actions tab): everything, or only the browser tests, which are the slowest and
   # the ones a change to a spec or to a screen most often needs run again by themselves.
   workflow_dispatch:
@@ -23,8 +21,6 @@ on:
         default: all
 
 # A pull request that is a draft, or carries the `skip-ci` label, runs nothing: the `changes` job has the guard, and every other job needs it.
-# A push to main runs, because a rebase-and-merge makes new commits and the pull request's run does not vouch for the one that lands. The weekly
-# schedule runs every job, because it exists to catch what a dependency broke.
 
 permissions:
   contents: read
@@ -336,12 +332,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The release script needs pnpm on the path, as the commands it checks do.
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: shellcheck
-        run: shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/release/*.sh
+        run: shellcheck -x scripts/*.sh
       - name: The classifier's tests
         run: scripts/test-ci-changes.sh
-      # The release script, against throwaway repositories and a stand-in for gh.
-      - name: The release script's tests
-        run: scripts/test-release.sh

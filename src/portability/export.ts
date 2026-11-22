@@ -116,7 +116,7 @@ async function renew(deps: ExportDeps, id: string): Promise<boolean> {
 }
 
 /** Everything of the person's that goes in the file, read for the account and no one else: the profile, the choices of what is emailed, and every place and check-in. */
-async function gather(deps: ExportDeps, accountId: string) {
+export async function gather(deps: ExportDeps, accountId: string) {
   const profile = await getProfile(deps.database, deps.sealer, accountId);
   const prefs = await listPrefs(deps.database, accountId);
   const places: ExportedPlace[] = [];

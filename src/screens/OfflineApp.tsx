@@ -17,7 +17,7 @@ import { usePageLocation } from './useLocation';
 /**
  * The app with no server document (DESIGN.md §20.12; 6.4). The service worker answers the app's screens with the one page it keeps, `/shell`, which holds nothing of a person and is the same for everyone;
  * this is what that page is. It finds who is signed in on the device (`src/identity.ts`), makes the same composition the server's layout makes, and **chooses the screen from the address**, since the page it
- * came in is not the page of the address (`src/sw/addresses.ts` is the list both agree on). The screens read the device's store and write through it, so they need none of the server.
+ * came in is not the page of the address (`src/sw/addresses.ts` is the list both agree on), and says any other address needs a connection. The screens read the device's store and write through it, so they need none of the server.
  */
 function Screen() {
   const { path } = usePageLocation();
@@ -38,8 +38,22 @@ function Screen() {
     }
     case 'map':
       return <MapScreen />;
-    default:
+    case 'home':
       return <HomeScreen />;
+    default:
+      // The worker answers every address with this page when there is no network (`@sovereignfs/pwa`), so one that is not kept says it needs one.
+      return (
+        <main style={{ padding: 'var(--sv-space-6)' }}>
+          <h1>This needs a connection</h1>
+          <p>
+            Waymark could not reach its server. Your check-ins, places and trips are kept on this
+            device; anything else needs a connection.
+          </p>
+          <p>
+            <Link href="/checkins">Check-ins</Link> · <Link href="/places">Places</Link>
+          </p>
+        </main>
+      );
   }
 }
 

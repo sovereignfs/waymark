@@ -1,7 +1,7 @@
 /**
  * The addresses the worker answers with the kept shell when there is no network (DESIGN.md §20.12; 6.4): Home, Check-ins, a check-in, Map, Places and a place, Trips and a trip, which the shell draws from the device's own store.
  * **One list, for the worker and for the shell**: the worker is a string with no imports, so it is given the patterns' sources, and `OfflineApp` chooses the screen with `offlineScreenOf`, which a test holds to the
- * same patterns. Anything else (Settings, notices, importing, exporting, the sign-in pages) needs a network and gets the offline page.
+ * same patterns. Anything else (Settings, notices, importing, exporting, the sign-in pages) needs a network: the shell says so (`OfflineApp`).
  */
 export type OfflineScreen = 'home' | 'checkins' | 'map' | 'places' | 'trips' | 'trip' | 'tripmode';
 

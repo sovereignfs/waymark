@@ -1,5 +1,5 @@
 {
-  "manifest": 2,
+  "manifest": 5,
   "prefix": "waymark",
   "name": "Waymark",
   "description": "Check in where you are, plan trips with the people going, and look back on everywhere you have been",
@@ -11,14 +11,18 @@
     "redirect": ["/api/auth/callback/sovereign"],
     "backChannel": "/api/sovereign/backchannel-logout",
     "accountDeleted": "/api/sovereign/account-deleted",
+    "export": "/api/sovereign/export",
     "scopes": ["openid", "profile", "email", "offline_access", "directory"]
   },
   "database": true,
   "data": ["/data"],
   "generate": [
     "WAYMARK_AUTH_SECRET",
-    { "name": "WAYMARK_ENCRYPTION_KEY", "bytes": 32 },
+    {
+      "name": "WAYMARK_ENCRYPTION_KEY",
+      "bytes": 32
+    },
     "WAYMARK_VAPID_PRIVATE_KEY"
   ],
-  "core": ">=0.57.0 <1.0.0"
+  "core": ">=0.126.0 <1.0.0"
 }

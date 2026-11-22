@@ -20,7 +20,7 @@
 - [ ] A data-layer change was tested on sqld, a `file:` database and PostgreSQL
 - [ ] A new route is in `src/access/routes.ts`, with a test calling it as the wrong account
 - [ ] A new kind of change works offline and is replayed safely
-- [ ] `## [Unreleased]` in `CHANGELOG.md` is updated (for a change in behaviour)
+- [ ] A version set here has its section in `CHANGELOG.md` (RELEASING.md)
 - [ ] The task is marked done in `ROADMAP.md` and written up in its epic
 - [ ] Relevant docs updated (README, DESIGN, AGENTS)
 

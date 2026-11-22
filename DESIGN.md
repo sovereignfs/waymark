@@ -1035,8 +1035,10 @@ Available and used: layouts, `Header`, `UserMenu`, `NotificationsPanel`, `Sheet`
 - **`MobileFooter`:** Home and Check-ins left of the launcher, Map and Trips right. **Check in** is a floating button above it, opening the drawer. Places,
   Notifications, Import and Settings are in the avatar menu; the bell stays in the header.
 - A trip's views are tabs; a check-in, a place and an item are full pages or drawers with a back link. Trip Mode is phone first (§14.2).
-- **Installable as a PWA,** as Tusk's §17.9: the service worker keeps the shell by allow-list and the one shell page; offline, a signed-in address is
-  answered by the shell, which reads the device's store. **No person's data is ever in the service worker's cache** — except map tiles, which are public
+- **Installable as a PWA,** from the suite's `@sovereignfs/pwa` (its manifest, its worker and its registration, which announces a new version with
+  Reload): the service worker keeps the shell by allow-list and the one shell page; offline, every address is answered by the shell, which reads the
+  device's store and says an address that is not one of its screens needs a connection. The map's files and Web Push are added after the package's text
+  until its `fetchHandlers` and the push packages take them. **No person's data is ever in the service worker's cache** — except map tiles, which are public
   data, kept for a trip (§14.5). The worker runs Background Sync.
 
 ## 21. Settings
@@ -1060,6 +1062,9 @@ Available and used: layouts, `Header`, `UserMenu`, `NotificationsPanel`, `Sheet`
   sole Organizer, without the other members (their names kept in the trip's description). Validated whole before anything is written; a file from a
   newer version refused with a sentence.
 - **A round trip is a test.**
+- **Core's export of a person** (`signIn.export`, manifest 5): when the person downloads their data from Sovereign, core asks Waymark for its part at
+  `/api/sovereign/export` with a signed token the SDK checks. The part is what the export above holds, gathered the same way (`gather`): the profile,
+  settings, places, check-ins and trips as records of the suite's format, and the photos and attachments as files (`src/portability/core-export.ts`).
 
 ## 23. Account deletion
 
@@ -1167,7 +1172,7 @@ docker run -v waymark:/data -e WAYMARK_DB_DIALECT=sqlite -e WAYMARK_SQLITE_URL=f
 - **Hosted:** `sv app add waymark`, from the manifest; the operator grants the three app scopes, sets `WAYMARK_SMTP_*` to email people not on the instance and
   `WAYMARK_AUTH_LOCAL=1` to let them make an account, and chooses the map source.
 - **A PMTiles file** is the operator's to place under `/data/map`; the README says where to get one (Protomaps' builds) and how large a region is.
-- **Releases** as Tusk's: `scripts/release.sh`, a `vX.Y.Z` tag publishes amd64 and arm64 to `ghcr.io`; a patch has no migration.
+- **Releases** as every app's: a promotion titled `Release vX.Y.Z` tags and publishes amd64 and arm64 to `ghcr.io` on merge (`RELEASING.md`); a patch has no migration.
 - `/api/health` answers `200` once the database is ready and `/data` is writable.
 
 ### Testing
