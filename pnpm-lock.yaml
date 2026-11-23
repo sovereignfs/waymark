@@ -27,11 +27,11 @@ importers:
         specifier: 0.1.0
         version: 0.1.0
       '@sovereignfs/sdk':
-        specifier: 2.1.0
-        version: 2.1.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
+        specifier: 2.8.0
+        version: 2.8.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
       '@sovereignfs/ui':
-        specifier: 0.96.1
-        version: 0.96.1(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 0.101.0
+        version: 0.101.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       better-auth:
         specifier: ~1.7.16
         version: 1.7.18(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(@types/pg@8.23.1)(kysely@0.29.8)(pg@8.23.1))(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.1.0(@types/node@24.19.2)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)))
@@ -1301,8 +1301,8 @@ packages:
     engines: {node: '>=22.3'}
     hasBin: true
 
-  '@sovereignfs/sdk@2.1.0':
-    resolution: {integrity: sha512-fZ/VejE8bh7vwo6TBFmTon1m3LszQd3UnNgKXv/xh0hZ9CaceJXMho2rWHGgJB+Cn+JtVuyFqz6rd9I08ocWqQ==}
+  '@sovereignfs/sdk@2.8.0':
+    resolution: {integrity: sha512-E+kHbvv1bFLcMfdBbCz+FFq7KWVM5nPi/Swsmx4el1dhbJBwbv39TQXOx6EhHBiKPaI5s/7Rbpsze58OUxMhJQ==}
     engines: {node: '>=22.3'}
     peerDependencies:
       next: '>=15'
@@ -1310,12 +1310,12 @@ packages:
       next:
         optional: true
 
-  '@sovereignfs/ui@0.96.1':
-    resolution: {integrity: sha512-sa+EL5C1lDkZWomcVsqanMEar1Z0XG5u/8GjIPKTqGOjJZnEZoGXvyGQ5iKb/9UN/510DxGp6nnc8UfiTX8Z6Q==}
+  '@sovereignfs/ui@0.101.0':
+    resolution: {integrity: sha512-epwXOI2izu/TA9wJHgp1mastsVAF50s42F4UTzpU15O93/hxo69RyQXC2x01KGsDSr2epavzywjDmMEWScLlJA==}
     peerDependencies:
       '@dnd-kit/core': ^6.3.1
       '@dnd-kit/sortable': ^10.0.0
-      maplibre-gl: ^6.17.0
+      maplibre-gl: ^6.18.0
       react: ^19.0.0
       react-dom: ^19.0.0
     peerDependenciesMeta:
@@ -3779,14 +3779,14 @@ snapshots:
 
   '@sovereignfs/manifest@0.1.1': {}
 
-  '@sovereignfs/sdk@2.1.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
+  '@sovereignfs/sdk@2.8.0(next@16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
     dependencies:
       jose: 6.2.16
       openid-client: 6.8.9
     optionalDependencies:
       next: 16.4.5(@playwright/test@1.64.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
 
-  '@sovereignfs/ui@0.96.1(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@sovereignfs/ui@0.101.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1))(maplibre-gl@6.18.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
